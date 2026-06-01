@@ -1934,12 +1934,16 @@ function showVeh(vno){
     ['Tyre',r.Tyre],['RTO',r.RTO],['EMI',r.EMI],['Paper',r.Paper]
   ].filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);
 
+  /* Fleet-wide total billing */
+  const fleetBilling = ALL_DATA.reduce((sum, row) => sum + (row.Billing || 0), 0);
+
   const expHtml = expRows.length ? expRows.map(x=>{
-    const pct = r.Billing ? ((x[1]/r.Billing)*100).toFixed(1)+'%' : '—';
+    const pctVeh = r.Billing ? ((x[1]/r.Billing)*100).toFixed(1)+'%' : '—';
+    const pctFleet = fleetBilling ? ((x[1]/fleetBilling)*100).toFixed(1)+'%' : '—';
     const hasDetail = !!EXPENSE_SHEETS[x[0]];
     return `<div class="m-exprow" style="cursor:pointer" onclick="openExpenseBreakdown('${x[0].replace(/'/g,"\\'")}')" title="Click: date-wise detail">
       <span class="m-explbl">${x[0]}${hasDetail?' <span style="color:var(--blue);font-size:.7rem">🔍</span>':''}</span>
-      <span class="m-expval">Rs ${fmt(x[1])} <span class="m-exppct">${pct}</span></span>
+      <span class="m-expval">Rs ${fmt(x[1])} <span class="m-exppct">${pctVeh} vehicle | ${pctFleet} fleet</span></span>
     </div>`;
   }).join('') : '<div class="muted" style="padding:10px 0;font-size:.85rem">Koi expense record nahi.</div>';
 
