@@ -516,7 +516,7 @@ th.sortable .sort-arrow{display:inline-block;margin-left:4px;color:var(--accent)
    ================================================================ */
 const USE_LIVE = true;
 const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTFfJ5JJKrDtauj07HVgMLNludDmnC4S7Kji5LfAXI28tn552OygrZiXQZc6FSo_kEfGoFSePKeALEh/pub?gid=1023893960&single=true&output=csv";
-const REFRESH_MS = 1000;
+const REFRESH_MS = 5000;  // 5 seconds (was 1000ms - too frequent!)
 
 /* ====== DASHBOARD-DRIVEN DATE FILTER (Apps Script bridge) ======
    Yahan apni deploy ki hui Apps Script Web App ka /exec URL daalo.
@@ -697,12 +697,17 @@ function updateDataPeriod(matrix){
 }
 
 let FETCHING=false;
+let DATA_READY=false;  // Track if initial data load complete
 async function fetchLive(){
   if(!USE_LIVE || SHEET_CSV_URL.includes('PASTE_')) return;
   if(FETCHING) return;            // pichhla fetch chal raha ho to skip (overlap rok)
   FETCHING=true;
   try{
-    document.getElementById('liveStatus').textContent='Refreshing...';
+    if(!DATA_READY){
+      document.getElementById('liveStatus').textContent='Loading data...';
+    } else {
+      document.getElementById('liveStatus').textContent='Refreshing...';
+    }
     /* Agar dashboard se date range chuni gayi hai aur Apps Script URL set hai,
        to wahaan se data laao (jo sheet ko un dates par recompute karke deta hai).
        Warna seedha published full-data CSV. */
@@ -758,6 +763,7 @@ async function fetchLive(){
     if(rows.length){
       ALL_DATA=rows;          // live data master dataset me daalo
       applyGlobalFilter();    // active series/status filter ke saath DATA rebuild
+      DATA_READY=true;        // ✅ Initial data load complete!
       document.getElementById('liveStatus').textContent='Live';
       document.getElementById('lastUpd').textContent=
         'Updated '+new Date().toLocaleTimeString()+' ('+(SHEET_TOTALS&&SHEET_TOTALS.vehicles?Math.round(SHEET_TOTALS.vehicles):rows.length)+' vehicles)';
@@ -2716,7 +2722,7 @@ document.querySelectorAll('.nav-item').forEach(n=>
   n.addEventListener('click',()=>go(n.dataset.sec)));
 
 /* init - charts turant render karo (snapshot data se), phir live update background me */
-function bootDashboard(){
+async function bootDashboard(){
   if(typeof Chart === 'undefined'){
     /* Chart library abhi load nahi hui, 50ms baad firse try */
     setTimeout(bootDashboard, 50);
@@ -2724,8 +2730,11 @@ function bootDashboard(){
   }
   renderCurrent();
   if(USE_LIVE){
-    /* Live fetch background me, errors par snapshot wala data bana rahe */
-    fetchLive().catch(()=>{});
+    /* Initial fetch immediately - await karenge ✅ */
+    document.getElementById('liveStatus').textContent='Loading data...';
+    await fetchLive().catch(()=>{});
+
+    /* Ab background me continuous fetch - har 5 seconds */
     setInterval(()=>fetchLive().catch(()=>{}), REFRESH_MS);
   } else {
     document.getElementById('liveStatus').textContent='Snapshot';
