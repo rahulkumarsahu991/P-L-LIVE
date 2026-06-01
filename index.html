@@ -1104,30 +1104,30 @@ const SECTIONS = {
     <div class="kpi-row">
       <div class="card kpi-card a"><div class="kpi-label">Diesel</div>
         <div class="kpi-value">${fmtL(t.diesel)}</div>
-        <div class="kpi-sub">${fleetTotal.billing>0?((fleetTotal.diesel/fleetTotal.billing)*100).toFixed(1)+'% of total fleet':''}</div></div>
+        <div class="kpi-sub">${t.billing>0?((t.diesel/t.billing)*100).toFixed(1)+'% this view':''} | ${fleetTotal.billing>0?((fleetTotal.diesel/fleetTotal.billing)*100).toFixed(1)+'% fleet':''}</div></div>
       <div class="card kpi-card a"><div class="kpi-label">Urea</div>
         <div class="kpi-value">${fmtL(t.urea)}</div>
-        <div class="kpi-sub">${fleetTotal.billing>0?((fleetTotal.urea/fleetTotal.billing)*100).toFixed(1)+'% of total fleet':''}</div></div>
+        <div class="kpi-sub">${t.billing>0?((t.urea/t.billing)*100).toFixed(1)+'% this view':''} | ${fleetTotal.billing>0?((fleetTotal.urea/fleetTotal.billing)*100).toFixed(1)+'% fleet':''}</div></div>
       <div class="card kpi-card a"><div class="kpi-label">Fastag</div>
         <div class="kpi-value">${fmtL(t.fastag)}</div>
-        <div class="kpi-sub">${fleetTotal.billing>0?((fleetTotal.fastag/fleetTotal.billing)*100).toFixed(1)+'% of total fleet':''}</div></div>
+        <div class="kpi-sub">${t.billing>0?((t.fastag/t.billing)*100).toFixed(1)+'% this view':''} | ${fleetTotal.billing>0?((fleetTotal.fastag/fleetTotal.billing)*100).toFixed(1)+'% fleet':''}</div></div>
       <div class="card kpi-card a"><div class="kpi-label">Tyre</div>
         <div class="kpi-value">${fmtL(t.tyre)}</div>
-        <div class="kpi-sub">${fleetTotal.billing>0?((fleetTotal.tyre/fleetTotal.billing)*100).toFixed(1)+'% of total fleet':''}</div></div>
+        <div class="kpi-sub">${t.billing>0?((t.tyre/t.billing)*100).toFixed(1)+'% this view':''} | ${fleetTotal.billing>0?((fleetTotal.tyre/fleetTotal.billing)*100).toFixed(1)+'% fleet':''}</div></div>
     </div>
     <div class="kpi-row">
       <div class="card kpi-card"><div class="kpi-label">Driver A/C</div>
         <div class="kpi-value">${fmtL(t.driver)}</div>
-        <div class="kpi-sub">${fleetTotal.billing>0?((fleetTotal.driver/fleetTotal.billing)*100).toFixed(1)+'% of total fleet':''}</div></div>
+        <div class="kpi-sub">${t.billing>0?((t.driver/t.billing)*100).toFixed(1)+'% this view':''} | ${fleetTotal.billing>0?((fleetTotal.driver/fleetTotal.billing)*100).toFixed(1)+'% fleet':''}</div></div>
       <div class="card kpi-card"><div class="kpi-label">Cash</div>
         <div class="kpi-value">${fmtL(t.cash)}</div>
-        <div class="kpi-sub">${fleetTotal.billing>0?((fleetTotal.cash/fleetTotal.billing)*100).toFixed(1)+'% of total fleet':''}</div></div>
+        <div class="kpi-sub">${t.billing>0?((t.cash/t.billing)*100).toFixed(1)+'% this view':''} | ${fleetTotal.billing>0?((fleetTotal.cash/fleetTotal.billing)*100).toFixed(1)+'% fleet':''}</div></div>
       <div class="card kpi-card"><div class="kpi-label">UPI</div>
         <div class="kpi-value">${fmtL(t.upi)}</div>
-        <div class="kpi-sub">${fleetTotal.billing>0?((fleetTotal.upi/fleetTotal.billing)*100).toFixed(1)+'% of total fleet':''}</div></div>
+        <div class="kpi-sub">${t.billing>0?((t.upi/t.billing)*100).toFixed(1)+'% this view':''} | ${fleetTotal.billing>0?((fleetTotal.upi/fleetTotal.billing)*100).toFixed(1)+'% fleet':''}</div></div>
       <div class="card kpi-card"><div class="kpi-label">RTO</div>
         <div class="kpi-value">${fmtL(t.rto)}</div>
-        <div class="kpi-sub">${fleetTotal.billing>0?((fleetTotal.rto/fleetTotal.billing)*100).toFixed(1)+'% of total fleet':''}</div></div>
+        <div class="kpi-sub">${t.billing>0?((t.rto/t.billing)*100).toFixed(1)+'% this view':''} | ${fleetTotal.billing>0?((fleetTotal.rto/fleetTotal.billing)*100).toFixed(1)+'% fleet':''}</div></div>
     </div>
     <div class="grid2">
       <div class="card"><h3>Expense Breakdown<span class="tag">by category</span></h3>
