@@ -1,0 +1,2494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TRAQ · PnL Engine — Truck-wise Profitability Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&family=Montserrat:wght@600;700;800;900&display=swap" rel="stylesheet">
+<script src="chart.umd.min.js"></script>
+<script>if(!window.Chart){var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';document.head.appendChild(s);}</script>
+<script src="data.js"></script>
+<style>
+:root{
+  --coral:#E94560;
+  --gold:#F5C518;
+  --teal:#0F3460;
+  --teal-2:#16213E;
+  --ink:#0B1424;
+  --ink-2:#13203A;
+  --paper:#F7F8FB;
+  --line:rgba(255,255,255,0.08);
+  --line-2:rgba(255,255,255,0.14);
+  --muted:#9AA7BD;
+  --muted-2:#6E7B91;
+  --good:#22C55E;
+  --bad:#EF4444;
+  --warn:#F59E0B;
+  --radius:14px;
+  --shadow:0 10px 30px rgba(2,6,23,0.35);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--ink);color:#EAF0FB;font-family:'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.mono{font-family:'JetBrains Mono',monospace}
+h1,h2,h3,h4{font-family:'Montserrat',sans-serif;margin:0;letter-spacing:-0.01em}
+
+/* ========== TOP BAR ========== */
+.topbar{
+  position:sticky;top:0;z-index:50;
+  background:linear-gradient(180deg,rgba(11,20,36,0.95),rgba(11,20,36,0.85));
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line);
+}
+.topbar-inner{
+  max-width:1480px;margin:0 auto;padding:14px 24px;
+  display:flex;align-items:center;justify-content:space-between;gap:18px;
+}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-mark{
+  width:42px;height:42px;border-radius:10px;
+  background:conic-gradient(from 220deg,var(--coral),var(--gold),var(--coral));
+  display:grid;place-items:center;font-family:'Montserrat';font-weight:900;color:#0B1424;font-size:18px;
+  box-shadow:0 6px 24px rgba(233,69,96,0.35);
+}
+.brand-name{font-family:'Montserrat';font-weight:800;font-size:18px;letter-spacing:0.04em}
+.brand-name span{color:var(--gold)}
+.brand-sub{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.18em;margin-top:2px}
+.topbar-right{display:flex;align-items:center;gap:14px}
+.period-pill{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:8px 14px;border-radius:999px;
+  background:rgba(245,197,24,0.08);border:1px solid rgba(245,197,24,0.28);
+  color:var(--gold);font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;
+}
+.period-pill::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 10px var(--gold)}
+
+/* ========== LAYOUT ========== */
+.wrap{max-width:1480px;margin:0 auto;padding:28px 24px 80px}
+.hero{
+  display:grid;grid-template-columns:1.4fr 1fr;gap:20px;margin-bottom:24px;
+}
+@media (max-width:980px){.hero{grid-template-columns:1fr}}
+
+.hero-title{
+  background:radial-gradient(120% 140% at 0% 0%,rgba(233,69,96,0.18),transparent 55%),
+             radial-gradient(120% 140% at 100% 100%,rgba(245,197,24,0.12),transparent 55%),
+             linear-gradient(180deg,var(--ink-2),var(--teal-2));
+  border:1px solid var(--line-2);border-radius:var(--radius);
+  padding:28px;position:relative;overflow:hidden;
+}
+.hero-title h1{font-size:34px;font-weight:800;line-height:1.05}
+.hero-title h1 .accent{color:var(--coral)}
+.hero-title h1 .accent2{color:var(--gold)}
+.hero-title p{color:var(--muted);margin:10px 0 18px;max-width:520px;font-size:14px;line-height:1.6}
+.hero-stats{display:flex;gap:24px;flex-wrap:wrap}
+.hero-stat .label{font-size:11px;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted)}
+.hero-stat .value{font-family:'Montserrat';font-weight:800;font-size:22px;margin-top:4px}
+
+.hero-pnl{
+  background:linear-gradient(180deg,var(--ink-2),var(--teal-2));
+  border:1px solid var(--line-2);border-radius:var(--radius);padding:24px;
+}
+.hero-pnl h3{font-size:13px;text-transform:uppercase;letter-spacing:0.16em;color:var(--muted);font-weight:600}
+.pnl-bars{margin-top:14px;display:flex;flex-direction:column;gap:14px}
+.pnl-bar{display:flex;flex-direction:column;gap:6px}
+.pnl-bar .row{display:flex;justify-content:space-between;align-items:baseline}
+.pnl-bar .row .name{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em}
+.pnl-bar .row .amt{font-family:'JetBrains Mono';font-weight:600;font-size:14px}
+.pnl-bar .track{height:10px;background:rgba(255,255,255,0.06);border-radius:6px;overflow:hidden;position:relative}
+.pnl-bar .fill{height:100%;border-radius:6px;transition:width .8s cubic-bezier(.2,.7,.2,1)}
+
+/* ========== KPI CARDS ========== */
+.kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:24px}
+@media (max-width:1280px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:680px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+.kpi{
+  background:linear-gradient(180deg,var(--ink-2),rgba(22,33,62,0.7));
+  border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;
+  position:relative;overflow:hidden;
+}
+.kpi::after{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--accent,var(--coral)),transparent);
+}
+.kpi .lbl{font-size:11px;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted);font-weight:600}
+.kpi .val{font-family:'Montserrat';font-weight:800;font-size:22px;margin-top:8px;line-height:1.1}
+.kpi .sub{font-size:11px;color:var(--muted-2);margin-top:4px;font-family:'JetBrains Mono'}
+.kpi.green::after{background:linear-gradient(90deg,var(--good),transparent)}
+.kpi.red::after{background:linear-gradient(90deg,var(--bad),transparent)}
+.kpi.gold::after{background:linear-gradient(90deg,var(--gold),transparent)}
+.kpi.coral::after{background:linear-gradient(90deg,var(--coral),transparent)}
+
+/* ========== CARDS / CHARTS ========== */
+.row-2{display:grid;grid-template-columns:1.4fr 1fr;gap:20px;margin-bottom:24px}
+.row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-bottom:24px}
+@media (max-width:1100px){.row-2,.row-3{grid-template-columns:1fr}}
+.card{
+  background:linear-gradient(180deg,var(--ink-2),rgba(22,33,62,0.65));
+  border:1px solid var(--line);border-radius:var(--radius);padding:22px;
+  box-shadow:var(--shadow);
+}
+.card h3{font-size:14px;text-transform:uppercase;letter-spacing:0.14em;color:#EAF0FB;font-weight:700}
+.card .desc{color:var(--muted);font-size:12px;margin-top:4px}
+.card-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px;gap:10px;flex-wrap:wrap}
+.card-ctrls{display:inline-flex;gap:4px;margin-left:8px}
+.card-ctrl{
+  width:28px;height:28px;border-radius:7px;border:1px solid var(--line);
+  background:rgba(255,255,255,0.03);color:var(--muted);cursor:pointer;
+  display:inline-grid;place-items:center;font-size:14px;line-height:1;
+  transition:all 0.15s;
+}
+.card-ctrl:hover{color:#fff;border-color:var(--line-2);background:rgba(245,197,24,0.1)}
+.card-ctrl.active{color:var(--gold);border-color:var(--gold);background:rgba(245,197,24,0.12)}
+.card.fullscreen{
+  position:fixed;inset:14px;z-index:200;margin:0;
+  background:linear-gradient(180deg,var(--ink-2),var(--teal-2));
+  border:1px solid var(--line-2);
+  box-shadow:0 30px 80px rgba(0,0,0,0.7);
+  overflow:auto;display:flex;flex-direction:column;
+}
+.card.fullscreen .chart-host,
+.card.fullscreen .chart-host.tall,
+.card.fullscreen .chart-host.short{
+  height:auto !important;max-height:none !important;flex:1;min-height:300px;
+}
+.card.fullscreen .table-scroll{max-height:calc(100vh - 200px) !important}
+body.has-fullscreen{overflow:hidden}
+.card.minimized > *:not(.card-head):not(.table-head){display:none !important}
+.card.minimized{padding-bottom:12px}
+.card.minimized .card-head,.card.minimized .table-head{margin-bottom:0;border-bottom:none}
+.tabs{display:flex;gap:6px;background:rgba(255,255,255,0.04);padding:4px;border-radius:10px;border:1px solid var(--line)}
+.tab{padding:6px 12px;font-size:12px;font-weight:600;color:var(--muted);background:transparent;border:none;border-radius:7px;cursor:pointer;font-family:'DM Sans'}
+.tab.active{background:var(--coral);color:#fff;box-shadow:0 4px 14px rgba(233,69,96,0.4)}
+.chart-host{position:relative;width:100%;height:320px;max-height:320px;overflow:hidden}
+.chart-host.tall{height:380px;max-height:380px}
+.chart-host.short{height:240px;max-height:240px}
+.chart-host canvas{display:block;max-width:100%;max-height:100%}
+
+/* ========== TABLE ========== */
+.table-card{padding:0;overflow:hidden}
+.table-head{
+  padding:22px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;
+  border-bottom:1px solid var(--line);
+}
+.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.search{
+  display:flex;align-items:center;gap:8px;padding:9px 12px;
+  background:rgba(255,255,255,0.04);border:1px solid var(--line);border-radius:10px;
+  min-width:240px;
+}
+.search input{
+  background:transparent;border:none;outline:none;color:#EAF0FB;flex:1;
+  font-family:'JetBrains Mono';font-size:13px;
+}
+.search input::placeholder{color:var(--muted-2)}
+.select{
+  padding:9px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--line);
+  border-radius:10px;color:#EAF0FB;font-size:13px;font-family:'DM Sans';outline:none;cursor:pointer;
+}
+.select option{background:#13203A;color:#EAF0FB}
+.select optgroup{background:#0B1424;color:var(--gold)}
+.btn{
+  padding:9px 14px;background:var(--coral);color:#fff;border:none;border-radius:10px;
+  font-weight:600;cursor:pointer;font-family:'DM Sans';font-size:13px;
+}
+.btn.ghost{background:transparent;border:1px solid var(--line-2);color:#EAF0FB}
+
+.table-scroll{max-height:560px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono';font-size:12.5px}
+thead{position:sticky;top:0;background:var(--ink-2);z-index:5}
+th{
+  text-align:right;padding:12px 14px;font-weight:600;color:var(--muted);font-size:11px;
+  text-transform:uppercase;letter-spacing:0.08em;border-bottom:1px solid var(--line);
+  cursor:pointer;user-select:none;white-space:nowrap;
+}
+th.sortable:hover{color:#fff}
+th .arrow{opacity:0.4;margin-left:4px}
+th.active .arrow{opacity:1;color:var(--gold)}
+th:first-child,td:first-child{text-align:left;padding-left:22px}
+th:last-child,td:last-child{padding-right:22px}
+tbody tr{border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:background .15s}
+tbody tr:hover{background:rgba(233,69,96,0.06)}
+td{padding:11px 14px;text-align:right;white-space:nowrap}
+.veh-cell{display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono';font-weight:600;color:#fff}
+.rank-chip{
+  display:inline-grid;place-items:center;
+  width:26px;height:26px;border-radius:7px;font-size:11px;font-weight:700;
+  background:rgba(255,255,255,0.06);color:var(--muted);
+}
+.rank-chip.gold{background:rgba(245,197,24,0.18);color:var(--gold)}
+.rank-chip.silver{background:rgba(200,200,210,0.18);color:#D8DBE2}
+.rank-chip.bronze{background:rgba(205,127,50,0.18);color:#E0A879}
+.pill-series{
+  display:inline-block;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;
+  background:rgba(15,52,96,0.55);color:#9BB6E0;border:1px solid rgba(155,182,224,0.2);
+  letter-spacing:0.08em;
+}
+.num-pos{color:var(--good)}
+.num-neg{color:var(--bad)}
+.num-zero{color:var(--muted-2)}
+.bar-cell{position:relative}
+.bar-cell .b{
+  position:absolute;left:14px;right:14px;bottom:6px;height:3px;border-radius:2px;
+  background:rgba(255,255,255,0.08);overflow:hidden;
+}
+.bar-cell .b::after{content:'';position:absolute;left:0;top:0;bottom:0;width:var(--w,0%);background:var(--c,var(--coral));border-radius:2px}
+
+/* ========== DRILL DOWN MODAL ========== */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(2,6,23,0.72);backdrop-filter:blur(6px);
+  z-index:500;display:none;align-items:center;justify-content:center;padding:24px;
+}
+.modal-overlay.open{display:flex}
+.modal{
+  background:linear-gradient(180deg,var(--ink-2),var(--teal-2));
+  border:1px solid var(--line-2);border-radius:18px;
+  width:min(960px,100%);max-height:90vh;overflow:auto;
+  box-shadow:0 30px 80px rgba(0,0,0,0.5);
+}
+.modal-head{
+  padding:24px 28px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;
+  border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--ink-2);z-index:2;
+}
+.modal-head h2{font-family:'JetBrains Mono';font-size:22px;letter-spacing:0;color:#fff}
+.modal-head .sub{color:var(--muted);font-size:12px;margin-top:4px;text-transform:uppercase;letter-spacing:0.1em}
+.close-btn{
+  background:transparent;border:1px solid var(--line-2);color:#EAF0FB;
+  width:36px;height:36px;border-radius:10px;cursor:pointer;font-size:18px;
+}
+.close-btn:hover{background:rgba(233,69,96,0.15);border-color:var(--coral)}
+.modal-body{padding:24px 28px}
+.kv-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px}
+@media (max-width:680px){.kv-grid{grid-template-columns:repeat(2,1fr)}}
+.kv{
+  padding:14px;background:rgba(255,255,255,0.03);border:1px solid var(--line);border-radius:10px;
+}
+.kv .l{font-size:10px;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted)}
+.kv .v{font-family:'Montserrat';font-weight:800;font-size:18px;margin-top:6px}
+.modal-section h4{font-size:12px;text-transform:uppercase;letter-spacing:0.14em;color:var(--gold);margin-bottom:12px;font-weight:700}
+.trip-summary{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px;
+}
+.trip-summary > div{
+  padding:10px 12px;background:rgba(255,255,255,0.03);
+  border:1px solid var(--line);border-radius:8px;
+}
+.trip-summary .lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);font-weight:600}
+.trip-summary .val{font-family:'Montserrat';font-weight:800;font-size:16px;margin-top:4px}
+.trip-scroll{
+  max-height:360px;overflow:auto;
+  border:1px solid var(--line);border-radius:10px;
+  background:rgba(0,0,0,0.15);
+}
+.trip-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono';font-size:11.5px}
+.trip-table thead{position:sticky;top:0;background:#13203A;z-index:3}
+.trip-table th{
+  text-align:left;padding:9px 10px;font-weight:600;color:var(--muted);font-size:10px;
+  text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--line);white-space:nowrap;
+}
+.trip-table td{
+  padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.03);
+  white-space:nowrap;color:#EAF0FB;
+}
+.trip-table tbody tr:hover{background:rgba(245,197,24,0.05)}
+.trip-status{
+  display:inline-block;padding:2px 7px;border-radius:5px;font-size:9px;font-weight:700;
+  letter-spacing:0.06em;text-transform:uppercase;
+}
+.trip-status.closed{background:rgba(34,197,94,0.18);color:#86EFAC;border:1px solid rgba(34,197,94,0.3)}
+.trip-status.open{background:rgba(245,197,24,0.18);color:#FCD34D;border:1px solid rgba(245,197,24,0.3)}
+
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px}
+.legend .dot{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.legend .dot::before{content:'';width:10px;height:10px;border-radius:3px;background:var(--c)}
+
+.foot{text-align:center;color:var(--muted-2);font-size:11px;margin-top:30px;font-family:'JetBrains Mono'}
+
+/* ========== LOADER ========== */
+.loader{
+  display:grid;place-items:center;height:60vh;color:var(--muted);font-size:14px;
+}
+.loader.error{color:var(--coral)}
+
+/* ========== FILTER BAR ========== */
+.filter-bar{
+  position:sticky;top:0;z-index:40;
+  margin:-28px -24px 24px;padding:14px 24px;
+  background:linear-gradient(180deg,rgba(11,20,36,0.92),rgba(11,20,36,0.78));
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line);
+  display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap;
+}
+.filter-bar .fb-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.filter-bar .fb-right{font-size:12px;font-family:'JetBrains Mono';color:var(--muted)}
+.fb-label{font-size:11px;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted-2);font-weight:600;margin-right:4px}
+.anom-toggle{
+  display:inline-flex;align-items:center;gap:0;
+  background:rgba(255,255,255,0.04);border:1px solid var(--line);border-radius:10px;
+  padding:3px;
+}
+.anom-toggle label{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 11px;border-radius:7px;cursor:pointer;
+  font-size:12px;color:var(--muted);font-weight:600;font-family:'DM Sans';
+  transition:all 0.15s;
+}
+.anom-toggle label:has(input:checked){background:var(--gold);color:#0B1424}
+.anom-toggle input{appearance:none;width:0;height:0;margin:0;padding:0;position:absolute}
+
+/* ========== MULTI-SELECT (series picker) ========== */
+.multi-select{position:relative;display:inline-block}
+.multi-select-btn{
+  padding:9px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--line);
+  border-radius:10px;color:#EAF0FB;font-size:13px;font-family:'DM Sans';outline:none;cursor:pointer;
+  display:inline-flex;align-items:center;gap:8px;min-width:170px;justify-content:space-between;
+}
+.multi-select-btn:hover{border-color:var(--line-2)}
+.multi-select-btn.open{border-color:var(--gold)}
+.multi-select-btn .caret{font-size:10px;opacity:0.6}
+.multi-select-btn .count-badge{
+  background:var(--gold);color:#0B1424;font-weight:700;font-size:10px;
+  padding:2px 7px;border-radius:10px;letter-spacing:0.04em;
+}
+.multi-select-panel{
+  position:absolute;top:calc(100% + 6px);left:0;
+  background:#13203A;border:1px solid var(--line-2);border-radius:10px;
+  box-shadow:0 12px 36px rgba(0,0,0,0.6);
+  min-width:240px;max-height:340px;overflow:hidden;
+  display:none;z-index:60;flex-direction:column;
+}
+.multi-select.open .multi-select-panel{display:flex}
+.multi-select-panel .ms-head{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 10px;border-bottom:1px solid var(--line);gap:8px;
+}
+.multi-select-panel .ms-search{
+  flex:1;background:rgba(255,255,255,0.04);border:1px solid var(--line);border-radius:7px;
+  padding:6px 9px;color:#EAF0FB;font-family:'JetBrains Mono';font-size:12px;outline:none;
+}
+.multi-select-panel .ms-clear{
+  background:transparent;border:none;color:var(--coral);font-size:11px;font-weight:700;
+  cursor:pointer;padding:4px 6px;font-family:'DM Sans';letter-spacing:0.04em;
+}
+.multi-select-panel .ms-clear:hover{color:#fff}
+.multi-select-panel .ms-list{
+  flex:1;overflow:auto;padding:4px 0;
+}
+.multi-select-panel .ms-item{
+  display:flex;align-items:center;gap:9px;
+  padding:7px 12px;cursor:pointer;font-size:13px;color:#EAF0FB;
+  font-family:'DM Sans';transition:background 0.1s;
+}
+.multi-select-panel .ms-item:hover{background:rgba(245,197,24,0.08)}
+.multi-select-panel .ms-item input{
+  appearance:none;-webkit-appearance:none;
+  width:16px;height:16px;border:1.5px solid var(--muted);border-radius:4px;
+  margin:0;cursor:pointer;position:relative;flex-shrink:0;background:transparent;
+}
+.multi-select-panel .ms-item input:checked{background:var(--gold);border-color:var(--gold)}
+.multi-select-panel .ms-item input:checked::after{
+  content:'✓';position:absolute;color:#0B1424;font-size:12px;font-weight:900;
+  top:-2px;left:2px;
+}
+.multi-select-panel .ms-item .ms-label{flex:1;font-family:'JetBrains Mono';font-size:12.5px;font-weight:600}
+.multi-select-panel .ms-item .ms-count{color:var(--muted-2);font-size:11px;font-family:'JetBrains Mono'}
+
+/* ========== EMPTY STATE ========== */
+.empty-state{display:none;margin-bottom:24px}
+#root.filter-empty .empty-state{display:block}
+#root.filter-empty .charts-wrap{display:none}
+
+/* ========== ANOMALY BANNER ========== */
+.anom-banner{
+  display:flex;align-items:center;gap:14px;
+  margin-bottom:24px;padding:14px 18px;border-radius:var(--radius);
+  background:linear-gradient(90deg,rgba(245,197,24,0.08),rgba(245,197,24,0.02));
+  border:1px solid rgba(245,197,24,0.3);
+}
+.anom-banner.high{
+  background:linear-gradient(90deg,rgba(233,69,96,0.12),rgba(233,69,96,0.02));
+  border-color:rgba(233,69,96,0.4);
+}
+.anom-banner .ab-icon{font-size:24px;color:var(--gold)}
+.anom-banner.high .ab-icon{color:var(--coral)}
+.anom-banner .ab-text{flex:1;display:flex;flex-direction:column;gap:2px}
+.anom-banner .ab-text b{font-family:'Montserrat';font-weight:800;font-size:15px;color:#fff}
+.anom-banner .ab-sub{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.12em;font-weight:600}
+
+/* ========== ANOMALY CHIPS ========== */
+.anom-chip{
+  display:inline-block;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;
+  margin:2px 4px 2px 0;letter-spacing:0.04em;font-family:'DM Sans';
+  border:1px solid;cursor:help;
+}
+.anom-chip.sev-high{background:rgba(239,68,68,0.14);color:#FCA5A5;border-color:rgba(239,68,68,0.3)}
+.anom-chip.sev-med{background:rgba(245,197,24,0.14);color:#FCD34D;border-color:rgba(245,197,24,0.3)}
+
+/* ========== SEVERITY STRIP (anomaly panel rows) ========== */
+.sev-strip{display:inline-block;width:4px;height:24px;border-radius:2px;vertical-align:middle}
+.sev-strip.sev-high{background:var(--bad)}
+.sev-strip.sev-med{background:var(--gold)}
+.anom-chips{max-width:560px;white-space:normal;text-align:left !important}
+.anom-row:hover{background:rgba(245,197,24,0.05)}
+
+/* ========== FLAGGED TABLE ROW — vehicle text color (no dot) ========== */
+tr.flagged-high .veh-cell{color:#FCA5A5}
+tr.flagged-med  .veh-cell{color:#FCD34D}
+
+/* ========== EMI HEAD METRICS ========== */
+.emi-head{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px}
+.emi-head .lbl{font-size:11px;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted);font-weight:600}
+.emi-head .val{font-family:'Montserrat';font-weight:800;font-size:22px;margin-top:6px}
+.emi-card{border:1px solid rgba(233,69,96,0.25)}
+
+/* ========== PRODUCTIVITY QUADRANT LABELS ========== */
+.quadrant-host{position:relative}
+.quad-label{
+  position:absolute;font-family:'JetBrains Mono';font-size:10px;color:var(--gold);
+  letter-spacing:0.1em;text-transform:uppercase;background:rgba(11,20,36,0.7);
+  padding:3px 7px;border-radius:5px;pointer-events:none;
+  border:1px solid rgba(245,197,24,0.25);
+}
+.quad-label.tl{top:42px;left:42px}
+.quad-label.tr{top:42px;right:14px}
+.quad-label.bl{bottom:36px;left:42px}
+.quad-label.br{bottom:36px;right:14px}
+
+/* ========== AI INSIGHTS ========== */
+.insights-card{border:1px solid rgba(245,197,24,0.25)}
+.insights-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:12px}
+.insight-card{
+  position:relative;background:rgba(255,255,255,0.03);border:1px solid var(--line);
+  border-radius:12px;padding:16px 16px 16px 22px;display:flex;flex-direction:column;gap:8px;
+  transition:border-color 0.15s,background 0.15s;
+}
+.insight-card:hover{border-color:var(--line-2);background:rgba(255,255,255,0.05)}
+.insight-card::before{
+  content:'';position:absolute;left:0;top:14px;bottom:14px;width:4px;border-radius:0 4px 4px 0;
+  background:var(--good);
+}
+.insight-card.sev-high::before{background:var(--coral)}
+.insight-card.sev-med::before{background:var(--gold)}
+.insight-card .ic-title{font-family:'Montserrat';font-weight:800;font-size:14px;color:#fff;letter-spacing:0.02em}
+.insight-card .ic-metric{font-family:'JetBrains Mono';font-weight:700;font-size:13px;color:var(--gold)}
+.insight-card .ic-narrative{font-size:12.5px;line-height:1.6;color:var(--muted)}
+.insight-card .ic-action{
+  margin-top:auto;align-self:flex-start;padding:6px 11px;font-size:11px;
+  background:transparent;border:1px solid var(--line-2);border-radius:6px;
+  color:var(--gold);cursor:pointer;font-family:'DM Sans';font-weight:600;
+  text-transform:uppercase;letter-spacing:0.06em;transition:all 0.15s;
+}
+.insight-card .ic-action:hover{background:rgba(245,197,24,0.1);border-color:var(--gold);color:#fff}
+.insights-loading{display:flex;align-items:center;gap:10px;padding:14px;color:var(--muted);font-size:13px}
+.insights-loading::before{
+  content:'';width:14px;height:14px;border:2px solid rgba(245,197,24,0.3);border-top-color:var(--gold);
+  border-radius:50%;animation:spin 0.8s linear infinite;display:inline-block;
+}
+.insights-error{padding:14px;color:var(--coral);font-size:12.5px;line-height:1.6;font-family:'JetBrains Mono'}
+.insights-error a{color:var(--gold);text-decoration:underline;cursor:pointer}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ========== MOBILE / TOUCH ========== */
+.multi-select-panel{min-width:min(240px,calc(100vw - 32px))}
+
+/* Trip-scroll right-edge fade hint (toggled off when scrolled to end) */
+.trip-scroll{position:relative}
+.trip-scroll.has-overflow::after{
+  content:'';position:absolute;top:0;right:0;bottom:0;width:36px;
+  background:linear-gradient(90deg,transparent,var(--ink-2));
+  pointer-events:none;opacity:1;transition:opacity 0.15s;
+}
+.trip-scroll.scrolled-end::after{opacity:0}
+
+/* Tap-to-reveal note shown below an anomaly chip on touch */
+.anom-chip-note{
+  display:none;font-family:'JetBrains Mono';font-size:11px;color:var(--muted);
+  background:rgba(0,0,0,0.25);border:1px solid var(--line);border-radius:6px;
+  padding:8px 10px;margin:6px 0 4px;line-height:1.5;
+}
+.anom-chip-note.open{display:block}
+
+@media (hover: none){
+  .card-ctrl{width:36px;height:36px;font-size:15px;margin:0 2px}
+  .anom-chip{cursor:pointer}
+}
+
+@media (max-width: 640px){
+  .multi-select-panel{left:auto;right:0}
+  .fb-left > *{flex:1 0 auto;min-width:140px}
+  .anom-toggle{flex-basis:100%}
+  .chart-host{height:min(320px,56vh);max-height:min(320px,56vh)}
+  .chart-host.tall{height:min(380px,56vh);max-height:min(380px,56vh)}
+  .chart-host.short{height:min(240px,48vh);max-height:min(240px,48vh)}
+  .modal-head{padding:18px 16px}
+  .modal-body{padding:18px 16px}
+  .kv-grid{gap:10px}
+  .filter-bar{margin:-20px -16px 18px;padding:12px 16px}
+  .wrap{padding:20px 16px 60px}
+  .card{padding:18px}
+  .hero-title{padding:22px}
+  .hero-title h1{font-size:26px}
+  .table-head{padding:18px}
+  .emi-head{grid-template-columns:1fr;gap:10px}
+  .trip-summary{grid-template-columns:1fr;gap:10px}
+  .insights-grid{grid-template-columns:1fr}
+}
+
+/* nice scrollbars */
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:6px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.16)}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="brand-mark">P&amp;L</div>
+      <div>
+        <div class="brand-name">TRAQ <span>·</span> PnL ENGINE</div>
+        <div class="brand-sub">Truck-wise Profitability Intelligence</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="period-pill" id="periodPill">April 2026</div>
+      <button class="btn ghost" id="syncBtn" title="Connect to Google Sheets">☁ Cloud Sync</button>
+      <button class="btn ghost" id="exportBtn">⬇ Export CSV</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="root">
+  <div class="loader" id="loader">Loading P&L data…</div>
+</main>
+
+<div class="modal-overlay" id="syncModal">
+  <div class="modal" id="syncCard" style="max-width:640px">
+    <div class="modal-head">
+      <div>
+        <h2 style="font-family:'Montserrat';font-size:20px;letter-spacing:0">☁ Cloud Sync</h2>
+        <div class="sub">Pull live data from your Google Sheet</div>
+      </div>
+      <button class="close-btn" onclick="closeSync()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:18px">
+        <label style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted);font-weight:600;margin-bottom:8px">Apps Script Web App URL</label>
+        <input id="syncUrl" placeholder="https://script.google.com/macros/s/AKfy.../exec"
+               style="width:100%;padding:11px 14px;background:rgba(255,255,255,0.04);border:1px solid var(--line);border-radius:10px;color:#EAF0FB;font-family:'JetBrains Mono';font-size:12px;outline:none" />
+        <div style="font-size:11px;color:var(--muted-2);margin-top:6px">Paste the <code style="color:var(--gold)">/exec</code> URL from your Apps Script deployment. Saved locally in this browser.</div>
+      </div>
+      <div id="syncStatus" style="padding:12px 14px;border-radius:10px;font-family:'JetBrains Mono';font-size:12px;line-height:1.6;background:rgba(255,255,255,0.03);border:1px solid var(--line);margin-bottom:18px;color:var(--muted)">Not connected.</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn" id="syncPingBtn" type="button">⚡ Test connection</button>
+        <button class="btn" id="syncFetchBtn" type="button" style="background:#22C55E">⬇ Fetch live data</button>
+        <button class="btn ghost" id="syncClearBtn" type="button">Clear saved URL</button>
+      </div>
+      <div style="margin-top:24px;padding:16px;background:rgba(245,197,24,0.06);border:1px solid rgba(245,197,24,0.2);border-radius:10px;font-size:12px;line-height:1.7;color:var(--muted)">
+        <b style="color:var(--gold);font-family:'Montserrat';text-transform:uppercase;letter-spacing:0.1em;font-size:11px">Setup steps</b><br/>
+        1. Open the sheet → <b>Extensions → Apps Script</b>.<br/>
+        2. Paste the contents of <code style="color:var(--gold)">apps-script/Code.gs</code>.<br/>
+        3. Run <code style="color:var(--gold)">testFetch</code> once and approve permissions.<br/>
+        4. <b>Deploy → New deployment → Web app</b>. Execute as: Me. Access: Anyone.<br/>
+        5. Copy the <code style="color:var(--gold)">/exec</code> URL and paste it above.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal" id="modalCard">
+    <div class="modal-head">
+      <div>
+        <h2 id="m-vehicle">—</h2>
+        <div class="sub" id="m-meta">—</div>
+      </div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="m-body"></div>
+  </div>
+</div>
+
+<script>
+// =========================
+// DATA + FORMATTERS
+// =========================
+let DATA = null;
+let trucks = [];
+let FILTER    = { series: 'all', status: 'all' };
+let ANOM_MODE = 'series';   // 'series' | 'fleet'
+let VIEW      = null;
+
+const fmtINR = (n, opts = {}) => {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  if (opts.compact) {
+    if (abs >= 1e7) return `${sign}₹${(abs/1e7).toFixed(2)} Cr`;
+    if (abs >= 1e5) return `${sign}₹${(abs/1e5).toFixed(2)} L`;
+    if (abs >= 1e3) return `${sign}₹${(abs/1e3).toFixed(1)} K`;
+    return `${sign}₹${abs.toFixed(0)}`;
+  }
+  return `${sign}₹${abs.toLocaleString('en-IN',{maximumFractionDigits:0})}`;
+};
+const fmtNum = (n) => n === null || n === undefined ? '—' : Number(n).toLocaleString('en-IN',{maximumFractionDigits:1});
+const fmtPct = (n) => isNaN(n) ? '—' : `${n.toFixed(1)}%`;
+const cls = (n) => n > 0 ? 'num-pos' : n < 0 ? 'num-neg' : 'num-zero';
+
+// =========================
+// LOAD
+// =========================
+function init(d){
+  DATA = d; trucks = d.trucks;
+  if (!window.Chart) { setTimeout(() => init(d), 100); return; }
+  Chart.defaults.font.family = "'DM Sans', system-ui, sans-serif";
+  Chart.defaults.color = '#9AA7BD';
+  Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+  FILTER = { series: 'all', status: 'all' };
+  VIEW = computeView();
+  render();
+}
+
+// =========================
+// PURE HELPERS — IQR, anomalies, view recompute
+// =========================
+
+// Returns {q1, q3, iqr, low, high} or null when input has fewer than 4 finite numbers.
+function iqrBounds(values){
+  const xs = values.filter(v => typeof v === 'number' && isFinite(v)).sort((a,b) => a-b);
+  if (xs.length < 4) return null;
+  const pick = p => {
+    const i = (xs.length - 1) * p;
+    const lo = Math.floor(i), hi = Math.ceil(i);
+    return lo === hi ? xs[lo] : xs[lo] + (xs[hi] - xs[lo]) * (i - lo);
+  };
+  const q1 = pick(0.25), q3 = pick(0.75), iqr = q3 - q1;
+  return { q1, q3, iqr, low: q1 - 1.5 * iqr, high: q3 + 1.5 * iqr };
+}
+
+const RATIO_RULES = [
+  { key: 'OP_MARGIN_LOW',       label: 'Margin outlier',     side: 'low',  severity: 'high', metric: t => t.opMargin },
+  { key: 'RPL_LOW',             label: 'RPL outlier',        side: 'low',  severity: 'high', metric: t => t.rpl },
+  { key: 'COST_PER_TRIP_HIGH',  label: 'Cost/trip spike',    side: 'high', severity: 'med',  metric: t => t.expensePerTrip },
+  { key: 'FUEL_SHARE_HIGH',     label: 'Fuel share high',    side: 'high', severity: 'med',  metric: t => t.billing > 0 ? t.diesel / t.billing : null },
+  { key: 'DRIVER_PAYOUT_HIGH',  label: 'Driver payout high', side: 'high', severity: 'med',  metric: t => t.billing > 0 ? (t.driverAc + t.cash + t.phonePay) / t.billing : null },
+];
+
+// Returns [{vehicle, series, severity, rules:[{rule,label,severity,value,threshold,q1,q3}]}]
+function computeAnomalies(list, mode){
+  const activeRatio = list.filter(t => t.trips > 0);
+  const fleetBounds = {};
+  for (const r of RATIO_RULES) {
+    fleetBounds[r.key] = iqrBounds(activeRatio.map(t => r.metric(t)).filter(v => typeof v === 'number'));
+  }
+
+  let seriesBounds = {};
+  if (mode === 'series') {
+    const groups = {};
+    for (const t of activeRatio) {
+      const s = t.series || 'OTHER';
+      (groups[s] = groups[s] || []).push(t);
+    }
+    for (const s of Object.keys(groups)) {
+      seriesBounds[s] = {};
+      const cohort = groups[s];
+      const ok = cohort.length >= 5;
+      for (const r of RATIO_RULES) {
+        seriesBounds[s][r.key] = ok ? iqrBounds(cohort.map(t => r.metric(t)).filter(v => typeof v === 'number')) : null;
+      }
+    }
+  }
+
+  const out = [];
+  for (const t of list) {
+    const flags = [];
+
+    // Absolute rules
+    if (t.trips === 0 && t.emi > 0) {
+      flags.push({ rule: 'IDLE_BLEED', label: 'Idle bleeder', severity: 'high', value: t.emi, threshold: 0, note: 'No trips this month; EMI still being paid.' });
+    }
+    if (t.trips > 0 && t.emi > t.operatingProfit) {
+      flags.push({ rule: 'EMI_TRAP', label: 'EMI trap', severity: 'high', value: t.emi - t.operatingProfit, threshold: 0, note: `EMI exceeds operating profit by ${fmtINR(t.emi - t.operatingProfit, {compact:true})}.` });
+    }
+
+    // Ratio rules — only on active (trips > 0) trucks
+    if (t.trips > 0) {
+      for (const r of RATIO_RULES) {
+        const v = r.metric(t);
+        if (typeof v !== 'number' || !isFinite(v)) continue;
+        let b = null;
+        if (mode === 'series') {
+          const s = t.series || 'OTHER';
+          b = (seriesBounds[s] && seriesBounds[s][r.key]) || fleetBounds[r.key];
+        } else {
+          b = fleetBounds[r.key];
+        }
+        if (!b) continue;
+        if (r.side === 'low' && v < b.low) {
+          flags.push({ rule: r.key, label: r.label, severity: r.severity, value: v, threshold: b.low, q1: b.q1, q3: b.q3 });
+        }
+        if (r.side === 'high' && v > b.high) {
+          flags.push({ rule: r.key, label: r.label, severity: r.severity, value: v, threshold: b.high, q1: b.q1, q3: b.q3 });
+        }
+      }
+    }
+
+    if (flags.length) {
+      out.push({
+        vehicle: t.vehicle,
+        series: t.series || '',
+        severity: flags.some(f => f.severity === 'high') ? 'high' : 'med',
+        rules: flags,
+      });
+    }
+  }
+  out.sort((a,b) => {
+    if (a.severity !== b.severity) return a.severity === 'high' ? -1 : 1;
+    return b.rules.length - a.rules.length;
+  });
+  return out;
+}
+
+// Filters trucks by FILTER, re-aggregates totals/expenseBreakdown/seriesBreakdown
+// using the exact key shape parse.js produces, and attaches anomalies.
+function computeView(){
+  let list = trucks.slice();
+  if (FILTER.series instanceof Set && FILTER.series.size > 0) {
+    list = list.filter(t => FILTER.series.has(t.series || 'OTHER'));
+  }
+  if (FILTER.status === 'profit') list = list.filter(t => t.netEarnings > 0);
+  if (FILTER.status === 'loss')   list = list.filter(t => t.netEarnings < 0);
+  if (FILTER.status === 'idle')   list = list.filter(t => t.trips === 0);
+
+  const totals = list.reduce((a, t) => {
+    a.billing += t.billing;
+    a.totalExpense += t.totalExpense;
+    a.operatingProfit += t.operatingProfit;
+    a.netEarnings += t.netEarnings;
+    a.trips += t.trips;
+    a.dieselQty += t.dieselQty;
+    a.diesel += t.diesel;
+    a.fastag += t.fastag;
+    a.driverAc += t.driverAc;
+    a.tyre += t.tyre;
+    a.emi += t.emi;
+    a.paper += t.paper;
+    a.cash += t.cash;
+    a.phonePay += t.phonePay;
+    a.urea += t.urea;
+    a.rto += t.rto;
+    return a;
+  }, { billing:0, totalExpense:0, operatingProfit:0, netEarnings:0, trips:0,
+       dieselQty:0, diesel:0, fastag:0, driverAc:0, tyre:0, emi:0, paper:0,
+       cash:0, phonePay:0, urea:0, rto:0 });
+
+  totals.fleetSize         = list.length;
+  totals.profitable        = list.filter(t => t.netEarnings > 0).length;
+  totals.unprofitable      = list.filter(t => t.netEarnings < 0).length;
+  totals.idle              = list.filter(t => t.trips === 0).length;
+  totals.profitMargin      = totals.billing > 0 ? (totals.netEarnings / totals.billing) * 100 : 0;
+  totals.opMargin          = totals.billing > 0 ? (totals.operatingProfit / totals.billing) * 100 : 0;
+  totals.avgRevPerTruck    = list.length ? totals.billing / list.length : 0;
+  totals.avgProfitPerTruck = list.length ? totals.netEarnings / list.length : 0;
+  totals.avgTripsPerTruck  = list.length ? totals.trips / list.length : 0;
+
+  // Series rollup
+  const bySeries = {};
+  for (const t of list) {
+    const s = t.series || 'OTHER';
+    if (!bySeries[s]) bySeries[s] = { series: s, count: 0, billing: 0, expense: 0, netEarnings: 0, trips: 0 };
+    bySeries[s].count += 1;
+    bySeries[s].billing += t.billing;
+    bySeries[s].expense += t.totalExpense;
+    bySeries[s].netEarnings += t.netEarnings;
+    bySeries[s].trips += t.trips;
+  }
+  const seriesBreakdown = Object.values(bySeries).sort((a,b) => b.netEarnings - a.netEarnings);
+
+  const expenseBreakdown = [
+    { name: 'Diesel', value: totals.diesel },
+    { name: 'Driver A/C', value: totals.driverAc },
+    { name: 'Fastag', value: totals.fastag },
+    { name: 'Tyre', value: totals.tyre },
+    { name: 'Cash', value: totals.cash },
+    { name: 'Phone Pay', value: totals.phonePay },
+    { name: 'Urea', value: totals.urea },
+    { name: 'RTO', value: totals.rto },
+    { name: 'EMI', value: totals.emi },
+    { name: 'Paper', value: totals.paper },
+  ].filter(e => e.value > 0).sort((a,b) => b.value - a.value);
+
+  const anomalies = computeAnomalies(list, ANOM_MODE);
+
+  return { trucks: list, totals, expenseBreakdown, seriesBreakdown, anomalies };
+}
+
+// =========================
+// FILTER APPLY — in-place patch (no full re-render)
+// =========================
+function applyFilter(){
+  // Multi-select for series — collect checked values into a Set
+  const checked = Array.from(document.querySelectorAll('#seriesMulti input[type="checkbox"]:checked')).map(i => i.value);
+  FILTER.series = checked.length > 0 ? new Set(checked) : 'all';
+  const st = document.getElementById('globalStatus');
+  const am = document.querySelector('input[name="anomMode"]:checked');
+  if (st) FILTER.status = st.value;
+  if (am) ANOM_MODE = am.value;
+  refreshSeriesBtnLabel();
+
+  VIEW = computeView();
+
+  // Hero stats + cascade
+  patchHero();
+
+  // KPI grid
+  const kg = document.querySelector('.kpi-grid');
+  if (kg) kg.innerHTML = renderKpiCards(VIEW.totals);
+
+  // Anomaly banner + panel
+  const banner = document.getElementById('anomBanner');
+  if (banner) banner.innerHTML = renderAnomalyBanner();
+  const panel = document.getElementById('anomPanel');
+  if (panel) { panel.innerHTML = renderAnomalyPanel(); bindMobileTaps(); }
+
+  // EMI-Trap + Series Health
+  const emi = document.getElementById('emiTrapBody');
+  if (emi) emi.innerHTML = renderEmiTrapPanel();
+  const sh = document.getElementById('seriesMatrixBody');
+  if (sh) sh.innerHTML = renderSeriesMatrix();
+
+  // Filter-active indicator
+  const ind = document.getElementById('filterIndicator');
+  if (ind) ind.innerHTML = renderFilterIndicator();
+
+  // Empty-state guard
+  const root = document.getElementById('root');
+  const empty = VIEW.trucks.length === 0;
+  root.classList.toggle('filter-empty', empty);
+
+  // Charts: destroy + rebuild (only if not empty)
+  if (!empty) {
+    requestAnimationFrame(() => {
+      safe(() => buildRankChart(currentRankMode), 'rankChart');
+      safe(buildExpenseChart, 'expChart');
+      safe(buildDistChart, 'distChart');
+      safe(buildSeriesChart, 'seriesChart');
+      safe(buildScatterChart, 'scatterChart');
+      safe(buildQuadrantChart, 'quadrantChart');
+      safe(buildOpRatioChart, 'opRatioChart');
+      safe(buildParetoChart, 'paretoChart');
+    });
+  }
+
+  // Table
+  buildTable();
+}
+
+function patchHero(){
+  const t = VIEW.totals;
+  const heroFleet = document.querySelector('#heroFleet');
+  const heroFleet2 = document.querySelector('#heroFleet2');
+  const heroTrips = document.querySelector('#heroTrips');
+  const heroAvg = document.querySelector('#heroAvg');
+  if (heroFleet) heroFleet.textContent = t.fleetSize;
+  if (heroFleet2) heroFleet2.textContent = t.fleetSize;
+  if (heroTrips) heroTrips.textContent = t.trips.toLocaleString('en-IN');
+  if (heroAvg) heroAvg.textContent = t.avgTripsPerTruck.toFixed(1);
+  const cascade = document.querySelector('#heroCascade');
+  if (cascade) cascade.innerHTML = renderPnlBars(t);
+}
+
+function renderFilterIndicator(){
+  const parts = [];
+  if (FILTER.series instanceof Set && FILTER.series.size > 0) {
+    const arr = [...FILTER.series];
+    const label = arr.length <= 3 ? arr.join(', ') : `${arr.slice(0,2).join(', ')} +${arr.length - 2}`;
+    parts.push(`Series <b>${label}</b>`);
+  }
+  if (FILTER.status !== 'all') parts.push(`Status <b>${FILTER.status}</b>`);
+  if (!parts.length) return `<span style="color:var(--muted-2)">No filter active · ${trucks.length} trucks</span>`;
+  return `<span style="color:var(--gold)">Filter: ${parts.join(' · ')}</span> <span style="color:var(--muted-2)">· ${VIEW.trucks.length} trucks</span>`;
+}
+
+// Updates the multi-select button label based on FILTER.series
+function refreshSeriesBtnLabel(){
+  const btn = document.getElementById('seriesBtnLabel');
+  const badge = document.getElementById('seriesBtnBadge');
+  if (!btn || !badge) return;
+  if (FILTER.series instanceof Set && FILTER.series.size > 0) {
+    const arr = [...FILTER.series];
+    btn.textContent = arr.length <= 2 ? arr.join(', ') : `${arr.length} series`;
+    badge.textContent = arr.length;
+    badge.style.display = '';
+  } else {
+    btn.textContent = 'All series';
+    badge.style.display = 'none';
+  }
+}
+window.addEventListener('DOMContentLoaded', () => {
+  bindSyncUi();
+  // Cloud-only mode: never auto-load the bundled snapshot. Pull from Google Sheets only.
+  const savedUrl = localStorage.getItem(SYNC_KEY);
+  if (savedUrl) {
+    autoFetchFromCloud(savedUrl);
+  } else {
+    showConnectPrompt();
+  }
+});
+
+function showConnectPrompt(){
+  const loader = document.getElementById('loader');
+  if (!loader) return;
+  loader.classList.remove('error');
+  loader.innerHTML = `
+    <div style="text-align:center;max-width:520px;padding:40px 24px">
+      <div style="font-family:'Montserrat';font-weight:800;font-size:24px;color:#fff;margin-bottom:10px">Connect to Google Sheets</div>
+      <p style="color:var(--muted);font-size:13px;line-height:1.7;margin-bottom:22px">
+        This dashboard only renders live data from your P&amp;L workbook. Paste your Apps Script web-app URL once — it'll be saved locally and the dashboard will pull fresh data on every visit.
+      </p>
+      <button class="btn" id="connectBtn" type="button" style="background:var(--gold);color:#0B1424;font-weight:700">☁ Open Cloud Sync</button>
+    </div>
+  `;
+  document.getElementById('connectBtn').addEventListener('click', () => openSync());
+}
+
+async function autoFetchFromCloud(url){
+  const loader = document.getElementById('loader');
+  if (loader) {
+    loader.classList.remove('error');
+    loader.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;gap:12px"><div style="color:var(--gold);font-family:'Montserrat';font-weight:700;letter-spacing:0.08em;text-transform:uppercase;font-size:13px">☁ Fetching from Google Sheets…</div><div style="color:var(--muted-2);font-size:11px;font-family:'JetBrains Mono'">${url.replace(/^https?:\/\//,'').slice(0,60)}…</div></div>`;
+  }
+  try {
+    const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'action=fetch');
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    if (!j.trucks || !j.totals) throw new Error('Response missing trucks/totals.');
+    localStorage.setItem(SYNC_LAST_KEY, new Date().toISOString());
+    init(j);
+  } catch (e) {
+    console.error('Auto-fetch failed:', e);
+    if (loader) {
+      loader.classList.add('error');
+      loader.innerHTML = `
+        <div style="text-align:center;max-width:520px;padding:40px 24px">
+          <div style="font-family:'Montserrat';font-weight:800;font-size:18px;color:var(--coral);margin-bottom:10px">Fetch failed</div>
+          <p style="color:var(--muted);font-size:13px;line-height:1.6;margin-bottom:18px"><code style="color:var(--coral);font-family:'JetBrains Mono'">${e.message}</code></p>
+          <button class="btn" id="connectBtn" type="button">Open Cloud Sync</button>
+        </div>
+      `;
+      document.getElementById('connectBtn').addEventListener('click', () => openSync());
+    }
+  }
+}
+
+function renderKpiCards(t){
+  return [
+    kpi('Total Billing', fmtINR(t.billing,{compact:true}), t.fleetSize ? `₹${(t.billing/t.fleetSize).toLocaleString('en-IN',{maximumFractionDigits:0})} avg/truck` : '—', 'gold'),
+    kpi('Total Expense', fmtINR(t.totalExpense,{compact:true}), t.billing > 0 ? `${fmtPct(t.totalExpense/t.billing*100)} of billing` : '—', 'coral'),
+    kpi('Operating Profit', fmtINR(t.operatingProfit,{compact:true}), `${fmtPct(t.opMargin)} op margin`, 'green'),
+    kpi('Net Earnings', fmtINR(t.netEarnings,{compact:true}), `${fmtPct(t.profitMargin)} net margin`, t.netEarnings >= 0 ? 'green' : 'red'),
+    kpi('Profitable Trucks', `${t.profitable} / ${t.fleetSize}`, t.fleetSize ? `${(t.profitable/t.fleetSize*100).toFixed(0)}% of fleet` : '—', 'green'),
+    kpi('Unprofitable + Idle', `${t.unprofitable + t.idle}`, `${t.unprofitable} losing, ${t.idle} idle`, 'red'),
+  ].join('');
+}
+
+function render(){
+  const root = document.getElementById('root');
+  const t = VIEW.totals;
+  const seriesSorted = [...(DATA.seriesBreakdown || [])].sort((a, b) => a.series.localeCompare(b.series));
+  const allSeriesOptions = seriesSorted.map(s => `<option value="${s.series}">${s.series} (${s.count})</option>`).join('');
+  root.innerHTML = `
+    <!-- GLOBAL FILTER BAR -->
+    <section class="filter-bar" id="filterBar">
+      <div class="fb-left">
+        <span class="fb-label">Filter fleet</span>
+        <div class="multi-select" id="seriesMulti">
+          <button class="multi-select-btn" id="seriesBtn" type="button" aria-haspopup="listbox" aria-expanded="false">
+            <span><span id="seriesBtnLabel">All series</span> <span class="count-badge" id="seriesBtnBadge" style="display:none">0</span></span>
+            <span class="caret">▾</span>
+          </button>
+          <div class="multi-select-panel" role="listbox" aria-multiselectable="true">
+            <div class="ms-head">
+              <input class="ms-search" id="seriesSearch" placeholder="Search series…" />
+              <button class="ms-clear" id="seriesClear" type="button">Clear</button>
+            </div>
+            <div class="ms-list" id="seriesList">
+              ${seriesSorted.map(s => `
+                <label class="ms-item">
+                  <input type="checkbox" value="${s.series}" />
+                  <span class="ms-label">${s.series}</span>
+                  <span class="ms-count">${s.count} truck${s.count === 1 ? '' : 's'}</span>
+                </label>`).join('')}
+            </div>
+          </div>
+        </div>
+        <select class="select" id="globalStatus">
+          <option value="all">All trucks</option>
+          <option value="profit">Profitable</option>
+          <option value="loss">Loss-making</option>
+          <option value="idle">Idle</option>
+        </select>
+        <div class="anom-toggle" role="group" aria-label="Anomaly cohort mode">
+          <span class="fb-label" style="margin-right:6px">Anomalies vs</span>
+          <label><input type="radio" name="anomMode" value="series" checked /> <span>Per-series</span></label>
+          <label><input type="radio" name="anomMode" value="fleet" /> <span>Fleet-wide</span></label>
+        </div>
+        <button class="btn ghost" id="resetFilter" type="button">Reset</button>
+      </div>
+      <div class="fb-right" id="filterIndicator">${renderFilterIndicator()}</div>
+    </section>
+
+    <!-- ANOMALY BANNER -->
+    <div id="anomBanner">${renderAnomalyBanner()}</div>
+
+    <!-- HERO -->
+    <section class="hero">
+      <div class="hero-title">
+        <h1>Fleet Profitability <span class="accent">P&amp;L</span><br/>at a <span class="accent2">truck-by-truck</span> resolution.</h1>
+        <p>${DATA.meta.period} performance across <b id="heroFleet">${t.fleetSize}</b> trucks. Operating profit looks healthy, but EMI &amp; paper expenses are quietly eating the margin — drill into any truck to see where the money goes.</p>
+        <div class="hero-stats">
+          <div class="hero-stat"><div class="label">Fleet Size</div><div class="value" id="heroFleet2">${t.fleetSize}</div></div>
+          <div class="hero-stat"><div class="label">Total Trips</div><div class="value" id="heroTrips">${t.trips.toLocaleString('en-IN')}</div></div>
+          <div class="hero-stat"><div class="label">Avg Trips / Truck</div><div class="value" id="heroAvg">${t.avgTripsPerTruck.toFixed(1)}</div></div>
+        </div>
+      </div>
+      <div class="hero-pnl">
+        <h3>Fleet P&amp;L Cascade</h3>
+        <div id="heroCascade">${renderPnlBars(t)}</div>
+      </div>
+    </section>
+
+    <!-- KPI GRID -->
+    <section class="kpi-grid">${renderKpiCards(t)}</section>
+
+    <!-- AI INSIGHTS -->
+    <section class="card insights-card" id="insightsCard">
+      <div class="card-head">
+        <div>
+          <h3 style="color:var(--gold)">✦ AI Business Insights</h3>
+          <div class="desc">Plain-English fleet analysis written by Claude. Refreshed at most once per day, shared by all viewers.</div>
+        </div>
+        <button class="btn" id="insightsBtn" type="button">Generate</button>
+      </div>
+      <div id="insightsBody"><div class="desc" style="padding:14px 0;color:var(--muted-2)">Click <b>Generate</b> to load today's insights.</div></div>
+      <div class="desc" id="insightsMeta" style="margin-top:10px"></div>
+    </section>
+
+    <!-- EMPTY STATE (shown only when filter empties the set) -->
+    <section class="empty-state" id="emptyState">
+      <div class="card" style="text-align:center;padding:60px 30px">
+        <h3 style="font-family:'Montserrat';font-size:18px;color:var(--gold)">No trucks match this filter</h3>
+        <p style="color:var(--muted);margin-top:10px;font-size:13px">Try resetting the filter or picking a different series / status combination.</p>
+      </div>
+    </section>
+
+    <!-- CHART CARDS WRAPPER (hidden in empty state) -->
+    <div class="charts-wrap">
+
+      <!-- CHARTS ROW 1 -->
+      <section class="row-2">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3>Top &amp; Bottom Performers</h3>
+              <div class="desc">By net earnings · ${DATA.meta.period}</div>
+            </div>
+            <div class="tabs" id="rankTabs">
+              <button class="tab active" data-rank="top">Top 15</button>
+              <button class="tab" data-rank="bottom">Bottom 15</button>
+            </div>
+          </div>
+          <div class="chart-host tall"><canvas id="rankChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h3>Expense Breakdown</h3><div class="desc">Where the money goes</div></div></div>
+          <div class="chart-host tall"><canvas id="expChart"></canvas></div>
+          <div class="legend" id="expLegend"></div>
+        </div>
+      </section>
+
+      <!-- CHARTS ROW 2 -->
+      <section class="row-3">
+        <div class="card">
+          <div class="card-head"><div><h3>Profit Distribution</h3><div class="desc">Trucks by net earnings band</div></div></div>
+          <div class="chart-host"><canvas id="distChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h3>Series Performance</h3><div class="desc">Net earnings by series</div></div></div>
+          <div class="chart-host"><canvas id="seriesChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h3>Revenue vs Expense</h3><div class="desc">Each dot = one truck</div></div></div>
+          <div class="chart-host"><canvas id="scatterChart"></canvas></div>
+        </div>
+      </section>
+
+      <!-- ANALYTICS ROW 3 — Productivity Quadrant & Operating Ratio & Pareto -->
+      <section class="row-3">
+        <div class="card">
+          <div class="card-head"><div><h3>Productivity Quadrant</h3><div class="desc">Trips × Rev / Trip — split by medians</div></div></div>
+          <div class="chart-host tall quadrant-host">
+            <canvas id="quadrantChart"></canvas>
+            <span class="quad-label tl">Premium</span>
+            <span class="quad-label tr">Workhorses</span>
+            <span class="quad-label bl">Underused</span>
+            <span class="quad-label br">Grinders</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h3>Operating Ratio</h3><div class="desc">OpEx / Billing · benchmark 94%</div></div></div>
+          <div class="chart-host tall"><canvas id="opRatioChart"></canvas></div>
+          <div class="desc" id="opRatioCaption" style="margin-top:8px"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h3>Pareto Contribution</h3><div class="desc">Which slice carries the fleet</div></div></div>
+          <div class="chart-host tall"><canvas id="paretoChart"></canvas></div>
+          <div class="desc" id="paretoCaption" style="margin-top:8px"></div>
+        </div>
+      </section>
+
+      <!-- EMI-TRAP WATCHLIST -->
+      <section class="card emi-card" id="emiTrapCard">
+        <div class="card-head">
+          <div><h3 style="color:var(--coral)">⚠ EMI-Trap Watchlist</h3><div class="desc">Trucks whose EMI exceeds operating profit this month — paying more in finance than the asset earns.</div></div>
+        </div>
+        <div id="emiTrapBody">${renderEmiTrapPanel()}</div>
+      </section>
+
+      <!-- SERIES HEALTH MATRIX -->
+      <section class="card" id="seriesMatrixCard">
+        <div class="card-head">
+          <div><h3>Series Health Matrix</h3><div class="desc">Capacity-planning view — ratios that decide which series to grow or retire.</div></div>
+        </div>
+        <div id="seriesMatrixBody">${renderSeriesMatrix()}</div>
+      </section>
+
+      <!-- ANOMALY PANEL -->
+      <section class="card" id="anomCard">
+        <div class="card-head">
+          <div><h3 id="anomTitle">Flagged Trucks</h3><div class="desc">Cohort-relative outliers · click a row to drill in.</div></div>
+        </div>
+        <div id="anomPanel">${renderAnomalyPanel()}</div>
+      </section>
+
+      <!-- TABLE -->
+      <section class="card table-card">
+        <div class="table-head">
+          <div>
+            <h3 style="font-family:'Montserrat';text-transform:uppercase;letter-spacing:0.14em;font-size:14px">All Trucks — Profitability Ledger</h3>
+            <div class="desc" style="color:var(--muted);font-size:12px;margin-top:4px">Click any row to drill into a truck. Vehicle in <span style="color:#FCA5A5">coral</span> = high-severity flag, <span style="color:#FCD34D">gold</span> = medium.</div>
+          </div>
+          <div class="controls">
+            <div class="search">
+              <span style="color:var(--muted-2)">⌕</span>
+              <input id="searchInput" placeholder="Search vehicle no…" />
+            </div>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table id="trucksTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Vehicle</th>
+                <th>Series</th>
+                <th class="sortable" data-sort="trips">Trips<span class="arrow">↕</span></th>
+                <th class="sortable" data-sort="billing">Billing<span class="arrow">↕</span></th>
+                <th class="sortable" data-sort="totalExpense">Op Expense<span class="arrow">↕</span></th>
+                <th class="sortable" data-sort="operatingProfit">Op Profit<span class="arrow">↕</span></th>
+                <th class="sortable" data-sort="emi">EMI<span class="arrow">↕</span></th>
+                <th class="sortable" data-sort="netEarnings">Net Earnings<span class="arrow">↕</span></th>
+                <th class="sortable" data-sort="profitMargin">Margin<span class="arrow">↕</span></th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+    </div><!-- /charts-wrap -->
+
+    <div class="foot">
+      Source: ${DATA.meta.source} · sheet "${DATA.meta.sheet}" ·
+      Generated ${new Date(DATA.meta.generatedAt).toLocaleString('en-IN')} · TRAQ PnL Engine v1.0
+    </div>
+  `;
+
+  // Initial empty-state guard (in case render() is called with an already-filtered VIEW)
+  root.classList.toggle('filter-empty', VIEW.trucks.length === 0);
+
+  // Wire up — defer so layout is computed before Chart.js measures containers
+  buildTable();
+  if (VIEW.trucks.length > 0) {
+    requestAnimationFrame(() => {
+      safe(() => buildRankChart(currentRankMode), 'rankChart');
+      safe(buildExpenseChart, 'expChart');
+      safe(buildDistChart, 'distChart');
+      safe(buildSeriesChart, 'seriesChart');
+      safe(buildScatterChart, 'scatterChart');
+      safe(buildQuadrantChart, 'quadrantChart');
+      safe(buildOpRatioChart, 'opRatioChart');
+      safe(buildParetoChart, 'paretoChart');
+    });
+  }
+
+  // Wire — rank tabs
+  document.querySelectorAll('#rankTabs .tab').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#rankTabs .tab').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      currentRankMode = b.dataset.rank;
+      buildRankChart(currentRankMode);
+    });
+  });
+  // Wire — search + sort
+  document.getElementById('searchInput').addEventListener('input', buildTable);
+  document.querySelectorAll('th.sortable').forEach(th => {
+    th.addEventListener('click', () => setSort(th.dataset.sort));
+  });
+  // Wire — global filter bar
+  document.getElementById('globalStatus').value = FILTER.status;
+  document.getElementById('globalStatus').addEventListener('change', applyFilter);
+  document.querySelectorAll('input[name="anomMode"]').forEach(r => r.addEventListener('change', applyFilter));
+
+  // Multi-select: open/close
+  const ms = document.getElementById('seriesMulti');
+  const msBtn = document.getElementById('seriesBtn');
+  msBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const open = ms.classList.toggle('open');
+    msBtn.classList.toggle('open', open);
+    msBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) document.getElementById('seriesSearch')?.focus();
+  });
+  document.addEventListener('click', e => {
+    if (!ms.contains(e.target)) {
+      ms.classList.remove('open');
+      msBtn.classList.remove('open');
+      msBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
+  // Multi-select: checkbox change → applyFilter
+  document.querySelectorAll('#seriesList input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', applyFilter);
+  });
+  // Multi-select: search filter
+  document.getElementById('seriesSearch').addEventListener('input', e => {
+    const q = e.target.value.trim().toUpperCase();
+    document.querySelectorAll('#seriesList .ms-item').forEach(it => {
+      const v = it.querySelector('input').value;
+      it.style.display = (!q || v.includes(q)) ? '' : 'none';
+    });
+  });
+  // Multi-select: clear all
+  document.getElementById('seriesClear').addEventListener('click', () => {
+    document.querySelectorAll('#seriesList input[type="checkbox"]').forEach(cb => cb.checked = false);
+    applyFilter();
+  });
+  // Restore checked state from FILTER.series (in case it was set programmatically)
+  if (FILTER.series instanceof Set) {
+    document.querySelectorAll('#seriesList input[type="checkbox"]').forEach(cb => {
+      cb.checked = FILTER.series.has(cb.value);
+    });
+  }
+  refreshSeriesBtnLabel();
+
+  // Reset
+  document.getElementById('resetFilter').addEventListener('click', () => {
+    FILTER = { series: 'all', status: 'all' };
+    ANOM_MODE = 'series';
+    document.querySelectorAll('#seriesList input[type="checkbox"]').forEach(cb => cb.checked = false);
+    document.getElementById('seriesSearch').value = '';
+    document.querySelectorAll('#seriesList .ms-item').forEach(it => it.style.display = '');
+    document.getElementById('globalStatus').value = 'all';
+    document.querySelector('input[name="anomMode"][value="series"]').checked = true;
+    applyFilter();
+  });
+
+  // Wire — export
+  document.getElementById('exportBtn').addEventListener('click', exportCsv);
+
+  // Inject per-card fullscreen + minimize controls
+  addCardControls();
+
+  // Touch-friendly bindings (anomaly chip tap-to-reveal)
+  bindMobileTaps();
+
+  // Wire — AI insights
+  document.getElementById('insightsBtn')?.addEventListener('click', () => loadInsights(false));
+  // Auto-load on revisit only if the user has previously generated insights on this device
+  if (localStorage.getItem(INSIGHTS_SEEN_KEY) && localStorage.getItem(SYNC_KEY)) {
+    setTimeout(() => loadInsights(false), 300);
+  }
+
+  // Wire — anomaly banner "View" jump
+  document.addEventListener('click', e => {
+    if (e.target.matches('[data-jump="anomPanel"]')) {
+      document.getElementById('anomCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    if (e.target.matches('[data-jump="emiTrap"]')) {
+      document.getElementById('emiTrapCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, { once: true });
+}
+
+function kpi(label, value, sub, tone){
+  return `<div class="kpi ${tone||''}">
+    <div class="lbl">${label}</div>
+    <div class="val">${value}</div>
+    <div class="sub">${sub||''}</div>
+  </div>`;
+}
+
+function renderPnlBars(t){
+  const max = t.billing;
+  const items = [
+    { name: 'Billing (Revenue)', val: t.billing, color: 'var(--gold)' },
+    { name: 'Operating Expense', val: t.totalExpense, color: 'var(--coral)' },
+    { name: 'Operating Profit', val: t.operatingProfit, color: '#22C55E' },
+    { name: 'EMI + Paper', val: t.emi + t.paper, color: '#F59E0B' },
+    { name: 'Net Earnings', val: Math.abs(t.netEarnings), color: t.netEarnings >= 0 ? '#22C55E' : '#EF4444', neg: t.netEarnings < 0 },
+  ];
+  return `<div class="pnl-bars">${items.map(i => `
+    <div class="pnl-bar">
+      <div class="row">
+        <span class="name">${i.name}</span>
+        <span class="amt" style="color:${i.color}">${i.neg ? '-' : ''}${fmtINR(i.val,{compact:true})}</span>
+      </div>
+      <div class="track"><div class="fill" style="width:${Math.min(100,(i.val/max)*100)}%;background:${i.color}"></div></div>
+    </div>`).join('')}</div>`;
+}
+
+// =========================
+// CHARTS
+// =========================
+let rankChart, expChart, distChart, seriesChart, scatterChart;
+let quadrantChart, opRatioChart, paretoChart;
+let sortState = { key: 'netEarnings', dir: 'desc' };
+let currentRankMode = 'top';
+function safe(fn, name){
+  try { fn(); }
+  catch (e) {
+    console.error(`Chart "${name}" failed:`, e);
+    const el = document.getElementById(name);
+    if (el && el.parentElement) {
+      el.parentElement.innerHTML = `<div style="color:#EF4444;font-size:12px;padding:20px;text-align:center">Chart error: ${e.message}</div>`;
+    }
+  }
+}
+
+function buildRankChart(mode){
+  const sorted = [...VIEW.trucks].filter(t => t.trips > 0).sort((a, b) => b.netEarnings - a.netEarnings);
+  const slice = mode === 'top' ? sorted.slice(0, 15) : sorted.slice(-15).reverse();
+  const labels = slice.map(t => t.vehicle);
+  const data = slice.map(t => t.netEarnings);
+  const ctx = document.getElementById('rankChart').getContext('2d');
+  if (rankChart) rankChart.destroy();
+  rankChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Net Earnings',
+        data,
+        backgroundColor: data.map(v => v >= 0 ? 'rgba(34,197,94,0.85)' : 'rgba(239,68,68,0.85)'),
+        borderRadius: 6,
+        borderSkipped: false,
+      }],
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => fmtINR(c.parsed.x) } },
+      },
+      scales: {
+        x: { ticks: { callback: v => fmtINR(v,{compact:true}) }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { grid: { display: false }, ticks: { font: { family: "'JetBrains Mono'", size: 11 } } },
+      },
+      onClick: (e, els) => { if (els.length) openModal(slice[els[0].index].vehicle); },
+    },
+  });
+}
+
+function buildExpenseChart(){
+  const eb = VIEW.expenseBreakdown;
+  const colors = ['#E94560','#F5C518','#22C55E','#3B82F6','#A855F7','#F97316','#06B6D4','#EC4899','#84CC16','#94A3B8'];
+  const ctx = document.getElementById('expChart').getContext('2d');
+  if (expChart) expChart.destroy();
+  expChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: eb.map(e => e.name),
+      datasets: [{ data: eb.map(e => e.value), backgroundColor: colors.slice(0, eb.length), borderColor: '#13203A', borderWidth: 3 }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '62%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => `${c.label}: ${fmtINR(c.parsed)} (${(c.parsed/eb.reduce((s,e)=>s+e.value,0)*100).toFixed(1)}%)` } },
+      },
+    },
+  });
+  document.getElementById('expLegend').innerHTML = eb.map((e, i) => {
+    const pct = (e.value / eb.reduce((s, x) => s + x.value, 0) * 100).toFixed(1);
+    return `<span class="dot" style="--c:${colors[i]}">${e.name} <b style="color:#fff;margin-left:4px">${pct}%</b></span>`;
+  }).join('');
+}
+
+function buildDistChart(){
+  const bands = [
+    { name: '< -50K', min: -Infinity, max: -50000, color: '#7F1D1D' },
+    { name: '-50K to -10K', min: -50000, max: -10000, color: '#DC2626' },
+    { name: '-10K to 0', min: -10000, max: 0, color: '#F87171' },
+    { name: '0 to 10K', min: 0, max: 10000, color: '#FCD34D' },
+    { name: '10K to 50K', min: 10000, max: 50000, color: '#A3E635' },
+    { name: '50K to 100K', min: 50000, max: 100000, color: '#22C55E' },
+    { name: '> 100K', min: 100000, max: Infinity, color: '#15803D' },
+  ];
+  const counts = bands.map(b => VIEW.trucks.filter(t => t.netEarnings >= b.min && t.netEarnings < b.max).length);
+  const ctx = document.getElementById('distChart').getContext('2d');
+  if (distChart) distChart.destroy();
+  distChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: bands.map(b => b.name),
+      datasets: [{ data: counts, backgroundColor: bands.map(b => b.color), borderRadius: 6 }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.parsed.y} trucks` } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { precision: 0 } },
+      },
+    },
+  });
+}
+
+function buildSeriesChart(){
+  const s = VIEW.seriesBreakdown.filter(x => x.count >= 2).slice(0, 12);
+  const ctx = document.getElementById('seriesChart').getContext('2d');
+  if (seriesChart) seriesChart.destroy();
+  seriesChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: s.map(x => x.series),
+      datasets: [{
+        data: s.map(x => x.netEarnings),
+        backgroundColor: s.map(x => x.netEarnings >= 0 ? 'rgba(245,197,24,0.85)' : 'rgba(239,68,68,0.85)'),
+        borderRadius: 6,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => {
+          const x = s[c.dataIndex];
+          return [`Series ${x.series}: ${fmtINR(x.netEarnings)}`, `${x.count} trucks · ${x.trips} trips`];
+        } } },
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { callback: v => fmtINR(v,{compact:true}) } },
+      },
+    },
+  });
+}
+
+function buildScatterChart(){
+  // X = expense, Y = revenue: this way the diagonal y=x is break-even, points ABOVE are profitable.
+  const points = VIEW.trucks.filter(t => t.trips > 0).map(t => ({ x: t.totalExpense, y: t.billing, v: t.vehicle, net: t.netEarnings }));
+  const ctx = document.getElementById('scatterChart').getContext('2d');
+  if (scatterChart) scatterChart.destroy();
+  scatterChart = new Chart(ctx, {
+    type: 'scatter',
+    data: {
+      datasets: [{
+        data: points,
+        backgroundColor: points.map(p => p.net >= 0 ? 'rgba(34,197,94,0.55)' : 'rgba(239,68,68,0.55)'),
+        borderColor: points.map(p => p.net >= 0 ? '#22C55E' : '#EF4444'),
+        pointRadius: 4, pointHoverRadius: 7,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => {
+          const p = c.raw;
+          return [p.v, `Exp: ${fmtINR(p.x,{compact:true})}`, `Bill: ${fmtINR(p.y,{compact:true})}`, `Net: ${fmtINR(p.net,{compact:true})}`];
+        } } },
+      },
+      scales: {
+        x: { title: { display: true, text: 'Expense', color: '#9AA7BD' }, ticks: { callback: v => fmtINR(v,{compact:true}) }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { title: { display: true, text: 'Billing', color: '#9AA7BD' }, ticks: { callback: v => fmtINR(v,{compact:true}) }, grid: { color: 'rgba(255,255,255,0.04)' } },
+      },
+      onClick: (e, els) => { if (els.length) openModal(points[els[0].index].v); },
+    },
+  });
+}
+
+// =========================
+// ANOMALY UI
+// =========================
+function ruleNote(r){
+  if (r.rule === 'EMI_TRAP' || r.rule === 'IDLE_BLEED') return r.note || '';
+  const isPct = (r.rule === 'OP_MARGIN_LOW');
+  const isRatio = (r.rule === 'FUEL_SHARE_HIGH' || r.rule === 'DRIVER_PAYOUT_HIGH');
+  const fmtV = v => isPct ? `${v.toFixed(1)}%`
+                    : isRatio ? `${(v*100).toFixed(1)}%`
+                    : (r.rule === 'RPL_LOW' ? `₹${v.toFixed(1)}/L`
+                    : fmtINR(v, {compact:true}));
+  const side = (r.threshold !== undefined && r.value < r.threshold) ? 'below' : 'above';
+  return `Cohort Q1=${fmtV(r.q1)}, Q3=${fmtV(r.q3)} → cutoff ${fmtV(r.threshold)}; truck ${side} at ${fmtV(r.value)}.`;
+}
+
+function renderAnomalyBanner(){
+  if (!VIEW || !VIEW.anomalies || VIEW.anomalies.length === 0) return '';
+  const high = VIEW.anomalies.filter(a => a.severity === 'high').length;
+  const tone = high > 0 ? 'high' : 'med';
+  const modeLabel = ANOM_MODE === 'series' ? 'per-series' : 'fleet-wide';
+  return `<div class="anom-banner ${tone}">
+    <div class="ab-icon">${tone === 'high' ? '⚠' : '•'}</div>
+    <div class="ab-text">
+      <b>${VIEW.anomalies.length} truck${VIEW.anomalies.length === 1 ? '' : 's'} flagged</b>
+      <span class="ab-sub">${high} high severity · cohort: ${modeLabel}</span>
+    </div>
+    <button class="btn" data-jump="anomPanel" type="button">View</button>
+  </div>`;
+}
+
+function renderAnomalyPanel(){
+  if (!VIEW || !VIEW.anomalies || VIEW.anomalies.length === 0) {
+    return `<div style="padding:20px;color:var(--muted);font-size:13px">No anomalies detected in the current view.</div>`;
+  }
+  const rows = VIEW.anomalies.map(a => {
+    const chips = a.rules.map(r => {
+      const note = ruleNote(r).replace(/"/g,'&quot;');
+      return `<span class="anom-chip sev-${r.severity}" title="${note}" data-note="${note}">${r.label}</span>`;
+    }).join('');
+    return `<tr data-v="${a.vehicle}" class="anom-row sev-${a.severity}">
+      <td><span class="sev-strip sev-${a.severity}"></span></td>
+      <td><div class="veh-cell">${a.vehicle}</div></td>
+      <td><span class="pill-series">${a.series || '—'}</span></td>
+      <td class="anom-chips">${chips}</td>
+    </tr>`;
+  }).join('');
+  return `<div class="table-scroll" style="max-height:420px;overflow:auto">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:32px"></th>
+          <th>Vehicle</th>
+          <th>Series</th>
+          <th>Flags</th>
+        </tr>
+      </thead>
+      <tbody id="anomTbody">${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+// Delegate clicks for anomaly rows / EMI rows
+document.addEventListener('click', e => {
+  const row = e.target.closest('tr[data-v]');
+  if (row && row.closest('#anomPanel, #emiTrapBody')) {
+    openModal(row.dataset.v);
+  }
+});
+
+// =========================
+// ANALYTICS — EMI-Trap Watchlist
+// =========================
+function renderEmiTrapPanel(){
+  const list = VIEW.trucks
+    .filter(t => t.trips > 0 && t.emi > t.operatingProfit)
+    .map(t => ({ ...t, gap: t.emi - t.operatingProfit }))
+    .sort((a, b) => b.gap - a.gap);
+
+  if (!list.length) {
+    return `<div style="padding:20px;color:var(--muted);font-size:13px">No EMI-trapped trucks in the current view. 🎉</div>`;
+  }
+
+  const totalBleed = list.reduce((s, t) => s + t.gap, 0);
+
+  const rows = list.slice(0, 25).map(t => {
+    const rec = t.operatingProfit > 0
+      ? `<span class="anom-chip sev-med">Reassess EMI</span>`
+      : `<span class="anom-chip sev-high">Refinance / sell</span>`;
+    return `<tr data-v="${t.vehicle}">
+      <td><div class="veh-cell">${t.vehicle}</div></td>
+      <td><span class="pill-series">${t.series || '—'}</span></td>
+      <td>${t.trips}</td>
+      <td class="${cls(t.operatingProfit)}">${fmtINR(t.operatingProfit, {compact:true})}</td>
+      <td>${fmtINR(t.emi, {compact:true})}</td>
+      <td class="num-neg">${fmtINR(-t.gap, {compact:true})}</td>
+      <td>${rec}</td>
+    </tr>`;
+  }).join('');
+
+  const more = list.length > 25 ? `<div class="desc" style="padding:10px 14px">…and ${list.length - 25} more.</div>` : '';
+
+  return `<div class="emi-head">
+    <div><div class="lbl">Total monthly bleed</div><div class="val num-neg">${fmtINR(-totalBleed)}</div></div>
+    <div><div class="lbl">Trucks trapped</div><div class="val">${list.length}</div></div>
+    <div><div class="lbl">Avg gap / truck</div><div class="val num-neg">${fmtINR(-(totalBleed / list.length), {compact:true})}</div></div>
+  </div>
+  <div class="table-scroll" style="max-height:420px;overflow:auto">
+    <table>
+      <thead><tr>
+        <th>Vehicle</th>
+        <th>Series</th>
+        <th>Trips</th>
+        <th>Op Profit</th>
+        <th>EMI</th>
+        <th>Gap</th>
+        <th>Action</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>${more}`;
+}
+
+// =========================
+// ANALYTICS — Productivity Quadrant
+// =========================
+function median(arr){
+  if (!arr.length) return 0;
+  const xs = [...arr].sort((a,b) => a-b);
+  const m = Math.floor(xs.length/2);
+  return xs.length % 2 === 0 ? (xs[m-1] + xs[m]) / 2 : xs[m];
+}
+function buildQuadrantChart(){
+  if (quadrantChart) { quadrantChart.destroy(); quadrantChart = null; }
+  const active = VIEW.trucks.filter(t => t.trips > 0);
+  if (!active.length) { return; }
+  const trips = active.map(t => t.trips);
+  const rpts = active.map(t => t.revPerTrip);
+  const medTrips = median(trips);
+  const medRpt = median(rpts);
+  const maxBill = Math.max(...active.map(t => t.billing), 1);
+  const points = active.map(t => ({
+    x: t.trips,
+    y: t.revPerTrip,
+    v: t.vehicle,
+    net: t.netEarnings,
+    r: 4 + Math.sqrt(t.billing / maxBill) * 10,
+  }));
+
+  const ctx = document.getElementById('quadrantChart').getContext('2d');
+  quadrantChart = new Chart(ctx, {
+    type: 'scatter',
+    data: {
+      datasets: [{
+        data: points,
+        backgroundColor: points.map(p => p.net >= 0 ? 'rgba(34,197,94,0.55)' : 'rgba(239,68,68,0.55)'),
+        borderColor: points.map(p => p.net >= 0 ? '#22C55E' : '#EF4444'),
+        pointRadius: points.map(p => p.r),
+        pointHoverRadius: points.map(p => p.r + 3),
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => {
+          const p = c.raw;
+          return [p.v, `Trips: ${p.x}`, `Rev/Trip: ${fmtINR(p.y,{compact:true})}`, `Net: ${fmtINR(p.net,{compact:true})}`];
+        } } },
+        annotation: undefined,
+      },
+      scales: {
+        x: { title: { display: true, text: 'Trips' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { title: { display: true, text: 'Rev / Trip' }, ticks: { callback: v => fmtINR(v,{compact:true}) }, grid: { color: 'rgba(255,255,255,0.04)' } },
+      },
+      onClick: (e, els) => { if (els.length) openModal(points[els[0].index].v); },
+    },
+    plugins: [{
+      id: 'medianLines',
+      afterDraw(chart) {
+        const { ctx, chartArea: { left, right, top, bottom }, scales: { x: xs, y: ys } } = chart;
+        const xPx = xs.getPixelForValue(medTrips);
+        const yPx = ys.getPixelForValue(medRpt);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(245,197,24,0.35)';
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(xPx, top); ctx.lineTo(xPx, bottom); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(left, yPx); ctx.lineTo(right, yPx); ctx.stroke();
+        ctx.restore();
+      },
+    }],
+  });
+}
+
+// =========================
+// ANALYTICS — Operating Ratio histogram
+// =========================
+function buildOpRatioChart(){
+  const active = VIEW.trucks.filter(t => t.billing > 0);
+  const ratios = active.map(t => (t.totalExpense / t.billing) * 100);
+  const bands = [
+    { name: '<85',     min: -Infinity, max: 85,  color: '#15803D' },
+    { name: '85–90',   min: 85,       max: 90,   color: '#22C55E' },
+    { name: '90–95',   min: 90,       max: 95,   color: '#FCD34D' },
+    { name: '95–100',  min: 95,       max: 100,  color: '#F59E0B' },
+    { name: '>100',    min: 100,      max: Infinity, color: '#EF4444' },
+  ];
+  const counts = bands.map(b => ratios.filter(r => r >= b.min && r < b.max).length);
+  const overhundred = ratios.filter(r => r >= 100).length;
+
+  const ctx = document.getElementById('opRatioChart').getContext('2d');
+  if (opRatioChart) opRatioChart.destroy();
+  opRatioChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: bands.map(b => b.name + '%'),
+      datasets: [{ data: counts, backgroundColor: bands.map(b => b.color), borderRadius: 6 }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => `${c.parsed.y} trucks` } },
+      },
+      scales: {
+        x: { grid: { display: false }, title: { display: true, text: 'Operating Ratio' } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { precision: 0 }, title: { display: true, text: 'Trucks' } },
+      },
+    },
+    plugins: [{
+      id: 'benchmark',
+      afterDraw(chart) {
+        const { ctx, chartArea: { left, right, top, bottom }, scales: { x } } = chart;
+        // 94% sits between "90–95" (index 2) and "95–100" (index 3).
+        // Approximate: place line at (idx 2's center + 0.8 * bar width)
+        const x2 = x.getPixelForValue(2);
+        const x3 = x.getPixelForValue(3);
+        const xPx = x2 + (x3 - x2) * 0.8; // ~94% within 90–95 band
+        ctx.save();
+        ctx.strokeStyle = 'rgba(245,197,24,0.7)';
+        ctx.setLineDash([5, 4]);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(xPx, top); ctx.lineTo(xPx, bottom); ctx.stroke();
+        ctx.fillStyle = 'rgba(245,197,24,0.9)';
+        ctx.font = "11px 'JetBrains Mono'";
+        ctx.fillText('94% benchmark', xPx + 6, top + 14);
+        ctx.restore();
+      },
+    }],
+  });
+
+  const cap = document.getElementById('opRatioCaption');
+  if (cap) cap.innerHTML = `<b style="color:${overhundred ? 'var(--coral)' : 'var(--good)'}">${overhundred}</b> truck${overhundred === 1 ? '' : 's'} with operating ratio &gt; 100% — losing money on operations before EMI is even considered.`;
+}
+
+// =========================
+// ANALYTICS — Profit Concentration curve (Pareto-style, INR axis so it works for any sign)
+// =========================
+function buildParetoChart(){
+  if (paretoChart) { paretoChart.destroy(); paretoChart = null; }
+  const sorted = [...VIEW.trucks].sort((a,b) => b.netEarnings - a.netEarnings);
+  if (!sorted.length) return;
+
+  const N = sorted.length;
+  let cum = 0;
+  let peakValue = -Infinity, peakIdx = 0;
+  const data = sorted.map((t, i) => {
+    cum += t.netEarnings;
+    if (cum > peakValue) { peakValue = cum; peakIdx = i; }
+    return { x: ((i + 1) / N) * 100, y: cum };
+  });
+  const finalNet = data[data.length - 1].y;
+  const peakPctFleet = ((peakIdx + 1) / N) * 100;
+
+  const ctx = document.getElementById('paretoChart').getContext('2d');
+  paretoChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [{
+        label: 'Cumulative Net',
+        data,
+        borderColor: '#F5C518',
+        backgroundColor: 'rgba(245,197,24,0.12)',
+        fill: true,
+        pointRadius: 0,
+        tension: 0.1,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      parsing: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => `${c.parsed.x.toFixed(0)}% of fleet · cumulative ${fmtINR(c.parsed.y,{compact:true})}` } },
+      },
+      scales: {
+        x: { type: 'linear', min: 0, max: 100, title: { display: true, text: '% of fleet (sorted desc by net)' }, ticks: { callback: v => `${v}%` }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { title: { display: true, text: 'Cumulative net' }, ticks: { callback: v => fmtINR(v,{compact:true}) }, grid: { color: 'rgba(255,255,255,0.04)' } },
+      },
+    },
+    plugins: [{
+      id: 'peakMarker',
+      afterDraw(chart) {
+        const { ctx, chartArea, scales: { x, y } } = chart;
+        const xp = x.getPixelForValue(peakPctFleet);
+        const yp = y.getPixelForValue(peakValue);
+        // Peak crosshair
+        ctx.save();
+        ctx.strokeStyle = 'rgba(233,69,96,0.6)';
+        ctx.setLineDash([4,4]);
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(xp, chartArea.top); ctx.lineTo(xp, yp); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(chartArea.left, yp); ctx.lineTo(xp, yp); ctx.stroke();
+        ctx.fillStyle = '#E94560';
+        ctx.beginPath(); ctx.arc(xp, yp, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = "11px 'JetBrains Mono'";
+        const label = `peak ${fmtINR(peakValue,{compact:true})} @ ${peakPctFleet.toFixed(0)}%`;
+        ctx.fillText(label, xp + 8, yp - 8);
+        // Final-net horizontal reference line
+        const fy = y.getPixelForValue(finalNet);
+        ctx.strokeStyle = 'rgba(154,167,189,0.4)';
+        ctx.setLineDash([2,4]);
+        ctx.beginPath(); ctx.moveTo(chartArea.left, fy); ctx.lineTo(chartArea.right, fy); ctx.stroke();
+        ctx.restore();
+      },
+    }],
+  });
+
+  const cap = document.getElementById('paretoCaption');
+  if (cap) {
+    const drag = peakValue - finalNet;
+    cap.innerHTML = drag > 0
+      ? `Top <b style="color:var(--gold)">${peakPctFleet.toFixed(0)}%</b> of trucks accumulate <b style="color:var(--good)">${fmtINR(peakValue,{compact:true})}</b> in net — losses lower down drag the fleet down by <b style="color:var(--coral)">${fmtINR(drag,{compact:true})}</b> to a final <b>${fmtINR(finalNet,{compact:true})}</b>.`
+      : `Cumulative net is monotonically rising — no offsetting losses in this view. Final fleet net: <b>${fmtINR(finalNet,{compact:true})}</b>.`;
+  }
+}
+
+// =========================
+// ANALYTICS — Series Health Matrix
+// =========================
+function renderSeriesMatrix(){
+  if (!VIEW.trucks.length) {
+    return `<div style="padding:20px;color:var(--muted);font-size:13px">No series in current view.</div>`;
+  }
+  const flaggedSet = new Set(VIEW.anomalies.map(a => a.vehicle));
+  const groups = {};
+  for (const t of VIEW.trucks) {
+    const s = t.series || 'OTHER';
+    if (!groups[s]) groups[s] = [];
+    groups[s].push(t);
+  }
+  const rows = Object.keys(groups).map(s => {
+    const list = groups[s];
+    const billing = list.reduce((a,t) => a + t.billing, 0);
+    const avgMargin = list.length ? list.reduce((a,t) => a + t.profitMargin, 0) / list.length : 0;
+    const profitable = list.filter(t => t.netEarnings > 0).length;
+    const pctProfit = list.length ? (profitable / list.length) * 100 : 0;
+    const rplActive = list.filter(t => t.dieselQty > 0);
+    const avgRpl = rplActive.length ? rplActive.reduce((a,t) => a + t.rpl, 0) / rplActive.length : 0;
+    const avgTrips = list.length ? list.reduce((a,t) => a + t.trips, 0) / list.length : 0;
+    const anomCount = list.filter(t => flaggedSet.has(t.vehicle)).length;
+    return {
+      series: s, count: list.length, billing, avgMargin, pctProfit, avgRpl, avgTrips, anomCount,
+    };
+  }).sort((a,b) => b.billing - a.billing);
+
+  return `<div class="table-scroll" style="max-height:420px;overflow:auto">
+    <table>
+      <thead><tr>
+        <th>Series</th>
+        <th>Trucks</th>
+        <th>Billing</th>
+        <th>Avg Margin</th>
+        <th>% Profitable</th>
+        <th>Avg RPL</th>
+        <th>Avg Trips</th>
+        <th>Anomalies</th>
+      </tr></thead>
+      <tbody>${rows.map(r => `
+        <tr>
+          <td><span class="pill-series">${r.series}</span></td>
+          <td>${r.count}</td>
+          <td>${fmtINR(r.billing, {compact:true})}</td>
+          <td class="${cls(r.avgMargin)}">${fmtPct(r.avgMargin)}</td>
+          <td class="${r.pctProfit >= 50 ? 'num-pos' : 'num-neg'}">${r.pctProfit.toFixed(0)}%</td>
+          <td>${r.avgRpl ? `₹${r.avgRpl.toFixed(0)}/L` : '—'}</td>
+          <td>${r.avgTrips.toFixed(1)}</td>
+          <td class="${r.anomCount ? 'num-neg' : 'num-zero'}">${r.anomCount}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+// =========================
+// TABLE
+// =========================
+function setSort(key){
+  if (sortState.key === key) sortState.dir = sortState.dir === 'desc' ? 'asc' : 'desc';
+  else { sortState.key = key; sortState.dir = 'desc'; }
+  buildTable();
+}
+function buildTable(){
+  const tbody = document.getElementById('tbody');
+  if (!tbody) return;
+  const q = (document.getElementById('searchInput')?.value || '').trim().toUpperCase();
+  let list = VIEW.trucks.slice();
+  if (q) list = list.filter(t => t.vehicle.includes(q));
+
+  list.sort((a, b) => {
+    const va = a[sortState.key] ?? 0;
+    const vb = b[sortState.key] ?? 0;
+    return sortState.dir === 'desc' ? vb - va : va - vb;
+  });
+
+  document.querySelectorAll('th.sortable').forEach(th => {
+    th.classList.toggle('active', th.dataset.sort === sortState.key);
+    const arrow = th.querySelector('.arrow');
+    if (arrow) arrow.textContent = th.dataset.sort === sortState.key ? (sortState.dir === 'desc' ? '↓' : '↑') : '↕';
+  });
+
+  // Build a quick lookup of flagged vehicles → rule labels for the badge tooltip
+  const flagged = new Map();
+  for (const a of VIEW.anomalies) {
+    flagged.set(a.vehicle, { severity: a.severity, labels: a.rules.map(r => r.label) });
+  }
+
+  const maxAbsNet = Math.max(...list.map(t => Math.abs(t.netEarnings)), 1);
+  tbody.innerHTML = list.map((t, idx) => {
+    const rank = idx + 1;
+    const chip = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
+    const w = (Math.abs(t.netEarnings) / maxAbsNet) * 100;
+    const c = t.netEarnings >= 0 ? '#22C55E' : '#EF4444';
+    const f = flagged.get(t.vehicle);
+    const flagClass = f ? (f.severity === 'high' ? ' flagged flagged-high' : ' flagged flagged-med') : '';
+    const flagTitle = f ? ` title="Flagged: ${f.labels.join(', ').replace(/"/g, '&quot;')}"` : '';
+    return `<tr data-v="${t.vehicle}" class="${flagClass.trim()}"${flagTitle}>
+      <td><span class="rank-chip ${chip}">${rank}</span></td>
+      <td><div class="veh-cell">${t.vehicle}</div></td>
+      <td><span class="pill-series">${t.series || '—'}</span></td>
+      <td>${t.trips || 0}</td>
+      <td>${fmtINR(t.billing,{compact:true})}</td>
+      <td>${fmtINR(t.totalExpense,{compact:true})}</td>
+      <td class="${cls(t.operatingProfit)}">${fmtINR(t.operatingProfit,{compact:true})}</td>
+      <td>${fmtINR(t.emi,{compact:true})}</td>
+      <td class="bar-cell ${cls(t.netEarnings)}" style="--w:${w}%;--c:${c}">${fmtINR(t.netEarnings,{compact:true})}<div class="b"></div></td>
+      <td class="${cls(t.profitMargin)}">${fmtPct(t.profitMargin)}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--muted)">No trucks match this filter.</td></tr>`;
+
+  tbody.querySelectorAll('tr').forEach(tr => {
+    const v = tr.dataset.v;
+    if (v) tr.addEventListener('click', () => openModal(v));
+  });
+}
+
+// =========================
+// DRILL DOWN
+// =========================
+function openModal(vehicle){
+  const t = trucks.find(x => x.vehicle === vehicle);
+  if (!t) return;
+  document.getElementById('m-vehicle').textContent = t.vehicle;
+  document.getElementById('m-meta').textContent = `Series ${t.series || '—'} · ${t.trips} trips in ${DATA.meta.period}`;
+  const expRows = [
+    ['Diesel', t.diesel],['Driver A/C', t.driverAc],['Fastag', t.fastag],['Tyre', t.tyre],
+    ['Cash', t.cash],['Phone Pay', t.phonePay],['Urea', t.urea],['RTO', t.rto],
+    ['EMI', t.emi],['Paper', t.paper],
+  ].filter(r => r[1] > 0);
+  const denom = t.billing > 0 ? t.billing : 0;
+
+  document.getElementById('m-body').innerHTML = `
+    <div class="kv-grid">
+      <div class="kv"><div class="l">Billing</div><div class="v" style="color:var(--gold)">${fmtINR(t.billing)}</div></div>
+      <div class="kv"><div class="l">Operating Expense</div><div class="v" style="color:var(--coral)">${fmtINR(t.totalExpense)}</div></div>
+      <div class="kv"><div class="l">Operating Profit</div><div class="v" style="color:${t.operatingProfit>=0?'#22C55E':'#EF4444'}">${fmtINR(t.operatingProfit)}</div></div>
+      <div class="kv"><div class="l">EMI</div><div class="v">${fmtINR(t.emi)}</div></div>
+      <div class="kv"><div class="l">Paper</div><div class="v">${fmtINR(t.paper)}</div></div>
+      <div class="kv"><div class="l">Net Earnings</div><div class="v" style="color:${t.netEarnings>=0?'#22C55E':'#EF4444'}">${fmtINR(t.netEarnings)}</div></div>
+      <div class="kv"><div class="l">Trips</div><div class="v">${t.trips}</div></div>
+      <div class="kv"><div class="l">Rev / Trip</div><div class="v">${fmtINR(t.revPerTrip)}</div></div>
+      <div class="kv"><div class="l">Op Margin</div><div class="v" style="color:${t.opMargin>=0?'#22C55E':'#EF4444'}">${fmtPct(t.opMargin)}</div></div>
+      <div class="kv"><div class="l">Net Margin</div><div class="v" style="color:${t.profitMargin>=0?'#22C55E':'#EF4444'}">${fmtPct(t.profitMargin)}</div></div>
+      <div class="kv"><div class="l">Diesel Qty</div><div class="v">${fmtNum(t.dieselQty)} L</div></div>
+      <div class="kv"><div class="l">RPL · RPD</div><div class="v">${fmtINR(t.rpl)} · ${fmtINR(t.rpd)}</div></div>
+    </div>
+    <div class="modal-section">
+      <h4>Expenses <span style="color:var(--muted);font-weight:600;letter-spacing:0;text-transform:none;margin-left:8px;font-size:11px">% of billing</span></h4>
+      ${expRows.length === 0 ? '<div style="color:var(--muted);font-size:13px">No expenses recorded.</div>' :
+        expRows.sort((a, b) => b[1] - a[1]).map(([n, v]) => {
+          const pct = denom > 0 ? (v / denom * 100) : 0;
+          const tone = pct >= 20 ? 'var(--coral)' : pct >= 10 ? 'var(--gold)' : 'var(--muted-2)';
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-family:'JetBrains Mono';font-size:13px">
+            <span style="color:var(--muted)">${n}</span>
+            <span>${fmtINR(v)} <span style="color:${tone};margin-left:8px;font-weight:700">${denom > 0 ? pct.toFixed(1) + '%' : '—'}</span></span>
+          </div>`;
+        }).join('')}
+    </div>
+    ${renderTripList(t)}
+  `;
+  document.getElementById('modal').classList.add('open');
+  // Activate trip-table scroll fade (also runs on resize/orient change)
+  initTripScrollFade(document.getElementById('modal'));
+}
+
+function renderTripList(t){
+  const trips = Array.isArray(t.tripList) ? t.tripList : [];
+  const diag = DATA && DATA.meta && DATA.meta.dispatch;
+  if (!trips.length) {
+    let why = 'No trip records on the Dispatch sheet for this vehicle.';
+    if (diag && diag.ok === false) {
+      why = `Dispatch tab couldn't be read by the Apps Script (<b>${diag.reason}</b>). Verify <code style="color:var(--gold)">CONFIG.dispatchTab</code> matches the tab name and redeploy.`;
+    } else if (diag && diag.ok && diag.totalTrips === 0) {
+      why = `Dispatch tab loaded but produced <b>0 trips</b>. The vehicle-number column may be wrong (script picked column index <b>${diag.vehicleCol}</b>) or rows are being filtered out. Header sample: <code style="font-size:11px;color:var(--muted-2)">${(diag.headerSample || []).slice(0,5).join(' | ')}</code>`;
+    } else if (diag && diag.ok && diag.totalTrips > 0) {
+      why = `Dispatch loaded <b>${diag.totalTrips}</b> trips across <b>${diag.vehicleCount}</b> vehicles, but none matched <code style="color:var(--gold)">${t.vehicle}</code> exactly. Check for trailing spaces or casing differences in the Dispatch sheet.`;
+    } else if (t.trips > 0) {
+      why += ` (P&L shows <b>${t.trips}</b> trip${t.trips === 1 ? '' : 's'} for this truck — the Dispatch records may be in another period.)`;
+    }
+    return `<div class="modal-section" style="margin-top:24px">
+      <h4>Dispatch Trips</h4>
+      <div style="color:var(--muted);font-size:13px;line-height:1.6">${why}</div>
+    </div>`;
+  }
+  const totalFreight = trips.reduce((s, x) => s + (x.freight || 0), 0);
+  const totalKm = trips.reduce((s, x) => s + (x.totalKm || 0), 0);
+  const totalWeight = trips.reduce((s, x) => s + (x.loadingW || 0), 0);
+  const rows = trips.map(tr => {
+    const route = `${tr.from || '?'} → ${tr.to || '?'}`;
+    const status = tr.status ? `<span class="trip-status ${tr.status.toLowerCase().includes('close') ? 'closed' : 'open'}">${tr.status}</span>` : '—';
+    return `<tr>
+      <td>${tr.tripNo || '—'}</td>
+      <td>${tr.startDate || '—'}</td>
+      <td>${escapeHtml(route)}</td>
+      <td>${escapeHtml(tr.item || '—')}</td>
+      <td>${escapeHtml(tr.driver || '—')}</td>
+      <td>${tr.loadingW ? tr.loadingW.toFixed(2) + 'T' : '—'}</td>
+      <td>${tr.totalKm ? tr.totalKm.toLocaleString('en-IN') : '—'}</td>
+      <td>${tr.rate ? `₹${tr.rate}` : '—'}</td>
+      <td>${fmtINR(tr.freight, {compact:true})}</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join('');
+
+  return `<div class="modal-section" style="margin-top:24px">
+    <h4>Dispatch Trips <span style="color:var(--muted);font-weight:600;letter-spacing:0;text-transform:none;margin-left:8px;font-size:11px">${trips.length} record${trips.length === 1 ? '' : 's'}</span></h4>
+    <div class="trip-summary">
+      <div><div class="lbl">Total Freight</div><div class="val" style="color:var(--gold)">${fmtINR(totalFreight)}</div></div>
+      <div><div class="lbl">Total KM</div><div class="val">${totalKm.toLocaleString('en-IN')}</div></div>
+      <div><div class="lbl">Total Loaded</div><div class="val">${totalWeight.toFixed(1)} T</div></div>
+    </div>
+    <div class="trip-scroll">
+      <table class="trip-table">
+        <thead>
+          <tr>
+            <th>Trip #</th>
+            <th>Start</th>
+            <th>Route</th>
+            <th>Item</th>
+            <th>Driver</th>
+            <th>Load</th>
+            <th>KM</th>
+            <th>Rate</th>
+            <th>Freight</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function escapeHtml(s){
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+function closeModal(){ document.getElementById('modal').classList.remove('open'); }
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target.id === 'modal') closeModal();
+});
+window.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// =========================
+// EXPORT
+// =========================
+// =========================
+// CLOUD SYNC (Google Sheets via Apps Script)
+// =========================
+const SYNC_KEY = 'traq_pnl_sync_url';
+const SYNC_LAST_KEY = 'traq_pnl_last_sync';
+
+function openSync(){
+  document.getElementById('syncModal').classList.add('open');
+  document.getElementById('syncUrl').value = localStorage.getItem(SYNC_KEY) || '';
+  renderSyncStatus();
+}
+function closeSync(){ document.getElementById('syncModal').classList.remove('open'); }
+
+function renderSyncStatus(msg, tone){
+  const el = document.getElementById('syncStatus');
+  if (!el) return;
+  const saved = localStorage.getItem(SYNC_KEY);
+  const last = localStorage.getItem(SYNC_LAST_KEY);
+  const tones = {ok:'#22C55E', err:'#EF4444', warn:'#F59E0B', info:'#9AA7BD'};
+  if (msg) {
+    el.style.color = tones[tone] || tones.info;
+    el.innerHTML = msg;
+    return;
+  }
+  el.style.color = tones.info;
+  el.innerHTML = saved
+    ? `URL saved.<br/>Last sync: <b style="color:#fff">${last ? new Date(last).toLocaleString('en-IN') : 'never'}</b>`
+    : 'Not connected.';
+}
+
+async function syncPing(){
+  const url = document.getElementById('syncUrl').value.trim();
+  if (!url) { renderSyncStatus('Paste a URL first.', 'warn'); return; }
+  localStorage.setItem(SYNC_KEY, url);
+  renderSyncStatus('Pinging…', 'info');
+  try {
+    const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'action=ping');
+    const j = await r.json();
+    if (j.ok) renderSyncStatus(`✓ Connected. Server time: <b style="color:#fff">${new Date(j.ts).toLocaleString('en-IN')}</b>`, 'ok');
+    else renderSyncStatus(`Unexpected response: ${JSON.stringify(j)}`, 'err');
+  } catch (e) {
+    renderSyncStatus(`Ping failed: ${e.message}`, 'err');
+  }
+}
+
+async function syncFetch(){
+  const url = document.getElementById('syncUrl').value.trim();
+  if (!url) { renderSyncStatus('Paste a URL first.', 'warn'); return; }
+  localStorage.setItem(SYNC_KEY, url);
+  renderSyncStatus('Fetching live data…', 'info');
+  try {
+    const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'action=fetch');
+    const j = await r.json();
+    if (j.error) { renderSyncStatus(`Server error: ${j.error}`, 'err'); return; }
+    if (!j.trucks || !j.totals) { renderSyncStatus('Response missing trucks/totals.', 'err'); return; }
+    localStorage.setItem(SYNC_LAST_KEY, new Date().toISOString());
+    renderSyncStatus(`✓ Loaded <b style="color:#fff">${j.trucks.length}</b> trucks from <b style="color:#fff">${j.meta.sheet}</b>.`, 'ok');
+    init(j);  // resets FILTER, recomputes VIEW, sets Chart defaults, renders
+    setTimeout(closeSync, 900);
+  } catch (e) {
+    renderSyncStatus(`Fetch failed: ${e.message}`, 'err');
+  }
+}
+
+function syncClear(){
+  localStorage.removeItem(SYNC_KEY);
+  localStorage.removeItem(SYNC_LAST_KEY);
+  document.getElementById('syncUrl').value = '';
+  renderSyncStatus('Saved URL cleared.', 'info');
+  // Reset dashboard to the Connect prompt — no cached data should remain visible
+  DATA = null; trucks = []; VIEW = null;
+  const root = document.getElementById('root');
+  if (root) root.innerHTML = `<div class="loader" id="loader">Loading…</div>`;
+  showConnectPrompt();
+}
+
+function bindSyncUi(){
+  const sb = document.getElementById('syncBtn');
+  if (sb) sb.addEventListener('click', openSync);
+  document.getElementById('syncPingBtn')?.addEventListener('click', syncPing);
+  document.getElementById('syncFetchBtn')?.addEventListener('click', syncFetch);
+  document.getElementById('syncClearBtn')?.addEventListener('click', syncClear);
+  document.getElementById('syncModal').addEventListener('click', e => {
+    if (e.target.id === 'syncModal') closeSync();
+  });
+}
+
+// =========================
+// MOBILE / TOUCH — tap-to-reveal anomaly note + trip-scroll fade
+// =========================
+const IS_TOUCH = matchMedia('(hover: none)').matches;
+
+function bindMobileTaps(){
+  // Anomaly chips → toggle inline note on tap (touch only)
+  document.querySelectorAll('.anom-chip').forEach(chip => {
+    if (chip.dataset.tapBound) return;
+    chip.dataset.tapBound = '1';
+    chip.addEventListener('click', e => {
+      if (!IS_TOUCH) return;  // desktop keeps the title-tooltip behavior
+      e.stopPropagation();    // don't open the drill-down modal
+      const note = chip.dataset.note || '';
+      // Find or create the note element after the chip's parent (the cell)
+      let next = chip.nextElementSibling;
+      if (next && next.classList.contains('anom-chip-note') && next.dataset.for === chip.dataset.note) {
+        next.classList.toggle('open');
+      } else {
+        // Remove any other open notes in this row first
+        const row = chip.closest('tr');
+        row?.querySelectorAll('.anom-chip-note').forEach(n => n.remove());
+        const el = document.createElement('div');
+        el.className = 'anom-chip-note open';
+        el.dataset.for = chip.dataset.note;
+        el.textContent = note;
+        // Append inside the same chip cell so it flows nicely
+        chip.parentElement?.appendChild(el);
+      }
+    });
+  });
+}
+
+function initTripScrollFade(scope){
+  const sc = (scope || document).querySelectorAll('.trip-scroll');
+  sc.forEach(el => {
+    if (el.dataset.fadeBound) return;
+    el.dataset.fadeBound = '1';
+    const update = () => {
+      const overflowing = el.scrollWidth > el.clientWidth + 1;
+      el.classList.toggle('has-overflow', overflowing);
+      if (overflowing) {
+        const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 2;
+        el.classList.toggle('scrolled-end', atEnd);
+      } else {
+        el.classList.remove('scrolled-end');
+      }
+    };
+    el.addEventListener('scroll', update, { passive: true });
+    // Re-check on resize too (rotation, fullscreen toggle, etc.)
+    if (!window._tripFadeResize) {
+      window._tripFadeResize = () => document.querySelectorAll('.trip-scroll').forEach(e => {
+        const ev = new Event('scroll');
+        e.dispatchEvent(ev);
+      });
+      window.addEventListener('resize', window._tripFadeResize, { passive: true });
+    }
+    // Initial paint — defer one frame so layout is final
+    requestAnimationFrame(update);
+  });
+}
+
+// =========================
+// AI INSIGHTS
+// =========================
+const INSIGHTS_SEEN_KEY = 'traq_pnl_insights_seen';
+
+async function loadInsights(force = false){
+  const url = localStorage.getItem(SYNC_KEY);
+  const body = document.getElementById('insightsBody');
+  const meta = document.getElementById('insightsMeta');
+  const btn  = document.getElementById('insightsBtn');
+  if (!body) return;
+  if (!url) {
+    body.innerHTML = `<div class="insights-error">No Cloud Sync URL saved. Open <b>☁ Cloud Sync</b> in the top bar, paste your Apps Script /exec URL, then come back.</div>`;
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = force ? 'Refreshing…' : 'Loading…'; }
+  body.innerHTML = `<div class="insights-loading">Asking Claude for today's insights…</div>`;
+  if (meta) meta.innerHTML = '';
+  try {
+    const sep = url.includes('?') ? '&' : '?';
+    const r = await fetch(`${url}${sep}action=insights${force ? '&force=1' : ''}`);
+    const j = await r.json();
+    if (j.error) {
+      body.innerHTML = `<div class="insights-error">Server error: ${escapeHtml(j.error)}<br/><br/><a data-act="retry">Try again</a> · <a data-act="force">Force refresh</a></div>`;
+      return;
+    }
+    if (!j.insights || !Array.isArray(j.insights) || j.insights.length === 0) {
+      body.innerHTML = `<div class="insights-error">Empty insights response. <a data-act="force">Force refresh</a></div>`;
+      return;
+    }
+    renderInsightCards(j.insights);
+    renderInsightsMeta(j);
+    localStorage.setItem(INSIGHTS_SEEN_KEY, '1');
+  } catch (e) {
+    body.innerHTML = `<div class="insights-error">Fetch failed: ${escapeHtml(e.message)}<br/><br/><a data-act="retry">Try again</a></div>`;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Regenerate'; }
+  }
+}
+
+function renderInsightCards(insights){
+  const body = document.getElementById('insightsBody');
+  if (!body) return;
+  body.innerHTML = `<div class="insights-grid">${insights.map(it => {
+    const sev = it.severity === 'high' ? 'sev-high' : it.severity === 'med' ? 'sev-med' : '';
+    const actionBtn = (it.action && it.action.type && it.action.type !== 'none')
+      ? `<button class="ic-action" data-action-type="${escapeHtml(it.action.type)}" data-action-value="${escapeHtml(it.action.value || '')}">${insightActionLabel(it.action)}</button>`
+      : '';
+    return `<div class="insight-card ${sev}">
+      <div class="ic-title">${escapeHtml(it.title)}</div>
+      <div class="ic-metric">${escapeHtml(it.metric)}</div>
+      <div class="ic-narrative">${escapeHtml(it.narrative)}</div>
+      ${actionBtn}
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function insightActionLabel(a){
+  switch (a.type) {
+    case 'filter_series':  return `Show series ${a.value} →`;
+    case 'filter_status':  return `Show ${a.value} trucks →`;
+    case 'open_vehicle':   return `Open ${a.value} →`;
+    case 'scroll_to':      return `Jump to section →`;
+    default: return '';
+  }
+}
+
+function renderInsightsMeta(payload){
+  const meta = document.getElementById('insightsMeta');
+  if (!meta) return;
+  const when = payload.generatedAt ? new Date(payload.generatedAt) : null;
+  const age  = payload.ageHours;
+  const ageLabel = (age !== undefined && age !== null)
+    ? (age < 1 ? 'just now' : age < 24 ? `${age.toFixed(1)}h ago` : `${(age/24).toFixed(1)}d ago`)
+    : '';
+  const stateLabel = payload.cached
+    ? `<span style="color:var(--muted-2)">Cached</span> · refreshed ${ageLabel}`
+    : `<span style="color:var(--good)">Fresh</span> · generated ${ageLabel}`;
+  meta.innerHTML = `${stateLabel} · <a style="color:var(--gold);cursor:pointer;text-decoration:underline" data-act="force">Force refresh</a>`;
+}
+
+function applyInsightAction(type, value){
+  switch (type) {
+    case 'filter_series': {
+      FILTER.series = new Set([value]);
+      document.querySelectorAll('#seriesList input[type="checkbox"]').forEach(cb => {
+        cb.checked = (cb.value === value);
+      });
+      applyFilter();
+      document.querySelector('.kpi-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      break;
+    }
+    case 'filter_status': {
+      FILTER.status = value;
+      const st = document.getElementById('globalStatus');
+      if (st) st.value = value;
+      applyFilter();
+      document.querySelector('.kpi-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      break;
+    }
+    case 'open_vehicle': {
+      openModal(value);
+      break;
+    }
+    case 'scroll_to': {
+      document.getElementById(value)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      break;
+    }
+    case 'none':
+    default: break;
+  }
+}
+
+// Delegated handlers for Insights section
+document.addEventListener('click', e => {
+  const card = e.target.closest('#insightsCard');
+  if (!card) return;
+  // Generate button → loadInsights
+  if (e.target.id === 'insightsBtn') return; // handled below by direct listener (bound in render)
+  // Action buttons inside cards
+  const actBtn = e.target.closest('.ic-action');
+  if (actBtn) {
+    e.stopPropagation();
+    applyInsightAction(actBtn.dataset.actionType, actBtn.dataset.actionValue);
+    return;
+  }
+  // Inline links: retry / force refresh
+  const link = e.target.closest('a[data-act]');
+  if (link) {
+    e.stopPropagation();
+    if (link.dataset.act === 'force') loadInsights(true);
+    else loadInsights(false);
+  }
+});
+
+// =========================
+// CARD CONTROLS — fullscreen + minimize on every card
+// =========================
+function addCardControls(){
+  document.querySelectorAll('.card').forEach(card => {
+    // Skip if already has controls
+    if (card.querySelector('.card-ctrls')) return;
+    const head = card.querySelector('.card-head, .table-head');
+    if (!head) return;
+    const ctrls = document.createElement('div');
+    ctrls.className = 'card-ctrls';
+    ctrls.innerHTML = `
+      <button class="card-ctrl" type="button" data-act="min" title="Minimize">_</button>
+      <button class="card-ctrl" type="button" data-act="fs" title="Fullscreen">⛶</button>
+    `;
+    head.appendChild(ctrls);
+  });
+}
+
+function toggleCardState(card, mode){
+  if (mode === 'fs') {
+    const isOpen = card.classList.toggle('fullscreen');
+    card.classList.remove('minimized');
+    document.body.classList.toggle('has-fullscreen', !!document.querySelector('.card.fullscreen'));
+    // Update active state
+    const btn = card.querySelector('.card-ctrl[data-act="fs"]');
+    if (btn) btn.classList.toggle('active', isOpen);
+    // Resize all charts after layout shifts
+    setTimeout(resizeAllCharts, 50);
+  } else if (mode === 'min') {
+    const isMin = card.classList.toggle('minimized');
+    card.classList.remove('fullscreen');
+    document.body.classList.toggle('has-fullscreen', !!document.querySelector('.card.fullscreen'));
+    const btn = card.querySelector('.card-ctrl[data-act="min"]');
+    if (btn) btn.classList.toggle('active', isMin);
+    setTimeout(resizeAllCharts, 50);
+  }
+}
+
+function resizeAllCharts(){
+  [rankChart, expChart, distChart, seriesChart, scatterChart, quadrantChart, opRatioChart, paretoChart]
+    .forEach(ch => { try { ch && ch.resize && ch.resize(); } catch(_) {} });
+}
+
+// Delegate clicks for card controls
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.card-ctrl');
+  if (!btn) return;
+  const card = btn.closest('.card');
+  if (!card) return;
+  e.stopPropagation();
+  toggleCardState(card, btn.dataset.act);
+});
+
+// Esc exits fullscreen (only when no modal is open)
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (document.getElementById('modal')?.classList.contains('open')) return;
+    if (document.getElementById('syncModal')?.classList.contains('open')) return;
+    const fs = document.querySelector('.card.fullscreen');
+    if (fs) toggleCardState(fs, 'fs');
+  }
+});
+
+function exportCsv(){
+  const cols = ['vehicle','series','trips','billing','dieselQty','diesel','urea','fastag','driverAc','cash','phonePay','tyre','rto','totalExpense','operatingProfit','emi','paper','netEarnings','opMargin','profitMargin','rpl','rpd'];
+  const src = (VIEW && VIEW.trucks) ? VIEW.trucks : trucks;
+  const csv = [cols.join(',')].concat(
+    src.map(t => cols.map(k => {
+      const v = t[k];
+      if (typeof v === 'number') return v.toFixed(2);
+      return JSON.stringify(v ?? '');
+    }).join(','))
+  ).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const seriesTag = (FILTER.series instanceof Set && FILTER.series.size > 0)
+    ? '-' + [...FILTER.series].join('_')
+    : '';
+  const statusTag = FILTER.status !== 'all' ? '-' + FILTER.status : '';
+  const suffix = seriesTag + statusTag;
+  a.download = `traq-pnl-${DATA.meta.period.replace(/\s+/g,'-').toLowerCase()}${suffix}.csv`;
+  a.click();
+}
+</script>
+</body>
+</html>
