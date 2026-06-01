@@ -567,6 +567,7 @@ let DATE_PARAMS = {};         // UI-only
 let DATA = ALL_DATA.slice();
 
 function applyGlobalFilter(){
+  BYSERIES_CACHE=null;  // ❌ Cache invalidate karo - data badal raha hai
   let rows = (SERIES_FILTER==='all')
     ? ALL_DATA.slice()
     : ALL_DATA.filter(r => r.Series === SERIES_FILTER);
@@ -761,6 +762,7 @@ async function fetchLive(){
       });
     }
     if(rows.length){
+      BYSERIES_CACHE=null;    // ❌ Cache clear - naya data aaya
       ALL_DATA=rows;          // live data master dataset me daalo
       applyGlobalFilter();    // active series/status filter ke saath DATA rebuild
       DATA_READY=true;        // ✅ Initial data load complete!
@@ -813,7 +815,11 @@ function totals(){
   }
   return t;
 }
+let BYSERIES_CACHE=null;  // Cache for bySeries result
 function bySeries(){
+  // Agar cache valid hai to seedha return kar (fast!)
+  if(BYSERIES_CACHE) return BYSERIES_CACHE;
+
   const m={};
   DATA.forEach(r=>{
     const k=r.Series||'-';
@@ -821,7 +827,8 @@ function bySeries(){
     m[k].count++;m[k].billing+=r.Billing;m[k].expense+=r.TotalExpense;
     m[k].net+=r.NetEarnings;m[k].trips+=r.Trips;m[k].oprofit+=r.OperatingProfit;
   });
-  return Object.values(m).sort((a,b)=>b.billing-a.billing);
+  BYSERIES_CACHE = Object.values(m).sort((a,b)=>b.billing-a.billing);
+  return BYSERIES_CACHE;
 }
 
 /* ================= PERCENT TOOLTIP HELPER ================= */
@@ -1279,7 +1286,7 @@ function buildCharts(sec){
   const grid={grid:{color:C.line}}, nogrid={grid:{display:false}};
 
   if(sec==='overview'){
-    const s=bySeries().slice(0,12);
+    const s=bySeries().slice(0,12);  // ⚡ ab cached!
     charts.b=new Chart(ovBar,{type:'bar',data:{labels:s.map(x=>x.series),
       datasets:[{label:'Billing',data:s.map(x=>x.billing),backgroundColor:C.blue,borderRadius:4},
                 {label:'Expense',data:s.map(x=>x.expense),backgroundColor:C.amber,borderRadius:4},
@@ -1293,7 +1300,7 @@ function buildCharts(sec){
         },
         onHover:(evt,els)=>{evt.native.target.style.cursor=els.length?'pointer':'default';}
       }});
-    const prof=DATA.filter(r=>r.NetEarnings>0).length;
+    const prof=DATA.filter(r=>r.NetEarnings>0).length;  // Profit count
     charts.p=new Chart(ovPie,{type:'doughnut',
       data:{labels:['Profitable','Loss-making'],
         datasets:[{data:[prof,DATA.length-prof],backgroundColor:[C.green,C.accent],borderWidth:0}]},
