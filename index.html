@@ -475,7 +475,7 @@ th.sortable .sort-arrow{display:inline-block;margin-left:4px;color:var(--accent)
     <div class="dm-note">Ek option chuno, fir Apply dabao</div>
   </div>
   <div class="dm-foot">
-    <button class="dm-cancel" onclick="clearDateRange()">Show All (Full)</button>
+    <button class="dm-cancel" onclick="clearDateRange()" style="background:var(--accent);color:#fff;font-weight:700">CLEAR ALL</button>
     <button class="dm-apply" onclick="applyDateFilter()">Apply Filter</button>
   </div>
 </div>
@@ -2340,17 +2340,41 @@ function applyDateFilter(){
 
 /* Date range hatao + SAARI FILTERS RESET + WINDOW PERIOD CLEAR -> wapas pura data */
 function clearDateRange(){
+  // ✅ Reset all data variables
   CURRENT_RANGE = null;
-  DATE_MODE=null;
-  DATA_PERIOD_START = null;  // ✅ Clear date window start
-  DATA_PERIOD_END = null;    // ✅ Clear date window end
-  SERIES_FILTER='all';       // ✅ Reset series filter
-  STATUS_FILTER='all';       // ✅ Reset status filter
+  DATE_MODE = null;
+  DATA_PERIOD_START = null;
+  DATA_PERIOD_END = null;
+  SERIES_FILTER = 'all';
+  STATUS_FILTER = 'all';
+
+  // ✅ Clear form inputs
+  document.getElementById('dmDays').value = '5';
+  document.getElementById('dmMonth').value = new Date().toLocaleString('en-US', {year:'numeric', month:'2-digit'}).replace(/\//g,'-');
+  document.getElementById('dmFrom').value = '';
+  document.getElementById('dmTo').value = '';
+
+  // ✅ Remove selected state from all options
+  ['LastN','Month','Custom'].forEach(opt => {
+    const el = document.getElementById('dm'+opt);
+    if(el) el.classList.remove('selected');
+  });
+
+  // ✅ Close modal and reset display
   closeDateModal();
-  document.getElementById('liveStatus').textContent='Loading full unfiltered data...';
-  applyGlobalFilter();       // ✅ Re-render with all filters cleared
-  renderCurrent();           // ✅ Update UI
-  fetchLive().catch(()=>{});
+  document.getElementById('dataPeriod').textContent = '📅 Full data';
+  document.getElementById('liveStatus').textContent = 'Loading full unfiltered data...';
+
+  // ✅ Send CLEAR command to Apps Script to remove date filters from sheet
+  if(APPS_SCRIPT_URL){
+    fetch(APPS_SCRIPT_URL+'?start=&end=&t='+Date.now())
+      .catch(()=>{});  // Silent fail, will use published CSV
+  }
+
+  // ✅ Re-render everything
+  applyGlobalFilter();
+  renderCurrent();
+  setTimeout(()=>fetchLive().catch(()=>{}), 500);  // Slight delay for Apps Script
 }
 
 /* ===== EXPENSE DATE-WISE BREAKDOWN ===== */
