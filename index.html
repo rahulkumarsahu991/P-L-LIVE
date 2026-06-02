@@ -2338,14 +2338,16 @@ function applyDateFilter(){
   fetchLive().catch(()=>{});
 }
 
-/* Date range hatao + SAARI FILTERS RESET -> wapas full published data */
+/* Date range hatao + SAARI FILTERS RESET + WINDOW PERIOD CLEAR -> wapas pura data */
 function clearDateRange(){
   CURRENT_RANGE = null;
   DATE_MODE=null;
-  SERIES_FILTER='all';      // ✅ Reset series filter
-  STATUS_FILTER='all';      // ✅ Reset status filter
+  DATA_PERIOD_START = null;  // ✅ Clear date window start
+  DATA_PERIOD_END = null;    // ✅ Clear date window end
+  SERIES_FILTER='all';       // ✅ Reset series filter
+  STATUS_FILTER='all';       // ✅ Reset status filter
   closeDateModal();
-  document.getElementById('liveStatus').textContent='Loading full...';
+  document.getElementById('liveStatus').textContent='Loading full unfiltered data...';
   applyGlobalFilter();       // ✅ Re-render with all filters cleared
   renderCurrent();           // ✅ Update UI
   fetchLive().catch(()=>{});
