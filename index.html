@@ -2187,7 +2187,8 @@ function loadDispatch(cb){
     DISPATCH_CALLBACKS=[];
     /* Once KM is ready, re-render current view to show KM columns */
     if(typeof renderCurrent==='function') renderCurrent();
-  }).catch(()=>{
+  }).catch((err)=>{
+    console.warn('⚠️ Dispatch data load failed:', err.message);
     DISPATCH_DATA=[];DISPATCH_LOADING=false;
     DISPATCH_CALLBACKS.forEach(fn=>fn([]));
     DISPATCH_CALLBACKS=[];
