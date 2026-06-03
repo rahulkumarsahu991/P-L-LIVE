@@ -2123,10 +2123,10 @@ function showTripModal(trip, tripNum){
   modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100;`;
 
   const content = `
-    <div style="background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto;color:var(--text)">
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto;color:var(--text)" id="tripModalContent">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
         <h3 style="margin:0;font-size:1.2rem">Trip #${tripNum}</h3>
-        <button onclick="this.closest('div').parentElement.remove()" style="background:none;border:none;color:var(--text);font-size:1.5rem;cursor:pointer">×</button>
+        <button onclick="document.getElementById('tripModalBg').remove()" style="background:none;border:none;color:var(--text);font-size:1.5rem;cursor:pointer;padding:0;width:30px;height:30px">×</button>
       </div>
 
       <div style="background:var(--panel2);padding:16px;border-radius:12px;margin-bottom:16px">
@@ -2157,8 +2157,11 @@ function showTripModal(trip, tripNum){
     </div>
   `;
 
+  modal.id = 'tripModalBg';
   modal.innerHTML = content;
-  modal.onclick = (e) => e.target === modal && modal.remove();
+  modal.onclick = (e) => {
+    if(e.target === modal) modal.remove();
+  };
   document.body.appendChild(modal);
 }
 
