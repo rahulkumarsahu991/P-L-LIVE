@@ -2180,12 +2180,17 @@ function loadDispatch(cb){
     // 6:Phone, 7:From Location, 8:To Location, 9:Item, 10:Trip Name,
     // 11:Start KM, 12:End KM, 13:Total KM, 14:Trip Start Date, 15:Trip Start Time,
     // 16:Trip End Date, 17:Trip End Time, 18:LR Number ...
-    const iVeh  = 1;
-    const iFrom = 7;
-    const iTo   = 8;
-    const iKm   = 13;
-    const iSt   = 14;
-    const iEn   = 16;
+    const iVeh  = 1;   // Vehicle No
+    const iTripNo = 2; // Trip Number
+    const iDriver = 3; // Driver
+    const iItem = 9;   // Item/Freight
+    const iStartKm = 11; // Start KM
+    const iEndKm = 12;   // End KM
+    const iFrom = 7;   // From Location
+    const iTo   = 8;   // To Location
+    const iKm   = 13;  // Total KM
+    const iSt   = 14;  // Trip Start Date
+    const iEn   = 16;  // Trip End Date
     DISPATCH_DATA = lines.slice(1).map(line=>{
       // CSV parse respecting quoted fields
       const cols=[]; let cur='',inQ=false;
@@ -2206,13 +2211,18 @@ function loadDispatch(cb){
         if(d1&&d2&&!isNaN(d1)&&!isNaN(d2)) days=Math.max(1,Math.round((d2-d1)/(1000*60*60*24)));
       }
       return {
-        vehicle : iVeh>=0?(cols[iVeh]||'').toUpperCase().trim() : '',
-        from    : iFrom>=0?(cols[iFrom]||'').trim() : '—',
-        to      : iTo>=0?(cols[iTo]||'').trim() : '—',
-        start   : startRaw,
-        end     : endRaw,
-        days    : days,
-        km      : km
+        vehicle  : iVeh>=0?(cols[iVeh]||'').toUpperCase().trim() : '',
+        tripno   : iTripNo>=0?(cols[iTripNo]||'').trim() : '—',
+        driver   : iDriver>=0?(cols[iDriver]||'').trim() : '—',
+        item     : iItem>=0?(cols[iItem]||'').trim() : '—',
+        startkm  : iStartKm>=0?(cols[iStartKm]||'').trim() : '—',
+        endkm    : iEndKm>=0?(cols[iEndKm]||'').trim() : '—',
+        from     : iFrom>=0?(cols[iFrom]||'').trim() : '—',
+        to       : iTo>=0?(cols[iTo]||'').trim() : '—',
+        start    : startRaw,
+        end      : endRaw,
+        days     : days,
+        km       : km
       };
     }).filter(r=>r.vehicle);
     /* Per-vehicle total KM lookup (saari tables yahi se padhengi) */
