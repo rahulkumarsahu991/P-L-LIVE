@@ -2040,7 +2040,7 @@ function showVeh(vno){
       const dayBadge = t.days!=null
         ? `<span style="background:var(--panel2);border-radius:12px;padding:2px 9px;font-size:.75rem;color:var(--muted)">${t.days} day${t.days!==1?'s':''}</span>`
         : '—';
-      return `<tr>
+      return `<tr style="cursor:pointer;transition:.1s" onmouseover="this.style.background='var(--panel2)'" onmouseout="this.style.background=''" onclick="showTripModal(${JSON.stringify(t).replace(/"/g,'&quot;')}, ${i+1})">
         <td style="color:var(--muted);font-size:.78rem">#${i+1}</td>
         <td>${t.from||'—'}</td>
         <td style="color:var(--muted)">→</td>
@@ -2115,6 +2115,45 @@ function showVeh(vno){
 function closeDrawer(){
   document.getElementById('drawer').classList.remove('open');
   document.getElementById('drawerBk').classList.remove('open');
+}
+
+/* Trip details modal */
+function showTripModal(trip, tripNum){
+  const modal = document.createElement('div');
+  modal.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100;`;
+
+  const content = `
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto;color:var(--text)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h3 style="margin:0;font-size:1.2rem">Trip #${tripNum}</h3>
+        <button onclick="this.closest('div').parentElement.remove()" style="background:none;border:none;color:var(--text);font-size:1.5rem;cursor:pointer">×</button>
+      </div>
+
+      <div style="background:var(--panel2);padding:16px;border-radius:12px;margin-bottom:16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div><div style="color:var(--muted);font-size:.8rem">From</div><div style="font-weight:600">${trip.from||'—'}</div></div>
+          <div><div style="color:var(--muted);font-size:.8rem">To</div><div style="font-weight:600">${trip.to||'—'}</div></div>
+          <div><div style="color:var(--muted);font-size:.8rem">Start Date</div><div style="font-weight:600">${fmtDate(trip.start)||'—'}</div></div>
+          <div><div style="color:var(--muted);font-size:.8rem">End Date</div><div style="font-weight:600">${fmtDate(trip.end)||'—'}</div></div>
+          <div><div style="color:var(--muted);font-size:.8rem">KM</div><div style="font-weight:600;color:var(--green)">${trip.km?fmt(trip.km)+' km':'—'}</div></div>
+          <div><div style="color:var(--muted);font-size:.8rem">Duration</div><div style="font-weight:600">${trip.days!=null?trip.days+' day(s)':'—'}</div></div>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid var(--line);padding-top:16px;font-size:.85rem;color:var(--muted);line-height:1.8">
+        <div><strong>Vehicle:</strong> ${trip.vehicle||'—'}</div>
+        <div><strong>Trip No:</strong> ${trip.tripnum||'—'}</div>
+        <div><strong>Driver:</strong> ${trip.driver||'—'}</div>
+        <div><strong>Start KM:</strong> ${trip.startkm||'—'}</div>
+        <div><strong>End KM:</strong> ${trip.endkm||'—'}</div>
+        <div><strong>Item:</strong> ${trip.item||'—'}</div>
+      </div>
+    </div>
+  `;
+
+  modal.innerHTML = content;
+  modal.onclick = (e) => e.target === modal && modal.remove();
+  document.body.appendChild(modal);
 }
 
 /* ===== DISPATCH DATA (trip-wise from/to/dates) ===== */
