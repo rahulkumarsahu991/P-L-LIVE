@@ -2140,13 +2140,19 @@ function showTripModal(trip, tripNum){
         </div>
       </div>
 
-      <div style="border-top:1px solid var(--line);padding-top:16px;font-size:.85rem;color:var(--muted);line-height:1.8">
-        <div><strong>Vehicle:</strong> ${trip.vehicle||'—'}</div>
-        <div><strong>Trip No:</strong> ${trip.tripnum||'—'}</div>
-        <div><strong>Driver:</strong> ${trip.driver||'—'}</div>
-        <div><strong>Start KM:</strong> ${trip.startkm||'—'}</div>
-        <div><strong>End KM:</strong> ${trip.endkm||'—'}</div>
-        <div><strong>Item:</strong> ${trip.item||'—'}</div>
+      <div style="border-top:1px solid var(--line);padding-top:16px;font-size:.85rem;color:var(--muted)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;line-height:1.8;margin-bottom:12px">
+          <div><strong style="color:var(--text)">Vehicle:</strong> ${trip.vehicle||'—'}</div>
+          <div><strong style="color:var(--text)">Trip No:</strong> ${trip.tripno||'—'}</div>
+          <div><strong style="color:var(--text)">Driver:</strong> ${trip.driver||'—'}</div>
+          <div><strong style="color:var(--text)">Item:</strong> ${trip.item||'—'}</div>
+          <div><strong style="color:var(--text)">Start KM:</strong> ${trip.startkm||'—'}</div>
+          <div><strong style="color:var(--text)">End KM:</strong> ${trip.endkm||'—'}</div>
+        </div>
+        <div style="padding-top:12px;border-top:1px solid var(--line)">
+          <strong style="color:var(--text)">Freight Amount (Auto):</strong>
+          <div style="font-size:1.1rem;color:var(--green);font-weight:600;margin-top:4px">Rs ${trip.freight?fmt(Number(trip.freight)||0):'—'}</div>
+        </div>
       </div>
     </div>
   `;
@@ -2180,17 +2186,18 @@ function loadDispatch(cb){
     // 6:Phone, 7:From Location, 8:To Location, 9:Item, 10:Trip Name,
     // 11:Start KM, 12:End KM, 13:Total KM, 14:Trip Start Date, 15:Trip Start Time,
     // 16:Trip End Date, 17:Trip End Time, 18:LR Number ...
-    const iVeh  = 1;   // Vehicle No
-    const iTripNo = 2; // Trip Number
-    const iDriver = 3; // Driver
-    const iItem = 9;   // Item/Freight
-    const iStartKm = 11; // Start KM
-    const iEndKm = 12;   // End KM
-    const iFrom = 7;   // From Location
-    const iTo   = 8;   // To Location
-    const iKm   = 13;  // Total KM
-    const iSt   = 14;  // Trip Start Date
-    const iEn   = 16;  // Trip End Date
+    const iVeh  = 1;   // Vehicle No (B)
+    const iTripNo = 2; // Trip Number (C)
+    const iDriver = 3; // Driver (D)
+    const iItem = 9;   // Item/Freight (J)
+    const iStartKm = 11; // Start KM (L)
+    const iEndKm = 12;   // End KM (M)
+    const iFrom = 7;   // From Location (H)
+    const iTo   = 8;   // To Location (I)
+    const iKm   = 13;  // Total KM (N)
+    const iSt   = 14;  // Trip Start Date (O)
+    const iEn   = 16;  // Trip End Date (Q)
+    const iFreight = 25; // Freight Amount (Z)
     DISPATCH_DATA = lines.slice(1).map(line=>{
       // CSV parse respecting quoted fields
       const cols=[]; let cur='',inQ=false;
@@ -2211,18 +2218,19 @@ function loadDispatch(cb){
         if(d1&&d2&&!isNaN(d1)&&!isNaN(d2)) days=Math.max(1,Math.round((d2-d1)/(1000*60*60*24)));
       }
       return {
-        vehicle  : iVeh>=0?(cols[iVeh]||'').toUpperCase().trim() : '',
-        tripno   : iTripNo>=0?(cols[iTripNo]||'').trim() : '—',
-        driver   : iDriver>=0?(cols[iDriver]||'').trim() : '—',
-        item     : iItem>=0?(cols[iItem]||'').trim() : '—',
-        startkm  : iStartKm>=0?(cols[iStartKm]||'').trim() : '—',
-        endkm    : iEndKm>=0?(cols[iEndKm]||'').trim() : '—',
-        from     : iFrom>=0?(cols[iFrom]||'').trim() : '—',
-        to       : iTo>=0?(cols[iTo]||'').trim() : '—',
-        start    : startRaw,
-        end      : endRaw,
-        days     : days,
-        km       : km
+        vehicle   : iVeh>=0?(cols[iVeh]||'').toUpperCase().trim() : '',
+        tripno    : iTripNo>=0?(cols[iTripNo]||'').trim() : '—',
+        driver    : iDriver>=0?(cols[iDriver]||'').trim() : '—',
+        item      : iItem>=0?(cols[iItem]||'').trim() : '—',
+        startkm   : iStartKm>=0?(cols[iStartKm]||'').trim() : '—',
+        endkm     : iEndKm>=0?(cols[iEndKm]||'').trim() : '—',
+        freight   : iFreight>=0?(cols[iFreight]||'').trim() : '—',
+        from      : iFrom>=0?(cols[iFrom]||'').trim() : '—',
+        to        : iTo>=0?(cols[iTo]||'').trim() : '—',
+        start     : startRaw,
+        end       : endRaw,
+        days      : days,
+        km        : km
       };
     }).filter(r=>r.vehicle);
     /* Per-vehicle total KM lookup (saari tables yahi se padhengi) */
