@@ -2461,10 +2461,14 @@ function collectExpEntries(src, matrix, vehU, lo, hi){
   }
   for(let i=1;i<matrix.length;i++){
     const row = matrix[i]; if(!row || !row.length) continue;
-    /* vehicle match: pehle full vehicle column, warna remark ke kisi bhi word se */
+    /* vehicle match: pehle exact match, phir suffix match (CA2011 matches CG10CA2011), phir remark se */
     let matchVeh=false;
     if(src.vehCol>=0 && row[src.vehCol]){
-      if(String(row[src.vehCol]).toUpperCase().trim()===vehU) matchVeh=true;
+      const sheetVeh = String(row[src.vehCol]).toUpperCase().trim();
+      // Exact match
+      if(sheetVeh===vehU) matchVeh=true;
+      // Suffix match (CA2011 in CG10CA2011) ✅
+      else if(vehU.endsWith(sheetVeh) && sheetVeh.length>=4) matchVeh=true;
     }
     if(!matchVeh && src.remarkCol>=0 && row[src.remarkCol]){
       const toks=String(row[src.remarkCol]).trim().split(/\s+/);
