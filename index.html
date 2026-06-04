@@ -2524,6 +2524,11 @@ function resetOtherExpense(){
 function openDateModal(){
   document.getElementById('dateModal').classList.add('open');
   document.getElementById('dateModalBk').classList.add('open');
+  /* Set default month to current month */
+  const now = new Date();
+  const monthStr = String(now.getFullYear()) + '-' + String(now.getMonth()+1).padStart(2,'0');
+  const monthInput = document.getElementById('dmMonthVal');
+  if(monthInput && !monthInput.value) monthInput.value = monthStr;
 }
 function closeDateModal(){
   document.getElementById('dateModal').classList.remove('open');
@@ -2532,10 +2537,18 @@ function closeDateModal(){
 function pickDateMode(mode){
   DATE_MODE = mode;
   ['lastN','month','custom'].forEach(m=>{
-    document.getElementById('dm'+m.charAt(0).toUpperCase()+m.slice(1)).classList.toggle('selected', m===mode);
+    const opt = document.getElementById('dm'+m.charAt(0).toUpperCase()+m.slice(1));
+    if(opt) opt.classList.toggle('selected', m===mode);
     const ex=document.getElementById('dm'+m.charAt(0).toUpperCase()+m.slice(1)+'Extra');
     if(ex) ex.style.display = (m===mode)?'block':'none';
   });
+  /* Auto-focus input field when month is selected */
+  if(mode==='month'){
+    setTimeout(()=>{
+      const monthInput = document.getElementById('dmMonthVal');
+      if(monthInput) monthInput.focus();
+    }, 50);
+  }
 }
 /* YYYY-MM-DD helper */
 function isoDate(d){
@@ -2588,7 +2601,9 @@ function clearDateRange(){
 
   // ✅ Clear form inputs
   document.getElementById('dmDays').value = '5';
-  document.getElementById('dmMonth').value = new Date().toLocaleString('en-US', {year:'numeric', month:'2-digit'}).replace(/\//g,'-');
+  const now = new Date();
+  const monthStr = String(now.getFullYear()) + '-' + String(now.getMonth()+1).padStart(2,'0');
+  document.getElementById('dmMonthVal').value = monthStr;
   document.getElementById('dmFrom').value = '';
   document.getElementById('dmTo').value = '';
 
