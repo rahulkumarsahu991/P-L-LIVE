@@ -1160,20 +1160,20 @@ const SECTIONS = {
       <div class="card kpi-card"><div class="kpi-label">RTO</div>
         <div class="kpi-value">${fmtL(t.rto)}</div>
         <div class="kpi-sub">${t.billing>0?((t.rto/t.billing)*100).toFixed(1)+'% this view':''} | ${fleetTotal.billing>0?((fleetTotal.rto/fleetTotal.billing)*100).toFixed(1)+'% fleet':''}</div></div>
-      <div class="card kpi-card" style="background:var(--panel2);border:1px solid var(--accent);padding:16px">
-        <div class="kpi-label" style="margin-bottom:10px">Other Expense</div>
-        <div style="display:flex;gap:6px;margin-bottom:10px">
-          <input type="number" id="otherExpInput" placeholder="Amount" style="flex:1;padding:8px;background:var(--panel);border:1px solid var(--line);border-radius:4px;color:var(--text);font-size:.85rem">
-          <button onclick="addOtherExpense()" style="background:var(--accent);color:#fff;border:none;border-radius:4px;padding:8px 12px;font-weight:600;cursor:pointer;font-size:.8rem;min-width:60px">Add</button>
+      <div class="card kpi-card" style="background:var(--panel2);border:1px solid var(--accent);padding:24px">
+        <div class="kpi-label" style="margin-bottom:14px;font-size:.8rem">Other Expense</div>
+        <div style="display:flex;gap:8px;margin-bottom:14px">
+          <input type="number" id="otherExpInput" placeholder="Amount" style="flex:1;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:4px;color:var(--text);font-size:.9rem">
+          <button onclick="addOtherExpense()" style="background:var(--accent);color:#fff;border:none;border-radius:4px;padding:10px 16px;font-weight:600;cursor:pointer;font-size:.85rem;min-width:70px">Add</button>
         </div>
-        <div style="background:var(--panel);border-radius:6px;padding:10px;margin-bottom:10px;max-height:140px;overflow-y:auto">
-          <div id="otherExpList" style="font-size:.8rem;color:var(--muted)">
-            <div style="text-align:center;padding:10px;color:var(--muted)">No expenses added</div>
+        <div style="background:var(--panel);border-radius:6px;padding:12px;margin-bottom:14px;max-height:220px;overflow-y:auto">
+          <div id="otherExpList" style="font-size:.85rem;color:var(--muted)">
+            <div style="text-align:center;padding:12px;color:var(--muted)">No expenses added</div>
           </div>
         </div>
-        <div style="text-align:center;border-top:1px solid var(--line);padding-top:8px">
-          <div style="color:var(--muted);font-size:.75rem;margin-bottom:4px">Total Added:</div>
-          <div id="otherExpTotal" class="kpi-value" style="margin:0;color:var(--green);font-size:1.1rem">Rs 0</div>
+        <div style="text-align:center;border-top:1px solid var(--line);padding-top:12px">
+          <div style="color:var(--muted);font-size:.8rem;margin-bottom:6px">Total Added:</div>
+          <div id="otherExpTotal" class="kpi-value" style="margin:0;color:var(--green);font-size:1.3rem">Rs 0</div>
         </div>
       </div>
     </div>
