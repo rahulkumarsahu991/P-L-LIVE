@@ -1162,9 +1162,12 @@ const SECTIONS = {
         <div class="kpi-sub">${t.billing>0?((t.rto/t.billing)*100).toFixed(1)+'% this view':''} | ${fleetTotal.billing>0?((fleetTotal.rto/fleetTotal.billing)*100).toFixed(1)+'% fleet':''}</div></div>
       <div class="card kpi-card" style="background:var(--panel2);border:1px solid var(--accent);padding:24px;grid-column:span 2">
         <div class="kpi-label" style="margin-bottom:14px;font-size:.8rem">Other Expense</div>
-        <div style="display:flex;gap:8px;margin-bottom:14px">
+        <div style="display:flex;gap:8px;margin-bottom:10px">
           <input type="number" id="otherExpInput" placeholder="Amount" style="flex:1;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:4px;color:var(--text);font-size:.9rem">
           <button onclick="addOtherExpense()" style="background:var(--accent);color:#fff;border:none;border-radius:4px;padding:10px 16px;font-weight:600;cursor:pointer;font-size:.85rem;min-width:70px">Add</button>
+        </div>
+        <div style="margin-bottom:14px">
+          <input type="text" id="otherExpRemark" placeholder="Remark (required) — kis liye..." style="width:100%;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:4px;color:var(--text);font-size:.85rem;box-sizing:border-box">
         </div>
         <div style="background:var(--panel);border-radius:6px;padding:12px;margin-bottom:14px;max-height:220px;overflow-y:auto">
           <div id="otherExpList" style="font-size:.85rem;color:var(--muted)">
@@ -2400,12 +2403,20 @@ window.OTHER_EXPENSES = [];  // Array of {amount, date, time}
 
 function addOtherExpense(){
   const input = document.getElementById('otherExpInput');
-  if(!input) return;
+  const remark = document.getElementById('otherExpRemark');
+  if(!input || !remark) return;
 
   const val = parseFloat(input.value);
   if(!val || val <= 0){
-    alert('Please enter valid amount');
+    alert('Amount zaroori hai');
     input.focus();
+    return;
+  }
+
+  const remarkStr = remark.value.trim();
+  if(!remarkStr){
+    alert('Remark zaroori hai — kis liye paisa gya?');
+    remark.focus();
     return;
   }
 
@@ -2414,11 +2425,12 @@ function addOtherExpense(){
   const date = now.toLocaleDateString('en-IN');  // DD-MM-YYYY format
   const time = now.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
 
-  window.OTHER_EXPENSES.push({amount:val, date, time});
+  window.OTHER_EXPENSES.push({amount:val, remark:remarkStr, date, time});
   localStorage.setItem('otherExpenses', JSON.stringify(window.OTHER_EXPENSES));
 
   // Update display
   input.value = '';
+  remark.value = '';
   renderCurrent();
   updateOtherExpenseDisplay();
 }
@@ -2449,12 +2461,13 @@ function updateOtherExpenseDisplay(){
   }
 
   list.innerHTML = window.OTHER_EXPENSES.map((exp, idx) => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:var(--panel2);margin:6px 0;border-radius:4px;border-left:2px solid var(--accent)">
-      <div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:8px;background:var(--panel2);margin:6px 0;border-radius:4px;border-left:2px solid var(--accent);gap:8px">
+      <div style="flex:1">
         <div style="color:var(--green);font-weight:600;font-size:.9rem">Rs ${fmt(exp.amount)}</div>
+        <div style="color:var(--muted);font-size:.75rem;margin:3px 0">${exp.remark || '—'}</div>
         <div style="color:var(--muted);font-size:.7rem">${exp.date} · ${exp.time}</div>
       </div>
-      <button onclick="removeOtherExpense(${idx})" style="background:var(--accent);color:#fff;border:none;border-radius:3px;padding:4px 8px;cursor:pointer;font-size:.75rem;font-weight:600">Remove</button>
+      <button onclick="removeOtherExpense(${idx})" style="background:var(--accent);color:#fff;border:none;border-radius:3px;padding:4px 8px;cursor:pointer;font-size:.75rem;font-weight:600;white-space:nowrap;flex-shrink:0">Remove</button>
     </div>
   `).join('');
 }
