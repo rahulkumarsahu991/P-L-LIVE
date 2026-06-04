@@ -1160,7 +1160,7 @@ const SECTIONS = {
       <div class="card kpi-card"><div class="kpi-label">RTO</div>
         <div class="kpi-value">${fmtL(t.rto)}</div>
         <div class="kpi-sub">${t.billing>0?((t.rto/t.billing)*100).toFixed(1)+'% this view':''} | ${fleetTotal.billing>0?((fleetTotal.rto/fleetTotal.billing)*100).toFixed(1)+'% fleet':''}</div></div>
-      <div class="card kpi-card" style="background:var(--panel2);border:1px solid var(--accent);padding:24px">
+      <div class="card kpi-card" style="background:var(--panel2);border:1px solid var(--accent);padding:24px;grid-column:span 2">
         <div class="kpi-label" style="margin-bottom:14px;font-size:.8rem">Other Expense</div>
         <div style="display:flex;gap:8px;margin-bottom:14px">
           <input type="number" id="otherExpInput" placeholder="Amount" style="flex:1;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:4px;color:var(--text);font-size:.9rem">
