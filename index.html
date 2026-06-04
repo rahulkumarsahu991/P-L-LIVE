@@ -829,10 +829,6 @@ function totals(){
     t.diesel+=r.Diesel;t.urea+=r.Urea;t.fastag+=r.Fastag;t.driver+=r.DriverAC;
     t.cash+=r.Cash;t.upi+=r.UPI;t.tyre+=r.Tyre;t.rto+=r.RTO;t.paper+=r.Paper;
   });
-  /* Add Other Expense to total */
-  const otherTotal = (window.OTHER_EXPENSES||[]).reduce((s,e)=>s+e.amount,0);
-  t.expense += otherTotal;
-  t.net -= otherTotal;
   /* Jab koi filter active nahi hai (poora fleet), to sheet ke apne authoritative
      totals use karo taaki dashboard ka headline sheet ke saath bilkul match kare.
      Filter laga ho to computed (subset) totals hi sahi hain. */
@@ -845,6 +841,10 @@ function totals(){
     if(SHEET_TOTALS.net!==undefined)     t.net     = SHEET_TOTALS.net;
     if(SHEET_TOTALS.trips!==undefined)   t.trips   = SHEET_TOTALS.trips;
   }
+  /* Add Other Expense to total (AFTER sheet totals so it doesn't get overwritten) */
+  const otherTotal = (window.OTHER_EXPENSES||[]).reduce((s,e)=>s+e.amount,0);
+  t.expense += otherTotal;
+  t.net -= otherTotal;
   return t;
 }
 let BYSERIES_CACHE=null;  // Cache for bySeries result
