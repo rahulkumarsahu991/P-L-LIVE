@@ -2273,7 +2273,13 @@ function loadDispatch(cb){
   DISPATCH_CALLBACKS.push(cb);
   if(DISPATCH_LOADING) return;
   DISPATCH_LOADING = true;
-  fetch(DISPATCH_URL).then(r=>r.text()).then(csv=>{
+
+  /* Fetch with 6-second timeout (dispatch sheet should be smaller) */
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+  fetch(DISPATCH_URL, {signal: controller.signal}).then(r=>r.text()).then(csv=>{
+    clearTimeout(timeoutId);
     const lines = csv.trim().split('\n');
     const raw_headers = lines[0].split(',').map(h=>h.replace(/^"|"$/g,'').trim());
     // Smart column mapping — case-insensitive partial match
@@ -2350,6 +2356,9 @@ function loadDispatch(cb){
     DISPATCH_CALLBACKS=[];
   });
 }
+
+/* Alias for backward compatibility */
+const ensureDispatch = loadDispatch;
 
 /* Parse DD-MM-YYYY (dispatch sheet format) or any common format */
 function parseSheetDate(s){
