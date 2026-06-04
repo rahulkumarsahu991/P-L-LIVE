@@ -829,6 +829,10 @@ function totals(){
     t.diesel+=r.Diesel;t.urea+=r.Urea;t.fastag+=r.Fastag;t.driver+=r.DriverAC;
     t.cash+=r.Cash;t.upi+=r.UPI;t.tyre+=r.Tyre;t.rto+=r.RTO;t.paper+=r.Paper;
   });
+  /* Add Other Expense to total */
+  const otherTotal = (window.OTHER_EXPENSES||[]).reduce((s,e)=>s+e.amount,0);
+  t.expense += otherTotal;
+  t.net -= otherTotal;
   /* Jab koi filter active nahi hai (poora fleet), to sheet ke apne authoritative
      totals use karo taaki dashboard ka headline sheet ke saath bilkul match kare.
      Filter laga ho to computed (subset) totals hi sahi hain. */
@@ -1156,6 +1160,22 @@ const SECTIONS = {
       <div class="card kpi-card"><div class="kpi-label">RTO</div>
         <div class="kpi-value">${fmtL(t.rto)}</div>
         <div class="kpi-sub">${t.billing>0?((t.rto/t.billing)*100).toFixed(1)+'% this view':''} | ${fleetTotal.billing>0?((fleetTotal.rto/fleetTotal.billing)*100).toFixed(1)+'% fleet':''}</div></div>
+      <div class="card kpi-card" style="background:var(--panel2);border:1px solid var(--accent);padding:16px">
+        <div class="kpi-label" style="margin-bottom:10px">Other Expense</div>
+        <div style="display:flex;gap:6px;margin-bottom:10px">
+          <input type="number" id="otherExpInput" placeholder="Amount" style="flex:1;padding:8px;background:var(--panel);border:1px solid var(--line);border-radius:4px;color:var(--text);font-size:.85rem">
+          <button onclick="addOtherExpense()" style="background:var(--accent);color:#fff;border:none;border-radius:4px;padding:8px 12px;font-weight:600;cursor:pointer;font-size:.8rem;min-width:60px">Add</button>
+        </div>
+        <div style="background:var(--panel);border-radius:6px;padding:10px;margin-bottom:10px;max-height:140px;overflow-y:auto">
+          <div id="otherExpList" style="font-size:.8rem;color:var(--muted)">
+            <div style="text-align:center;padding:10px;color:var(--muted)">No expenses added</div>
+          </div>
+        </div>
+        <div style="text-align:center;border-top:1px solid var(--line);padding-top:8px">
+          <div style="color:var(--muted);font-size:.75rem;margin-bottom:4px">Total Added:</div>
+          <div id="otherExpTotal" class="kpi-value" style="margin:0;color:var(--green);font-size:1.1rem">Rs 0</div>
+        </div>
+      </div>
     </div>
     <div class="grid2">
       <div class="card"><h3>Expense Breakdown<span class="tag">by category</span></h3>
@@ -2375,6 +2395,76 @@ function resetFilters(){
   renderCurrent();
 }
 
+/* Other Expense management - Transaction list */
+window.OTHER_EXPENSES = [];  // Array of {amount, date, time}
+
+function addOtherExpense(){
+  const input = document.getElementById('otherExpInput');
+  if(!input) return;
+
+  const val = parseFloat(input.value);
+  if(!val || val <= 0){
+    alert('Please enter valid amount');
+    input.focus();
+    return;
+  }
+
+  // Create transaction
+  const now = new Date();
+  const date = now.toLocaleDateString('en-IN');  // DD-MM-YYYY format
+  const time = now.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
+
+  window.OTHER_EXPENSES.push({amount:val, date, time});
+  localStorage.setItem('otherExpenses', JSON.stringify(window.OTHER_EXPENSES));
+
+  // Update display
+  input.value = '';
+  renderCurrent();
+  updateOtherExpenseDisplay();
+}
+
+function removeOtherExpense(idx){
+  window.OTHER_EXPENSES.splice(idx, 1);
+  localStorage.setItem('otherExpenses', JSON.stringify(window.OTHER_EXPENSES));
+  renderCurrent();
+  updateOtherExpenseDisplay();
+}
+
+function updateOtherExpenseDisplay(){
+  const list = document.getElementById('otherExpList');
+  const totalBox = document.getElementById('otherExpTotal');
+
+  if(!list || !totalBox) return;
+
+  // Calculate total
+  const total = window.OTHER_EXPENSES.reduce((s,e)=>s+e.amount,0);
+
+  // Update total
+  totalBox.textContent = 'Rs '+fmt(total);
+
+  // Update list
+  if(window.OTHER_EXPENSES.length === 0){
+    list.innerHTML = '<div style="text-align:center;padding:10px;color:var(--muted)">No expenses added</div>';
+    return;
+  }
+
+  list.innerHTML = window.OTHER_EXPENSES.map((exp, idx) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:var(--panel2);margin:6px 0;border-radius:4px;border-left:2px solid var(--accent)">
+      <div>
+        <div style="color:var(--green);font-weight:600;font-size:.9rem">Rs ${fmt(exp.amount)}</div>
+        <div style="color:var(--muted);font-size:.7rem">${exp.date} · ${exp.time}</div>
+      </div>
+      <button onclick="removeOtherExpense(${idx})" style="background:var(--accent);color:#fff;border:none;border-radius:3px;padding:4px 8px;cursor:pointer;font-size:.75rem;font-weight:600">Remove</button>
+    </div>
+  `).join('');
+}
+
+function resetOtherExpense(){
+  window.OTHER_EXPENSES = [];
+  localStorage.removeItem('otherExpenses');
+  updateOtherExpenseDisplay();
+}
+
 
 /* ===== DATE MODAL (UI-only abhi) ===== */
 function openDateModal(){
@@ -2892,6 +2982,10 @@ async function bootDashboard(){
     setTimeout(bootDashboard, 50);
     return;
   }
+  /* Load Other Expenses from localStorage */
+  window.OTHER_EXPENSES = JSON.parse(localStorage.getItem('otherExpenses'))||[];
+  updateOtherExpenseDisplay();
+
   renderCurrent();
   if(USE_LIVE){
     /* Initial fetch immediately - await karenge ✅ */
