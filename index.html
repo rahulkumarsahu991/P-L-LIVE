@@ -2261,9 +2261,15 @@ function showTripModal(trip, tripNum){
           <strong style="color:var(--text)">Freight Amount (Auto):</strong>
           <div style="font-size:1.1rem;color:var(--green);font-weight:600;margin-top:4px">Rs ${trip.freight?fmt(Number(trip.freight)||0):'—'}</div>
         </div>
-        <div style="padding-top:0">
-          <strong style="color:var(--text)">Rate Per Tonne:</strong>
-          <div style="font-size:1.1rem;color:var(--blue);font-weight:600;margin-top:4px">Rs ${trip.ratePerTonne||'—'}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-top:12px;border-top:1px solid var(--line)">
+          <div>
+            <strong style="color:var(--text)">Unloading Weight (MT):</strong>
+            <div style="font-size:1.1rem;color:var(--amber);font-weight:600;margin-top:4px">${trip.unloadWeight||'—'}</div>
+          </div>
+          <div>
+            <strong style="color:var(--text)">Rate Per Tonne:</strong>
+            <div style="font-size:1.1rem;color:var(--blue);font-weight:600;margin-top:4px">Rs ${trip.ratePerTonne||'—'}</div>
+          </div>
         </div>
       </div>
     </div>
@@ -2318,6 +2324,7 @@ function loadDispatch(cb){
     const iKm   = 13;  // Total KM (N)
     const iSt   = 14;  // Trip Start Date (O)
     const iEn   = 16;  // Trip End Date (Q)
+    const iUnloadWeight = 22; // Unloading Weight MT (W)
     const iRatePerTonne = 24; // Rate Per Tonne (Y)
     const iFreight = 25; // Freight Amount (Z)
     DISPATCH_DATA = lines.slice(1).map(line=>{
@@ -2346,6 +2353,7 @@ function loadDispatch(cb){
         item      : iItem>=0?(cols[iItem]||'').trim() : '—',
         startkm   : iStartKm>=0?(cols[iStartKm]||'').trim() : '—',
         endkm     : iEndKm>=0?(cols[iEndKm]||'').trim() : '—',
+        unloadWeight : iUnloadWeight>=0?(cols[iUnloadWeight]||'').trim() : '—',
         ratePerTonne : iRatePerTonne>=0?(cols[iRatePerTonne]||'').trim() : '—',
         freight   : iFreight>=0?(cols[iFreight]||'').trim() : '—',
         from      : iFrom>=0?(cols[iFrom]||'').trim() : '—',
