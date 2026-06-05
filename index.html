@@ -1112,8 +1112,8 @@ const SECTIONS = {
             <th class="num sortable" data-sort="TotalExpense">Expense <span class="sort-arrow"></span></th>
             <th class="num sortable" data-sort="OperatingProfit">Op Profit <span class="sort-arrow"></span></th>
             <th class="num sortable" data-sort="NetEarnings">Net Earnings <span class="sort-arrow"></span></th>
-            <th class="num sortable" data-sort="RPL">RPL <span class="sort-arrow"></span></th>
             <th class="num sortable" data-sort="RPD">RPD <span class="sort-arrow"></span></th>
+            <th class="num sortable" data-sort="RPL">RPL <span class="sort-arrow"></span></th>
             <th>Status</th></tr></thead>
           <tbody id="vBody"></tbody>
         </table>
@@ -1756,10 +1756,10 @@ function applySort(rows){
   const k=SORT_COL, dir=SORT_DIR==='asc'?1:-1;
   return rows.slice().sort((a,b)=>{
     let va,vb;
-    if(k==='RPL'){
+    if(k==='RPD'){
       va=a.Trips>0?a.Billing/a.Trips:0;
       vb=b.Trips>0?b.Billing/b.Trips:0;
-    } else if(k==='RPD'){
+    } else if(k==='RPL'){
       va=(a.DieselQty>0)?(a.Billing/a.DieselQty):0;
       vb=(b.DieselQty>0)?(b.Billing/b.DieselQty):0;
     } else {
@@ -1795,9 +1795,9 @@ function fillVehicles(filter){
   if(f) rows=rows.filter(r=>String(r.Vehicle).toUpperCase().includes(f));
   rows=applySort(rows);
   tb.innerHTML=rows.map(r=>{
-    const rpl = r.Trips>0 ? Math.round(r.Billing/r.Trips) : 0;
+    const rpd = r.Trips>0 ? Math.round(r.Billing/r.Trips) : 0;
     const diesel_liters = r.DieselQty>0 ? r.DieselQty : 0;
-    const rpd = diesel_liters>0 ? Math.round(r.Billing/diesel_liters) : 0;
+    const rpl = diesel_liters>0 ? Math.round(r.Billing/diesel_liters) : 0;
     const opCls = r.OperatingProfit<0?'neg':'pos';
     const km = (window.KM_BY_VEH||{})[(r.Vehicle||'').toUpperCase()]||0;
     return `<tr onclick='showVeh("${r.Vehicle}")'>
@@ -1808,8 +1808,8 @@ function fillVehicles(filter){
     <td class="num">${fmt(r.TotalExpense)}</td>
     <td class="num ${opCls}">${fmt(r.OperatingProfit)}</td>
     <td class="num ${r.NetEarnings<0?'neg':'pos'}">${fmt(r.NetEarnings)}</td>
-    <td class="num ${rpl>0?'pos':'muted'}">${rpl>0?fmt(rpl):'—'}</td>
-    <td class="num ${rpd>0?'pos':'muted'}">${rpd>0?fmt(rpd)+'<span style="font-size:.68rem;color:var(--muted)">/L</span>':'—'}</td>
+    <td class="num ${rpd>0?'pos':'muted'}">${rpd>0?fmt(rpd):'—'}</td>
+    <td class="num ${rpl>0?'pos':'muted'}">${rpl>0?fmt(rpl)+'<span style="font-size:.68rem;color:var(--muted)">/L</span>':'—'}</td>
     <td><span class="pill ${r.NetEarnings>0?'profit':'loss'}">${r.Trips===0?'Idle':(r.NetEarnings>0?'Profit':'Loss')}</span></td>
   </tr>`;}).join('');
   /* sortable arrows on header */
@@ -2088,7 +2088,7 @@ function showVeh(vno){
       ${(function(){
         const rpl=r.Trips>0?Math.round(r.Billing/r.Trips):0;
         const rpd=r.DieselQty>0?Math.round(r.Billing/r.DieselQty):0;
-        return stat('RPL · RPD',(rpl?fmt(rpl):'—')+' · '+(rpd?fmt(rpd):'—'),'');
+        return stat('RPD · RPL',(rpl?fmt(rpl):'—')+' · '+(rpd?fmt(rpd):'—'),'');
       })()}
     </div>
 
