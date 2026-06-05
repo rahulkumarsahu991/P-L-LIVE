@@ -1410,7 +1410,7 @@ function buildCharts(sec){
     charts.b=new Chart(ovBar,{type:'bar',data:{labels:s.map(x=>x.series),
       datasets:[{label:'Billing',data:s.map(x=>x.billing),backgroundColor:C.blue,borderRadius:4},
                 {label:'Expense',data:s.map(x=>x.expense),backgroundColor:C.amber,borderRadius:4},
-                {label:'Profit',data:s.map(x=>x.oprofit),backgroundColor:C.green,borderRadius:4}]},
+                {label:'Profit',data:s.map(x=>x.oprofit),backgroundColor:s.map(x=>x.oprofit<0?C.accent:C.green),borderRadius:4}]},
       options:{maintainAspectRatio:false,scales:{x:nogrid,y:grid},
         plugins:{legend:barLegendWithPct(),
           tooltip:pctTooltip(0)},
@@ -1532,7 +1532,7 @@ function buildCharts(sec){
     charts.anBar=new Chart(anBar,{type:'bar',data:{labels:top12.map(x=>x.series),
       datasets:[{label:'Billing',data:top12.map(x=>x.billing),backgroundColor:C.blue,borderRadius:4},
                 {label:'Expense',data:top12.map(x=>x.expense),backgroundColor:C.amber,borderRadius:4},
-                {label:'Profit',data:top12.map(x=>x.oprofit),backgroundColor:C.green,borderRadius:4}]},
+                {label:'Profit',data:top12.map(x=>x.oprofit),backgroundColor:top12.map(x=>x.oprofit<0?C.accent:C.green),borderRadius:4}]},
       options:{maintainAspectRatio:false,scales:{x:nogrid,y:grid},
         plugins:{legend:barLegendWithPct(),tooltip:pctTooltip(0)},
         ...clickOpts(top12)}});
