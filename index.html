@@ -2257,9 +2257,13 @@ function showTripModal(trip, tripNum){
           <div><strong style="color:var(--text)">Start KM:</strong> ${trip.startkm||'—'}</div>
           <div><strong style="color:var(--text)">End KM:</strong> ${trip.endkm||'—'}</div>
         </div>
-        <div style="padding-top:12px;border-top:1px solid var(--line)">
+        <div style="padding-top:12px;border-top:1px solid var(--line);margin-bottom:12px">
           <strong style="color:var(--text)">Freight Amount (Auto):</strong>
           <div style="font-size:1.1rem;color:var(--green);font-weight:600;margin-top:4px">Rs ${trip.freight?fmt(Number(trip.freight)||0):'—'}</div>
+        </div>
+        <div style="padding-top:0">
+          <strong style="color:var(--text)">Rate Per Tonne:</strong>
+          <div style="font-size:1.1rem;color:var(--blue);font-weight:600;margin-top:4px">Rs ${trip.ratePerTonne||'—'}</div>
         </div>
       </div>
     </div>
@@ -2314,6 +2318,7 @@ function loadDispatch(cb){
     const iKm   = 13;  // Total KM (N)
     const iSt   = 14;  // Trip Start Date (O)
     const iEn   = 16;  // Trip End Date (Q)
+    const iRatePerTonne = 24; // Rate Per Tonne (Y)
     const iFreight = 25; // Freight Amount (Z)
     DISPATCH_DATA = lines.slice(1).map(line=>{
       // CSV parse respecting quoted fields
@@ -2341,6 +2346,7 @@ function loadDispatch(cb){
         item      : iItem>=0?(cols[iItem]||'').trim() : '—',
         startkm   : iStartKm>=0?(cols[iStartKm]||'').trim() : '—',
         endkm     : iEndKm>=0?(cols[iEndKm]||'').trim() : '—',
+        ratePerTonne : iRatePerTonne>=0?(cols[iRatePerTonne]||'').trim() : '—',
         freight   : iFreight>=0?(cols[iFreight]||'').trim() : '—',
         from      : iFrom>=0?(cols[iFrom]||'').trim() : '—',
         to        : iTo>=0?(cols[iTo]||'').trim() : '—',
