@@ -1757,8 +1757,8 @@ function applySort(rows){
   return rows.slice().sort((a,b)=>{
     let va,vb;
     if(k==='RPD'){
-      va=a.Trips>0?a.Billing/a.Trips:0;
-      vb=b.Trips>0?b.Billing/b.Trips:0;
+      va=a.Billing / 30;  // Revenue Per Day
+      vb=b.Billing / 30;  // Revenue Per Day
     } else if(k==='RPL'){
       va=(a.DieselQty>0)?(a.Billing/a.DieselQty):0;
       vb=(b.DieselQty>0)?(b.Billing/b.DieselQty):0;
@@ -1795,7 +1795,7 @@ function fillVehicles(filter){
   if(f) rows=rows.filter(r=>String(r.Vehicle).toUpperCase().includes(f));
   rows=applySort(rows);
   tb.innerHTML=rows.map(r=>{
-    const rpd = r.Trips>0 ? Math.round(r.Billing/r.Trips) : 0;
+    const rpd = Math.round(r.Billing / 30);  // Revenue Per Day (Billing / 30 days)
     const diesel_liters = r.DieselQty>0 ? r.DieselQty : 0;
     const rpl = diesel_liters>0 ? Math.round(r.Billing/diesel_liters) : 0;
     const opCls = r.OperatingProfit<0?'neg':'pos';
@@ -2086,9 +2086,9 @@ function showVeh(vno){
       ${stat('Net Margin',netMargin.toFixed(1)+'%',cls(netMargin))}
       ${stat('Diesel Qty',fmt(r.DieselQty||0)+' L','')}
       ${(function(){
-        const rpl=r.Trips>0?Math.round(r.Billing/r.Trips):0;
-        const rpd=r.DieselQty>0?Math.round(r.Billing/r.DieselQty):0;
-        return stat('RPD · RPL',(rpl?fmt(rpl):'—')+' · '+(rpd?fmt(rpd):'—'),'');
+        const rpd=Math.round(r.Billing/30);  // Revenue Per Day (Billing / 30 days)
+        const rpl=r.DieselQty>0?Math.round(r.Billing/r.DieselQty):0;  // Revenue Per Liter
+        return stat('RPD · RPL',(rpd?fmt(rpd):'—')+' · '+(rpl?fmt(rpl)+' <span style="font-size:.68rem;color:var(--muted)">/L</span>':'—'),'');
       })()}
     </div>
 
