@@ -3126,8 +3126,8 @@ async function bootDashboard(){
     document.getElementById('liveStatus').textContent='Loading data...';
     await fetchLive().catch(()=>{});
 
-    /* Ab background me continuous fetch - har 5 seconds */
-    setInterval(()=>fetchLive().catch(()=>{}), REFRESH_MS);
+    /* Manual refresh only - no automatic background fetch */
+    // setInterval(()=>fetchLive().catch(()=>{}), REFRESH_MS);  // Disabled - manual refresh only
   } else {
     document.getElementById('liveStatus').textContent='Snapshot';
     document.getElementById('lastUpd').textContent='from uploaded file';
