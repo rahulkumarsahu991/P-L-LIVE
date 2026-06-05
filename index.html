@@ -643,9 +643,17 @@ let DATA = ALL_DATA.slice();
 
 function applyGlobalFilter(){
   BYSERIES_CACHE=null;  // ❌ Cache invalidate karo - data badal raha hai
-  let rows = (SERIES_FILTER==='all')
-    ? ALL_DATA.slice()
-    : ALL_DATA.filter(r => r.Series === SERIES_FILTER);
+  let rows = ALL_DATA.slice();
+
+  /* Series filter: handle both string ('all' or single) and array (multi-select) */
+  if(SERIES_FILTER !== 'all'){
+    if(Array.isArray(SERIES_FILTER) && SERIES_FILTER.length > 0){
+      rows = rows.filter(r => SERIES_FILTER.includes(r.Series));
+    } else if(typeof SERIES_FILTER === 'string'){
+      rows = rows.filter(r => r.Series === SERIES_FILTER);
+    }
+  }
+
   if(STATUS_FILTER==='profit')      rows = rows.filter(r=>r.NetEarnings>0);
   else if(STATUS_FILTER==='loss')   rows = rows.filter(r=>r.NetEarnings<0);
   else if(STATUS_FILTER==='idle')   rows = rows.filter(r=>r.Trips===0);
@@ -999,11 +1007,18 @@ const SECTIONS = {
     const statusText = statusBits.length
       ? `${statusBits.join(' · ')} · ${DATA.length} trucks`
       : `No filter active · ${vehCount()} trucks`;
+    const seriesPills = allSeries.map(s => `
+      <button class="ff-pill ${Array.isArray(SERIES_FILTER) ? SERIES_FILTER.includes(s) : SERIES_FILTER===s ? 'active' : ''}"
+        onclick="toggleSeriesFilter('${s}')" style="font-size:.75rem">${s}</button>`).join('');
     return `
-    <div class="filterfleet">
+    <div class="filterfleet" style="flex-wrap:wrap">
       <span class="ff-label">FILTER FLEET</span>
-      <select class="ff-select" onchange="setSeriesFilter(this.value)">${seriesOpts}</select>
-      <select class="ff-select" onchange="setStatusFilter(this.value)">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <button class="ff-pill ${!Array.isArray(SERIES_FILTER) && SERIES_FILTER==='all'?'active':''}"
+          onclick="setSeriesFilter('all')" style="font-weight:700">All Series</button>
+        ${seriesPills}
+      </div>
+      <select class="ff-select" onchange="setStatusFilter(this.value)" style="margin-left:auto">
         <option value="all" ${STATUS_FILTER==='all'?'selected':''}>All trucks</option>
         <option value="profit" ${STATUS_FILTER==='profit'?'selected':''}>Profitable</option>
         <option value="loss" ${STATUS_FILTER==='loss'?'selected':''}>Loss-making</option>
@@ -2455,7 +2470,18 @@ function resetExpFilters(){
 /* navigation */
 /* ===== OVERVIEW FILTER ACTIONS ===== */
 function setSeriesFilter(val){
-  SERIES_FILTER = val;
+  SERIES_FILTER = val;  // 'all' or single series
+  applyGlobalFilter();
+  renderCurrent();
+}
+function toggleSeriesFilter(series){
+  /* Toggle series in multi-select array */
+  if(!Array.isArray(SERIES_FILTER)) SERIES_FILTER = [];
+  if(SERIES_FILTER.includes(series)){
+    SERIES_FILTER = SERIES_FILTER.filter(s => s !== series);
+  } else {
+    SERIES_FILTER.push(series);
+  }
   applyGlobalFilter();
   renderCurrent();
 }
