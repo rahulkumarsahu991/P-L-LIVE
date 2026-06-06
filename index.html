@@ -3354,8 +3354,8 @@ async function showExpenseDetailWithVehicles(category, amount){
           <div><span style="font-weight:600">${idx+1}. ${veh}</span><span style="font-size:.8rem;color:var(--muted);margin-left:8px">(${txnCount} txn)</span></div>
           <span style="color:var(--amber);font-weight:600">${crore(total)}</span>
         </div>
-        <div id="txn_${idx}" style="display:none;padding:8px;background:var(--bg);max-height:200px;overflow-y:auto">
-          ${vehicleTransactions[veh].slice(0,20).map((t, tidx) => {
+        <div id="txn_${idx}" style="display:none;padding:8px;background:var(--bg);max-height:400px;overflow-y:auto">
+          ${vehicleTransactions[veh].map((t, tidx) => {
             const amt = parseFloat(t[colMap.amount]) || 0;
             const date = t[colMap.date] ? t[colMap.date] : '—';
             const remarks = t[colMap.remarks] ? t[colMap.remarks] : '—';
@@ -3386,7 +3386,7 @@ async function showVehicleTransactions(vehicle, category, sheetName){
   if(transactions.length === 0){
     html += `<div style="color:var(--muted);padding:16px;text-align:center">No transactions</div>`;
   } else {
-    html += transactions.slice(0,20).map((t, idx) => {
+    html += transactions.map((t, idx) => {
       const amt = parseFloat(t[colMap.amount]) || 0;
       const date = t[colMap.date] ? t[colMap.date] : '—';
       const remarks = t[colMap.remarks] ? t[colMap.remarks] : '';
