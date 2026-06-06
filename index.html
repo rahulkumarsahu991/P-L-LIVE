@@ -1384,7 +1384,7 @@ const SECTIONS = {
   allexpenses(){
     return `
     <div class="section-intro">सभी खर्चों की विस्तृत जानकारी — डीजल, ड्राइवर, यात्री, टायर, आदि। गूगल शीट से लाइव डेटा अपडेट होता है।</div>
-    <div id="allExpensesKPI" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px"></div>
+    <div id="allExpensesKPI" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;margin-bottom:28px"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
       <div class="card"><h3>Expense Breakdown</h3><div id="allExpensesBreakdown" style="padding:16px"></div></div>
       <div class="card"><h3>Profit & Loss</h3><div id="allExpensesPL" style="padding:16px"></div></div>
@@ -3187,9 +3187,9 @@ function renderAllExpenses(){
   const num = n => Math.round(n).toLocaleString('en-IN');
   const isNeg = s => typeof s==='string'?s.trim().startsWith('('):s<0;
 
-  // KPI cards
+  // KPI cards - styled like Overview
   const kpis = [{lbl:'Total Billing',val:crore(d.kpis.billing),cls:''},{lbl:'Total Expense',val:crore(d.kpis.expense),cls:''},{lbl:'Operating Profit',val:crore(d.kpis.op_profit),cls:d.kpis.op_profit<0?'neg':'pos'},{lbl:'Net Earnings',val:crore(d.kpis.net),cls:d.kpis.net<0?'neg':'pos'}];
-  document.getElementById('allExpensesKPI').innerHTML = kpis.map(k => `<div class="kpi-card"><div class="kpi-label">${k.lbl}</div><div class="kpi-value ${k.cls}">${k.val}</div></div>`).join('');
+  document.getElementById('allExpensesKPI').innerHTML = kpis.map(k => `<div class="kpi-card ${k.cls==='neg'?'':k.cls==='pos'?'g':''}"><div class="kpi-label">${k.lbl}</div><div class="kpi-value ${k.cls}">${k.val}</div></div>`).join('');
 
   // Expense breakdown
   const rows = d.expense_breakdown.filter(r => r[0] && !String(r[0]).toUpperCase().includes('TOTAL'));
