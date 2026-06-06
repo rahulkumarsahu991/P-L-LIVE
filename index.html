@@ -3224,14 +3224,9 @@ function renderAllExpenses(){
   document.getElementById('allExpensesStatus').innerHTML = `<span style="color:var(--green)">✓ Updated ${new Date().toLocaleTimeString('en-IN')}</span>`;
 }
 
-/* Click handlers for All Expenses details - custom modal */
+/* Click handlers for All Expenses details - gviz API */
 function showExpenseDetail(category, amount){
-  // Load CSV data if not already loaded
-  if(Object.keys(expenseSheetData).length === 0){
-    loadExpenseSheetData().then(() => showExpenseDetailWithVehicles(category, amount));
-  } else {
-    showExpenseDetailWithVehicles(category, amount);
-  }
+  showExpenseDetailWithVehicles(category, amount);
 }
 
 function showSeriesDetail(series){
@@ -3265,8 +3260,7 @@ function closeAllExpenseModal(){
   if(modal)modal.style.display = 'none';
 }
 
-/* CSV Integration for detailed expense data */
-let expenseSheetData = {};
+/* Gviz API Integration for detailed expense data */
 const EXPENSE_SHEET_MAP = {
   'Diesel': 'DIESEL&UREA',
   'Urea': 'DIESEL&UREA',
@@ -3278,100 +3272,72 @@ const EXPENSE_SHEET_MAP = {
   'RTO': 'TAX SHEET'
 };
 
-async function loadExpenseSheetData(){
+async function fetchExpenseSheetData(sheetName){
   try{
-    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTFfJ5JJKrDtauj07HVgMLNludDmnC4S7Kji5LfAXI28tn552OygrZiXQZc6FSo_kEfGoFSePKeALEh/pub?output=csv';
-    const response = await fetch(csvUrl);
+    const SHEET_ID = '1EgXBPgwuSJPOcAk9tNtdaDSwYurkG_gAAhdb12wNTHU';
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent(sheetName)}&t=${Date.now()}`;
+
+    const response = await fetch(url);
     const text = await response.text();
+    const json = JSON.parse(text.substring(47).slice(0, -2));
 
-    // Parse CSV - split by sheet markers
-    const lines = text.split('\n');
-    let currentSheet = null;
-    let currentData = [];
+    if(!json.table)return [];
 
-    for(let i = 0; i < lines.length; i++){
-      const line = lines[i].trim();
-      if(!line) continue;
+    const rows = [];
+    const cols = json.table.cols || [];
+    const data = json.table.rows || [];
 
-      // Detect sheet headers
-      if(line.startsWith('"') && line.includes('Sheet')){
-        if(currentSheet && currentData.length > 0){
-          expenseSheetData[currentSheet] = currentData;
-        }
-        currentSheet = line.replace(/"/g, '').trim();
-        currentData = [];
-      } else if(currentSheet){
-        currentData.push(parseCSVLine(line));
+    for(const row of data){
+      const c = (row && row.c) || [];
+      const r = [];
+      for(let i = 0; i < cols.length; i++){
+        const cell = c[i];
+        r.push(cell ? (cell.f != null ? cell.f : (cell.v != null ? cell.v : '')) : '');
       }
+      rows.push(r);
     }
-    if(currentSheet) expenseSheetData[currentSheet] = currentData;
+    return rows;
   }catch(e){
-    console.error('Error loading expense sheets:', e);
+    console.error('Error fetching sheet:', sheetName, e);
+    return [];
   }
 }
 
-function parseCSVLine(line){
-  const result = [];
-  let current = '';
-  let inQuotes = false;
-  for(let i = 0; i < line.length; i++){
-    const char = line[i];
-    if(char === '"'){
-      inQuotes = !inQuotes;
-    } else if(char === ',' && !inQuotes){
-      result.push(current.replace(/"/g, '').trim());
-      current = '';
-    } else {
-      current += char;
-    }
-  }
-  result.push(current.replace(/"/g, '').trim());
-  return result;
-}
-
-function showExpenseDetailWithVehicles(category, amount){
+async function showExpenseDetailWithVehicles(category, amount){
   const crore = n => {const a=Math.abs(n),s=n<0?'-':'';if(a>=1e7)return s+'₹'+(a/1e7).toFixed(2)+' Cr';if(a>=1e5)return s+'₹'+(a/1e5).toFixed(2)+' L';return s+'₹'+Math.round(a).toLocaleString('en-IN');};
-  const num = n => Math.round(n).toLocaleString('en-IN');
 
   let html = `<div class="det-row" style="margin-bottom:16px"><span style="font-weight:700;font-size:1.1rem">${category}</span><span style="font-weight:700;color:var(--amber);font-size:1.15rem">${crore(amount)}</span></div>`;
   html += `<div style="font-size:.9rem;color:var(--muted);margin-bottom:14px">Top vehicles by expense:</div>`;
 
-  // Get data from appropriate sheet
+  // Fetch data from appropriate sheet
   const sheetName = EXPENSE_SHEET_MAP[category];
+  const sheetData = await fetchExpenseSheetData(sheetName);
   const vehicles = {};
 
-  if(expenseSheetData[sheetName]){
-    expenseSheetData[sheetName].forEach(row => {
-      if(row.length >= 2){
-        const veh = row[0] || 'Unknown';
-        const amt = parseFloat(row[1]) || 0;
+  sheetData.forEach(row => {
+    if(row.length >= 2){
+      const veh = (row[0] || 'Unknown').trim();
+      const amt = parseFloat(row[1]) || 0;
+      if(veh && veh.length > 0 && !isNaN(amt)){
         vehicles[veh] = (vehicles[veh] || 0) + amt;
       }
-    });
-  }
+    }
+  });
 
   const sorted = Object.entries(vehicles).sort((a,b) => b[1] - a[1]).slice(0, 10);
 
   if(sorted.length === 0){
     html += `<div style="color:var(--muted);padding:16px;text-align:center">No vehicle data available</div>`;
   } else {
-    html += sorted.map((item, idx) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;cursor:pointer;border-radius:6px;transition:.15s;hover:background:var(--panel2)" onclick="showVehicleTransactions('${item[0]}', '${category}')"><div><span style="font-weight:600">${idx+1}. ${item[0]}</span></div><span style="color:var(--amber);font-weight:600">${crore(item[1])}</span></div>`).join('');
+    html += sorted.map((item, idx) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;cursor:pointer;border-radius:6px;transition:.15s;hover:background:var(--panel2)" onclick="showVehicleTransactions('${item[0]}', '${category}', '${sheetName}')"><div><span style="font-weight:600">${idx+1}. ${item[0]}</span></div><span style="color:var(--amber);font-weight:600">${crore(item[1])}</span></div>`).join('');
   }
 
   showAllExpenseModal(category + ' - Vehicle Details', html);
 }
 
-function showVehicleTransactions(vehicle, category){
-  const sheetName = EXPENSE_SHEET_MAP[category];
-  const transactions = [];
-
-  if(expenseSheetData[sheetName]){
-    expenseSheetData[sheetName].forEach(row => {
-      if(row[0] === vehicle){
-        transactions.push(row);
-      }
-    });
-  }
+async function showVehicleTransactions(vehicle, category, sheetName){
+  const sheetData = await fetchExpenseSheetData(sheetName);
+  const transactions = sheetData.filter(row => row[0] && row[0].trim() === vehicle);
 
   let html = `<div class="det-row" style="margin-bottom:16px"><span style="font-weight:700;font-size:1.1rem">${vehicle}</span><span style="font-weight:700;color:var(--amber);font-size:1rem">${category}</span></div>`;
   html += `<div style="font-size:.9rem;color:var(--muted);margin-bottom:14px">${transactions.length} transactions:</div>`;
@@ -3379,13 +3345,16 @@ function showVehicleTransactions(vehicle, category){
   if(transactions.length === 0){
     html += `<div style="color:var(--muted);padding:16px;text-align:center">No transactions</div>`;
   } else {
-    html += transactions.slice(0,15).map((t, idx) => {
+    html += transactions.slice(0,20).map((t, idx) => {
+      const amt = parseFloat(t[1]) || 0;
+      const date = t[2] ? t[2] : '—';
+      const remarks = t[3] ? t[3] : '';
       return `<div style="padding:10px;border-bottom:1px solid var(--line);font-size:.9rem">
         <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-          <span style="font-weight:600">${idx+1}. ${t[1] ? t[1] : '—'}</span>
-          <span style="color:var(--amber);font-weight:600">₹${(parseFloat(t[1])||0).toLocaleString('en-IN')}</span>
+          <span style="font-weight:600">${idx+1}. ${date}</span>
+          <span style="color:var(--amber);font-weight:600">₹${amt.toLocaleString('en-IN')}</span>
         </div>
-        ${t[2] ? `<div style="color:var(--muted);font-size:.8rem">${t[2]}</div>` : ''}
+        ${remarks ? `<div style="color:var(--muted);font-size:.8rem">${remarks}</div>` : ''}
       </div>`;
     }).join('');
   }
