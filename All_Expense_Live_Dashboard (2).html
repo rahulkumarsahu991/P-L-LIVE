@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fleet Operations — All Expense (Live from Google Sheet)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0c0f14; --bg2:#11151c; --panel:#151b24; --panel2:#1b222d;
+    --line:#252e3b; --line2:#303b4a;
+    --ink:#e8edf4; --muted:#8a97a8; --dim:#5e6b7c;
+    --amber:#f5a623; --amber-dim:#7a5a1d;
+    --teal:#2dd4bf; --green:#34d399; --red:#f87171; --red-dim:#5c2b2b;
+    --grad-amber:linear-gradient(135deg,#f5a623,#ff7a00);
+    --shadow:0 18px 50px -20px rgba(0,0,0,.8);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:'Manrope',sans-serif; background:var(--bg); color:var(--ink);
+    -webkit-font-smoothing:antialiased; line-height:1.4;
+    background-image:
+      radial-gradient(900px 500px at 88% -8%, rgba(245,166,35,.10), transparent 60%),
+      radial-gradient(800px 500px at -5% 110%, rgba(45,212,191,.07), transparent 55%);
+    min-height:100vh;
+  }
+  .wrap{max-width:1320px;margin:0 auto;padding:24px 22px 70px}
+  .display{font-family:'Archivo',sans-serif}
+
+  header{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;justify-content:space-between;
+    padding-bottom:18px;margin-bottom:16px;border-bottom:1px solid var(--line)}
+  .brand{display:flex;gap:15px;align-items:center}
+  .logo{width:50px;height:50px;border-radius:13px;flex:none;background:var(--grad-amber);
+    display:grid;place-items:center;box-shadow:0 10px 26px -8px rgba(245,166,35,.6)}
+  .logo svg{width:28px;height:28px}
+  h1{font-family:'Archivo',sans-serif;font-weight:900;font-size:23px;letter-spacing:-.5px;line-height:1.05}
+  .sub{color:var(--muted);font-size:12.5px;margin-top:5px;letter-spacing:.2px}
+  .livepill{display:inline-flex;gap:7px;align-items:center;font-size:11.5px;font-weight:600;
+    padding:8px 13px;border-radius:20px;border:1px solid var(--line2);color:var(--muted)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--dim)}
+  .livepill.on{color:var(--green);border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.07)}
+  .livepill.on .dot{background:var(--green);animation:pulse 1.6s infinite}
+  .livepill.err{color:var(--red);border-color:rgba(248,113,113,.4)}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(52,211,153,.5)}70%{box-shadow:0 0 0 7px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
+
+  /* connection bar */
+  .connbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--panel);
+    border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:24px;box-shadow:var(--shadow)}
+  .connbar .gico{width:22px;height:22px;flex:none}
+  .connbar input{flex:1;min-width:220px;background:var(--bg2);border:1px solid var(--line2);color:var(--ink);
+    border-radius:10px;padding:11px 13px;font-family:'Manrope';font-size:13px;outline:none}
+  .connbar input:focus{border-color:var(--amber)}
+  .connbar input::placeholder{color:var(--dim)}
+  .btn{font-family:'Manrope';font-weight:600;font-size:13px;cursor:pointer;border:1px solid var(--line2);
+    background:var(--panel2);color:var(--ink);padding:11px 16px;border-radius:10px;display:inline-flex;gap:8px;
+    align-items:center;transition:.18s;white-space:nowrap}
+  .btn:hover{background:var(--line);transform:translateY(-1px)}
+  .btn.primary{background:var(--grad-amber);color:#1a1206;border:none;font-weight:700;
+    box-shadow:0 10px 22px -10px rgba(245,166,35,.7)}
+  .btn.primary:hover{filter:brightness(1.07)}
+  .btn svg{width:15px;height:15px}
+  .btn.ghost{background:transparent;font-size:12.5px;padding:11px 13px;color:var(--muted)}
+  .hint{flex-basis:100%;font-size:11.5px;color:var(--dim);line-height:1.6}
+  .hint b{color:var(--muted)}
+  #file{display:none}
+
+  .hero{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
+  .kpi{position:relative;overflow:hidden;border:1px solid var(--line);border-radius:16px;
+    background:linear-gradient(180deg,var(--panel),var(--bg2));padding:18px 18px 16px;box-shadow:var(--shadow)}
+  .kpi::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:var(--grad-amber);opacity:.9}
+  .kpi.green::before{background:linear-gradient(90deg,#34d399,#10b981)}
+  .kpi.red::before{background:linear-gradient(90deg,#f87171,#ef4444)}
+  .kpi.teal::before{background:linear-gradient(90deg,#2dd4bf,#0ea5a4)}
+  .kpi .lbl{font-size:11px;letter-spacing:1.3px;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .kpi .val{font-family:'Archivo';font-weight:800;font-size:30px;letter-spacing:-1px;margin-top:9px;line-height:1}
+  .kpi .val.neg{color:var(--red)} .kpi .val.pos{color:var(--green)}
+  .kpi .note{font-size:11.5px;color:var(--dim);margin-top:8px}
+  .kpi .ic{position:absolute;right:14px;top:15px;color:var(--line2);width:26px;height:26px}
+
+  .strip{display:grid;grid-template-columns:repeat(8,1fr);gap:11px;margin-bottom:26px}
+  .mini{border:1px solid var(--line);border-radius:13px;background:var(--panel);padding:13px}
+  .mini .lbl{font-size:10px;letter-spacing:.9px;text-transform:uppercase;color:var(--dim);font-weight:600}
+  .mini .val{font-family:'JetBrains Mono';font-weight:700;font-size:17px;margin-top:6px;letter-spacing:-.5px}
+
+  .grid{display:grid;grid-template-columns:1.15fr 1fr;gap:18px;margin-bottom:18px}
+  .card{border:1px solid var(--line);border-radius:16px;background:var(--panel);box-shadow:var(--shadow);overflow:hidden}
+  .card h2{font-family:'Archivo';font-weight:700;font-size:14px;letter-spacing:.4px;padding:15px 18px;
+    border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px;text-transform:uppercase}
+  .card h2 .bar{width:4px;height:15px;border-radius:3px;background:var(--amber)}
+  .card .body{padding:16px 18px}
+
+  .exp-row{display:grid;grid-template-columns:90px 1fr 112px;gap:12px;align-items:center;margin-bottom:13px}
+  .exp-row .name{font-size:13px;font-weight:600}
+  .track{height:9px;border-radius:6px;background:var(--bg2);overflow:hidden;border:1px solid var(--line)}
+  .fill{height:100%;border-radius:6px;background:var(--grad-amber);width:0;transition:width 1s cubic-bezier(.2,.7,.3,1)}
+  .exp-row .amt{font-family:'JetBrains Mono';font-size:13px;text-align:right;font-weight:500}
+  .exp-row .pct{font-family:'JetBrains Mono';font-size:11px;color:var(--dim);text-align:right}
+  .exp-total{display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding-top:14px;border-top:1px dashed var(--line2)}
+  .exp-total .name{font-family:'Archivo';font-weight:800;font-size:14px;text-transform:uppercase;letter-spacing:.5px}
+  .exp-total .amt{font-family:'JetBrains Mono';font-weight:700;font-size:18px;color:var(--amber)}
+
+  .pl-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
+  .pl-row:last-child{border-bottom:none}
+  .pl-row .li{font-size:13.5px;font-weight:500}
+  .pl-row .am{font-family:'JetBrains Mono';font-size:14.5px;font-weight:600}
+  .pl-row.subtotal .li{font-weight:700} .pl-row.subtotal .am{font-weight:700}
+  .pl-row .am.neg{color:var(--red)} .pl-row .am.pos{color:var(--green)}
+  .pl-final{margin:14px -18px -16px;padding:16px 18px;background:linear-gradient(90deg,rgba(248,113,113,.12),rgba(248,113,113,.02));display:flex;justify-content:space-between;align-items:center}
+  .pl-final.win{background:linear-gradient(90deg,rgba(52,211,153,.12),rgba(52,211,153,.02))}
+  .pl-final .li{font-family:'Archivo';font-weight:800;font-size:15px;text-transform:uppercase;letter-spacing:.5px}
+  .pl-final .am{font-family:'Archivo';font-weight:900;font-size:24px}
+  .pl-final .am.neg{color:var(--red)} .pl-final .am.pos{color:var(--green)}
+  .margin-chip{font-size:11px;color:var(--muted);margin-top:6px;text-align:right}
+
+  .tb-grid{display:grid;grid-template-columns:1fr 1fr}
+  .tb-col{padding:16px 18px}
+  .tb-col:first-child{border-right:1px solid var(--line)}
+  .tb-col .h{font-size:11px;letter-spacing:1px;text-transform:uppercase;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:7px}
+  .tb-col.win .h{color:var(--green)} .tb-col.loss .h{color:var(--red)}
+  .veh{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
+  .veh:last-child{border-bottom:none}
+  .veh .no{font-family:'JetBrains Mono';font-size:12.5px;font-weight:500;letter-spacing:.3px}
+  .veh .v{font-family:'JetBrains Mono';font-size:13px;font-weight:700}
+  .veh.win .v{color:var(--green)} .veh.loss .v{color:var(--red)}
+  .rank{display:inline-block;width:18px;height:18px;line-height:18px;text-align:center;border-radius:5px;font-size:10px;font-weight:700;margin-right:9px;background:var(--bg2);color:var(--dim)}
+  .split-stat{display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:14px 18px;border-top:1px solid var(--line);background:var(--bg2)}
+  .split-stat .s{text-align:center}
+  .split-stat .s .n{font-family:'Archivo';font-weight:900;font-size:26px}
+  .split-stat .s .n.g{color:var(--green)} .split-stat .s .n.r{color:var(--red)}
+  .split-stat .s .t{font-size:10.5px;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);margin-top:3px}
+
+  .tablecard .body{padding:0}
+  .tbl-scroll{max-height:460px;overflow:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:600;font-size:10.5px;
+    letter-spacing:.9px;text-transform:uppercase;text-align:right;padding:11px 16px;border-bottom:1px solid var(--line2);z-index:2}
+  thead th:first-child{text-align:left}
+  tbody td{padding:10px 16px;border-bottom:1px solid var(--line);text-align:right;font-family:'JetBrains Mono';font-size:12.5px}
+  tbody td:first-child{text-align:left;font-family:'Manrope';font-weight:600;font-size:13px}
+  tbody tr:hover{background:var(--panel2)}
+  tbody td.pos{color:var(--green)} tbody td.neg{color:var(--red)}
+  tr.totalrow td{background:var(--bg2);font-weight:700;border-top:2px solid var(--line2);position:sticky;bottom:0}
+  tr.totalrow td:first-child{font-family:'Archivo';text-transform:uppercase;letter-spacing:.5px}
+
+  footer{margin-top:30px;text-align:center;color:var(--dim);font-size:11.5px;line-height:1.7}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(120%);background:var(--panel2);
+    border:1px solid var(--line2);color:var(--ink);padding:12px 20px;border-radius:12px;font-size:13px;font-weight:600;
+    box-shadow:var(--shadow);transition:.35s;z-index:60;max-width:90vw}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+  .toast.err{border-color:var(--red);color:var(--red)}
+
+  @media(max-width:1080px){.hero{grid-template-columns:repeat(2,1fr)}.strip{grid-template-columns:repeat(4,1fr)}.grid{grid-template-columns:1fr}}
+  @media(max-width:560px){.hero{grid-template-columns:1fr}.strip{grid-template-columns:repeat(2,1fr)}h1{font-size:19px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#1a1206" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+      </div>
+      <div>
+        <h1>Fleet Operations — All Expense</h1>
+        <div class="sub" id="period">Loading period…</div>
+      </div>
+    </div>
+    <span class="livepill" id="livepill"><span class="dot"></span><span id="liveText">Snapshot</span></span>
+  </header>
+
+  <!-- GOOGLE SHEET CONNECTION -->
+  <div class="connbar">
+    <svg class="gico" viewBox="0 0 24 24" fill="none"><rect x="4" y="2" width="13" height="20" rx="2" fill="#188038"/><path d="M14 2l6 6h-6V2z" fill="#0f6b30"/><path d="M7.5 11h7M7.5 14h7M7.5 17h4.5" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg>
+    <input id="sheetUrl" type="text" placeholder="Paste your Google Sheet link (the one with the All Expense tab)…" spellcheck="false">
+    <button class="btn primary" id="connectBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Connect live
+    </button>
+    <button class="btn ghost" id="loadBtn" title="Use a downloaded .xlsx instead">or load .xlsx</button>
+    <input type="file" id="file" accept=".xlsx,.xlsm,.xls">
+    <div class="hint">
+      One-time setup in your Google Sheet: <b>Share → General access → “Anyone with the link” → Viewer</b>, then paste the link above.
+      The page reads the <b>All Expense</b> tab and refreshes automatically every 20&nbsp;seconds.
+    </div>
+  </div>
+
+  <section class="hero" id="hero"></section>
+  <section class="strip" id="strip"></section>
+
+  <section class="grid">
+    <div class="card"><h2><span class="bar"></span>Expense Breakdown</h2><div class="body" id="expBody"></div></div>
+    <div class="card"><h2><span class="bar"></span>Profit &amp; Loss Summary</h2><div class="body" id="plBody"></div></div>
+  </section>
+
+  <section class="grid">
+    <div class="card tablecard">
+      <h2><span class="bar"></span>Series-wise Performance</h2>
+      <div class="body"><div class="tbl-scroll"><table>
+        <thead><tr><th>Series</th><th>Veh</th><th>Trips</th><th>Billing</th><th>Total Exp</th><th>Net Earnings</th></tr></thead>
+        <tbody id="seriesBody"></tbody>
+      </table></div></div>
+    </div>
+    <div class="card">
+      <h2><span class="bar"></span>Top 5 &amp; Bottom 5 Vehicles</h2>
+      <div class="tb-grid">
+        <div class="tb-col win"><div class="h">▲ Top — Profit</div><div id="topBody"></div></div>
+        <div class="tb-col loss"><div class="h">▼ Bottom — Loss</div><div id="botBody"></div></div>
+      </div>
+      <div class="split-stat">
+        <div class="s"><div class="n g" id="profCount">—</div><div class="t">Profitable Vehicles</div></div>
+        <div class="s"><div class="n r" id="lossCount">—</div><div class="t">Loss-making Vehicles</div></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Live view of the <strong>All Expense</strong> sheet · <span id="updated">—</span><br>
+    Values are read straight from your Google Sheet's calculated cells. Edit the source sheets and the dashboard updates on the next refresh.
+  </footer>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== OPTIONAL: paste your Google Sheet link here to auto-connect on open =====
+const SHEET_URL = "";   // e.g. "https://docs.google.com/spreadsheets/d/XXXXXXXX/edit"
+const SHEET_TAB = "All Expense";
+const POLL = 20000;     // refresh interval (ms)
+// ===============================================================================
+
+const SNAPSHOT = {"period": "Period: 01-Mar-2026 to 04-Jun-2026 \u2022 286 Vehicles \u2022 All figures in INR (\u20b9)", "kpis": {"billing": 122047416.2, "expense": 91587051.68, "op_profit": 30460364.52, "net": -10736125.62, "trips": 3175, "km": 1046666.02, "diesel": 56669104.21, "emi": 39369664, "money_adv": 15583467, "settlement": 3256772, "loading_wt": 114098.645, "avg_rev_km": 116.6058837}, "expense_breakdown": [["Diesel", 56669104.21, 0.644], ["Urea", 1133285.58, 0.015], ["Fastag", 6652573.89, 0.044], ["Driver A/C", 18840239, 0.202], ["Cash", 518350, 0.007], ["UPI", 352099, 0.019], ["Tyre", 6491400, 0.063], ["RTO", 930000, 0.008], ["TOTAL EXPENSE", 91587051.68, 1.0]], "pl_summary": [["Total Billing (Revenue)", 122047416.2], ["(\u2212) Total Operating Expense", -91587051.68], ["Operating Profit", 30460364.52], ["(\u2212) EMI", -39369664], ["(\u2212) Paper", -1826826.14], ["Net Earnings", -10736125.62]], "net_margin": -0.08796684068, "top": [["CG08AQ9711", "\u20b92,98,510"], ["CG10BZ9811", "\u20b92,91,693"], ["CG08AT4311", "\u20b92,14,138"], ["CG08AT2511", "\u20b91,88,279"], ["CG08AT4611", "\u20b91,81,404"]], "bottom": [["CG08BE9011", "(\u20b94,37,257)"], ["CG08BE0911", "(\u20b94,10,965)"], ["CG22AK0511", "(\u20b93,50,788)"], ["CG22AK0611", "(\u20b93,44,987)"], ["CG08AV0911", "(\u20b93,35,261)"]], "profitable": 123, "lossmaking": 163, "series": [["AA", 4, 33, "\u20b94,80,065", "\u20b93,21,629", "\u20b91,58,436"], ["AC", 4, 28, "\u20b95,98,079", "\u20b911,83,632", "(\u20b95,85,553)"], ["AD", 6, 33, "\u20b96,17,141", "\u20b94,08,099", "\u20b92,09,042"], ["AE", 1, 4, "\u20b91,21,658", "\u20b969,936", "\u20b951,722"], ["AH", 17, 139, "\u20b920,86,667", "\u20b912,06,341", "\u20b98,80,326"], ["AK", 12, 38, "\u20b911,94,654", "\u20b912,04,409", "(\u20b913,77,770)"], ["AM", 1, 6, "\u20b91,40,386", "\u20b91,20,211", "\u20b920,175"], ["AN", 7, 55, "\u20b916,53,845", "\u20b910,43,919", "\u20b94,68,280"], ["AQ", 11, 121, "\u20b933,24,187", "\u20b922,39,036", "\u20b910,85,151"], ["AR", 5, 43, "\u20b99,18,243", "\u20b95,58,754", "\u20b93,59,489"], ["AS", 11, 104, "\u20b932,72,385", "\u20b922,68,538", "\u20b910,03,847"], ["AT", 11, 117, "\u20b936,44,435", "\u20b923,31,787", "\u20b912,76,162"], ["AU", 19, 174, "\u20b953,28,887", "\u20b934,17,394", "(\u20b931,91,919)"], ["AV", 21, 205, "\u20b963,84,584", "\u20b942,29,548", "(\u20b944,16,353)"], ["AW", 21, 238, "\u20b997,53,240", "\u20b963,67,835", "(\u20b939,53,039)"], ["AX", 32, 446, "\u20b91,91,07,503", "\u20b91,14,93,263", "(\u20b937,09,398)"], ["AY", 9, 119, "\u20b955,13,974", "\u20b933,06,964", "(\u20b911,06,782)"], ["AZ", 5, 76, "\u20b933,63,573", "\u20b920,33,657", "(\u20b94,93,466)"], ["BA", 13, 173, "\u20b983,48,797", "\u20b948,49,311", "(\u20b911,72,693)"], ["BB", 4, 58, "\u20b926,87,167", "\u20b918,29,817", "(\u20b96,05,731)"], ["BBT", 6, 103, "\u20b958,38,302", "\u20b933,13,354", "(\u20b914,402)"], ["BC", 10, 163, "\u20b977,86,510", "\u20b945,11,385", "(\u20b94,70,694)"], ["BD", 7, 113, "\u20b949,50,367", "\u20b930,03,922", "(\u20b95,80,403)"], ["BE", 6, 100, "\u20b946,61,739", "\u20b929,13,260", "(\u20b95,30,273)"], ["BZ", 9, 123, "\u20b967,75,478", "\u20b941,91,872", "\u20b91,77,384"], ["CA", 5, 65, "\u20b933,60,987", "\u20b918,32,081", "\u20b92,83,973"], ["CB", 10, 133, "\u20b974,25,424", "\u20b949,56,088", "(\u20b98,23,915)"], ["L", 2, 20, "\u20b91,00,515", "\u20b922,631", "\u20b977,884"], ["Tanker", 4, 4, "\u20b91,92,000", "\u20b93,35,335", "(\u20b98,98,521)"], ["U", 1, 13, "\u20b91,42,363", "\u20b941,791", "\u20b91,00,572"], ["V", 5, 41, "\u20b94,26,347", "\u20b91,63,683", "\u20b92,62,663"], ["Y", 5, 49, "\u20b96,47,154", "\u20b91,39,865", "\u20b95,07,289"], ["Z", 2, 16, "\u20b93,04,656", "\u20b960,150", "\u20b92,44,507"], ["TOTAL", 286, 3153, "\u20b912,11,51,313", "\u20b97,59,69,498", "(\u20b91,67,64,010)"]]};
+
+// ---------- formatters ----------
+const inr = n => '\u20b9' + Math.round(n).toLocaleString('en-IN');
+function crore(n){const a=Math.abs(n),s=n<0?'-':'';
+  if(a>=1e7) return s+'\u20b9'+(a/1e7).toFixed(2)+' Cr';
+  if(a>=1e5) return s+'\u20b9'+(a/1e5).toFixed(2)+' L';
+  return s+'\u20b9'+Math.round(a).toLocaleString('en-IN');}
+const num = n => Math.round(n).toLocaleString('en-IN');
+const isNeg = s => typeof s==='string' ? s.trim().startsWith('(') : s<0;
+
+// ---------- render ----------
+function render(d){
+  document.getElementById('period').textContent = d.period || '';
+  const k=d.kpis;
+  const hero=[
+    {lbl:'Total Billing / Freight',val:crore(k.billing),cls:'',note:'Revenue earned',ic:'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'},
+    {lbl:'Total Expense',val:crore(k.expense),cls:'',note:'Diesel + Driver + Tyre + \u2026',ic:'M3 3v18h18M7 14l4-4 4 4 5-6'},
+    {lbl:'Operating Profit',val:crore(k.op_profit),cls:k.op_profit<0?'red':'teal',vcls:k.op_profit<0?'neg':'pos',note:'Billing \u2212 Expense',ic:'M3 17l6-6 4 4 8-8'},
+    {lbl:'Net Earnings',val:crore(k.net),cls:k.net<0?'red':'green',vcls:k.net<0?'neg':'pos',note:'After EMI & Paper',ic:'M22 12h-4l-3 9L9 3l-3 9H2'}
+  ];
+  document.getElementById('hero').innerHTML = hero.map(c=>`
+    <div class="kpi ${c.cls}">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${c.ic}"/></svg>
+      <div class="lbl">${c.lbl}</div><div class="val ${c.vcls||''}">${c.val}</div><div class="note">${c.note}</div>
+    </div>`).join('');
+
+  const strip=[['Total Trips',num(k.trips)],['Total KM Run',num(k.km)],['Total Diesel',crore(k.diesel)],['Total EMI',crore(k.emi)],
+    ['Money Advance',crore(k.money_adv)],['Settlement',crore(k.settlement)],['Loading Wt (MT)',num(k.loading_wt)],['Avg Revenue / KM','\u20b9'+(+k.avg_rev_km).toFixed(2)]];
+  document.getElementById('strip').innerHTML = strip.map(m=>`<div class="mini"><div class="lbl">${m[0]}</div><div class="val">${m[1]}</div></div>`).join('');
+
+  const rows=d.expense_breakdown.filter(r=>r[0] && !String(r[0]).toUpperCase().includes('TOTAL'));
+  const total=d.expense_breakdown.find(r=>String(r[0]).toUpperCase().includes('TOTAL'));
+  const maxPct=Math.max(...rows.map(r=>+r[2]||0));
+  document.getElementById('expBody').innerHTML = rows.map(r=>{const pct=(+r[2]||0);const w=maxPct?(pct/maxPct*100):0;
+    return `<div class="exp-row"><div class="name">${r[0]}</div>
+      <div class="track"><div class="fill" data-w="${w}"></div></div>
+      <div><div class="amt">${inr(r[1])}</div><div class="pct">${(pct*100).toFixed(1)}%</div></div></div>`;}).join('')
+    + (total?`<div class="exp-total"><div class="name">Total Expense</div><div class="amt">${inr(total[1])}</div></div>`:'');
+  requestAnimationFrame(()=>document.querySelectorAll('.fill').forEach(f=>f.style.width=f.dataset.w+'%'));
+
+  const pl=d.pl_summary, finalRow=pl[pl.length-1];
+  const body=pl.slice(0,-1).map(r=>{const v=+r[1];const cls=v<0?'neg':'pos';
+    const head=String(r[0]).toLowerCase().includes('operating profit');
+    return `<div class="pl-row ${head?'subtotal':''}"><div class="li">${r[0]}</div><div class="am ${cls}">${v<0?'('+inr(-v)+')':inr(v)}</div></div>`;}).join('');
+  const fv=+finalRow[1], win=fv>=0;
+  document.getElementById('plBody').innerHTML = body +
+    `<div class="pl-final ${win?'win':''}"><div><div class="li">${finalRow[0]}</div></div>
+       <div style="text-align:right"><div class="am ${win?'pos':'neg'}">${fv<0?'('+inr(-fv)+')':inr(fv)}</div>
+       <div class="margin-chip">Net margin ${(d.net_margin*100).toFixed(2)}%</div></div></div>`;
+
+  document.getElementById('topBody').innerHTML = d.top.map((v,i)=>`<div class="veh win"><div class="no"><span class="rank">${i+1}</span>${v[0]}</div><div class="v">${v[1]}</div></div>`).join('');
+  document.getElementById('botBody').innerHTML = d.bottom.map((v,i)=>`<div class="veh loss"><div class="no"><span class="rank">${i+1}</span>${v[0]}</div><div class="v">${v[1]}</div></div>`).join('');
+  document.getElementById('profCount').textContent = num(d.profitable);
+  document.getElementById('lossCount').textContent = num(d.lossmaking);
+
+  document.getElementById('seriesBody').innerHTML = d.series.map(r=>{const isTotal=String(r[0]).toUpperCase()==='TOTAL';const netCls=isNeg(r[5])?'neg':'pos';
+    return `<tr class="${isTotal?'totalrow':''}"><td>${r[0]}</td><td>${num(r[1])}</td><td>${num(r[2])}</td><td>${r[3]}</td><td>${r[4]}</td><td class="${netCls}">${r[5]}</td></tr>`;}).join('');
+
+  document.getElementById('updated').textContent = 'Updated ' + new Date().toLocaleString('en-IN');
+}
+
+// ---------- grid helpers (shared by Google CSV + xlsx) ----------
+const gv=(G,r,c)=>(G[r]&&G[r][c]!=null)?G[r][c]:'';
+function findRC(G,text,exact){text=text.toLowerCase();
+  for(let r=0;r<G.length;r++){const row=G[r]||[];for(let c=0;c<row.length;c++){
+    const v=String(gv(G,r,c)).trim().toLowerCase(); if(v==='')continue;
+    if(exact? v===text : v.includes(text)) return [r,c];}}
+  return null;}
+const toNum = s => {if(typeof s==='number')return s;const m=String(s).replace(/[^0-9.\-]/g,'');return parseFloat(m)||0;};
+
+function parseGrid(G){
+  const d={};
+  const p=findRC(G,'period:',false); d.period = p? String(gv(G,p[0],p[1])) : (SNAPSHOT.period);
+  const below = lbl => {const rc=findRC(G,lbl,false); return rc? toNum(gv(G,rc[0]+1,rc[1])) : 0;};
+  d.kpis={billing:below('total billing'),expense:below('total expense'),op_profit:below('operating profit'),net:below('net earnings'),
+    trips:below('total trips'),km:below('total km'),diesel:below('total diesel'),emi:below('total emi'),
+    money_adv:below('total money advance'),settlement:below('total settlement'),loading_wt:below('total loading'),avg_rev_km:below('avg revenue')};
+
+  d.expense_breakdown=[]; const eh=findRC(G,'expense head',false);
+  if(eh){for(let r=eh[0]+1;r<G.length;r++){const nm=String(gv(G,r,0)).trim();if(!nm)break;
+    d.expense_breakdown.push([nm,toNum(gv(G,r,3)),toNum(gv(G,r,5))]); if(nm.toLowerCase().includes('total expense'))break;}}
+
+  d.pl_summary=[]; const li=findRC(G,'line item',false);
+  if(li){for(let r=li[0]+1;r<G.length;r++){const lab=String(gv(G,r,7)).trim();if(!lab)break;
+    d.pl_summary.push([lab,toNum(gv(G,r,10))]); if(lab.toLowerCase().includes('net earnings'))break;}}
+
+  const margin=findRC(G,'net margin',false); d.net_margin = margin? toNum(gv(G,margin[0],10)) : 0;
+
+  d.top=[]; d.bottom=[]; const tb=findRC(G,'top 5',false);
+  if(tb){const base=tb[0]+2; for(let i=0;i<5;i++){const r=base+i;
+    const tv=String(gv(G,r,7)).trim(), bv=String(gv(G,r,10)).trim();
+    if(tv)d.top.push([tv,String(gv(G,r,9)).trim()]); if(bv)d.bottom.push([bv,String(gv(G,r,11)).trim()]);}}
+
+  const pf=findRC(G,'profitable vehicles',false); d.profitable = pf? toNum(gv(G,pf[0],9)) : 0;
+  const lm=findRC(G,'loss-making',false); d.lossmaking = lm? toNum(gv(G,lm[0],9)) : 0;
+
+  d.series=[]; const sh=findRC(G,'series',true);
+  if(sh){for(let r=sh[0]+1;r<G.length;r++){const nm=String(gv(G,r,0)).trim();if(!nm)break;
+    d.series.push([nm,toNum(gv(G,r,1)),toNum(gv(G,r,2)),String(gv(G,r,3)).trim(),String(gv(G,r,4)).trim(),String(gv(G,r,5)).trim()]);
+    if(nm.toUpperCase()==='TOTAL')break;}}
+  return d;
+}
+
+// ---------- CSV parser ----------
+function parseCSV(t){const rows=[];let row=[],f='',i=0,q=false;
+  while(i<t.length){const ch=t[i];
+    if(q){if(ch==='"'){if(t[i+1]==='"'){f+='"';i+=2;continue;}q=false;i++;continue;}f+=ch;i++;continue;}
+    if(ch==='"'){q=true;i++;continue;}
+    if(ch===','){row.push(f);f='';i++;continue;}
+    if(ch==='\r'){i++;continue;}
+    if(ch==='\n'){row.push(f);rows.push(row);row=[];f='';i++;continue;}
+    f+=ch;i++;}
+  if(f.length||row.length){row.push(f);rows.push(row);}return rows;}
+
+// ---------- Google Sheet ----------
+function extractId(s){s=(s||'').trim();const m=s.match(/\/d\/([a-zA-Z0-9\-_]+)/);if(m)return m[1];
+  if(/^[a-zA-Z0-9\-_]{20,}$/.test(s))return s;return null;}
+// JSONP loader: loads the gviz endpoint via an injected script element so the
+// browser's CORS rules don't apply (this is why it works from a local file:// page).
+let gvizSeq=0;
+function loadSheet(id){
+  return new Promise((resolve,reject)=>{
+    const cb='gvizCb_'+(++gvizSeq);
+    const s=document.createElement('script');
+    let done=false;
+    const cleanup=()=>{ try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.remove(); };
+    window[cb]=resp=>{ done=true; cleanup();
+      if(!resp||resp.status==='error'){
+        const m=resp&&resp.errors&&resp.errors[0]&&(resp.errors[0].detailed_message||resp.errors[0].message);
+        reject(new Error(m? m.replace(/<[^>]+>/g,'') : 'Could not read sheet/tab')); return; }
+      resolve(tableToGrid(resp.table));
+    };
+    s.onerror=()=>{ if(done)return; cleanup(); reject(new Error('Could not reach the sheet \u2014 check the link & that sharing = Anyone with the link')); };
+    s.src=`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json;responseHandler:${cb}&headers=1&sheet=${encodeURIComponent(SHEET_TAB)}&t=${Date.now()}`;
+    document.body.appendChild(s);
+    setTimeout(()=>{ if(!done){ cleanup(); reject(new Error('Timed out fetching the sheet')); } },15000);
+  });
+}
+// Convert a gviz table object into a 0-indexed grid of display strings.
+function tableToGrid(table){
+  const cols=table.cols||[], rows=table.rows||[], n=cols.length, G=[];
+  const labels=cols.map(c=>c&&c.label!=null?c.label:'');
+  if(labels.some(x=>String(x).trim()!=='')) G.push(labels);   // restore the header row gviz pulled out
+  for(const row of rows){
+    const c=(row&&row.c)||[], r=[];
+    for(let i=0;i<n;i++){ const cell=c[i]; r.push(cell? (cell.f!=null?cell.f:(cell.v!=null?cell.v:'')) : ''); }
+    G.push(r);
+  }
+  return G;
+}
+
+let pollTimer=null, sheetId=null;
+async function connectSheet(url,silent){
+  const id=extractId(url); if(!id){toast('Paste a valid Google Sheet link',true);return;}
+  sheetId=id;
+  try{const G=await loadSheet(id); render(parseGrid(G)); setLive(true,'Google Sheet'); if(!silent)toast('Connected \u2014 auto-refresh every '+(POLL/1000)+'s');}
+  catch(e){setLive(false,null,true); toast(e.message,true); return;}
+  clearInterval(pollTimer);
+  pollTimer=setInterval(async()=>{try{const G=await loadSheet(sheetId); render(parseGrid(G)); setLive(true,'Google Sheet');}
+    catch(e){setLive(true,'Google Sheet · retrying');}}, POLL);
+}
+
+// ---------- xlsx fallback ----------
+function readFile(file){const fr=new FileReader();
+  fr.onload=e=>{try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+    const ws=wb.Sheets['All Expense']; if(!ws)throw new Error('No "All Expense" sheet in this file');
+    const G=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''});
+    clearInterval(pollTimer); render(parseGrid(G)); setLive(false,file.name); toast('Loaded "'+file.name+'" \u2713');}
+    catch(err){toast(err.message||'Could not read file',true);}};
+  fr.onerror=()=>toast('File read failed',true); fr.readAsArrayBuffer(file);}
+
+// ---------- status pill ----------
+function setLive(on,name,err){const p=document.getElementById('livepill'),t=document.getElementById('liveText');
+  p.className='livepill'+(err?' err':on?' on':'');
+  t.textContent = err?'Connection issue' : on?('Live · '+(name||'connected')) : (name?'File loaded':'Snapshot');}
+
+let toastT; function toast(msg,err){const el=document.getElementById('toast');el.textContent=msg;
+  el.className='toast show'+(err?' err':'');clearTimeout(toastT);toastT=setTimeout(()=>el.className='toast',3000);}
+
+// ---------- wire up ----------
+document.getElementById('connectBtn').onclick=()=>connectSheet(document.getElementById('sheetUrl').value,false);
+document.getElementById('sheetUrl').addEventListener('keydown',e=>{if(e.key==='Enter')connectSheet(e.target.value,false);});
+document.getElementById('loadBtn').onclick=()=>document.getElementById('file').click();
+document.getElementById('file').onchange=e=>{if(e.target.files[0])readFile(e.target.files[0]);};
+
+// initial
+render(SNAPSHOT);
+if(SHEET_URL){document.getElementById('sheetUrl').value=SHEET_URL; connectSheet(SHEET_URL,true);}
+</script>
+</body>
+</html>
