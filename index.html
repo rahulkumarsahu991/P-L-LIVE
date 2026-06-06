@@ -3272,6 +3272,16 @@ const EXPENSE_SHEET_MAP = {
   'RTO': 'TAX SHEET'
 };
 
+// Column mapping for each sheet: {sheetName: {vehicle: colIdx, amount: colIdx, date: colIdx, remarks: colIdx}}
+const COLUMN_MAP = {
+  'DIESEL&UREA': {vehicle: 2, amount: 5, date: 1, remarks: 7},  // C, F, B, H
+  'FASTAG SHEET': {vehicle: 1, amount: 2, date: 0, remarks: 3},  // B, C, A, D
+  'MONEY ADVANCE SHEET': {vehicle: 11, amount: 4, date: 7, remarks: 20},  // L, E, H, U
+  'CASH SHEET': {vehicle: 4, amount: 7, date: 0, remarks: 8},  // E, H, A, I
+  'UPI SHEET': {vehicle: 5, amount: 7, date: 0, remarks: 1},  // F, H, A, B
+  'TYRE SHEET': {vehicle: 1, amount: 4, date: 0, remarks: 2}  // B, E, A, C
+};
+
 async function fetchExpenseSheetData(sheetName){
   try{
     const SHEET_ID = '1EgXBPgwuSJPOcAk9tNtdaDSwYurkG_gAAhdb12wNTHU';
@@ -3309,16 +3319,16 @@ async function showExpenseDetailWithVehicles(category, amount){
   let html = `<div class="det-row" style="margin-bottom:16px"><span style="font-weight:700;font-size:1.1rem">${category}</span><span style="font-weight:700;color:var(--amber);font-size:1.15rem">${crore(amount)}</span></div>`;
   html += `<div style="font-size:.9rem;color:var(--muted);margin-bottom:14px">Top vehicles by expense:</div>`;
 
-  // Fetch data from appropriate sheet
   const sheetName = EXPENSE_SHEET_MAP[category];
+  const colMap = COLUMN_MAP[sheetName] || {vehicle: 0, amount: 1, date: 2, remarks: 3};
   const sheetData = await fetchExpenseSheetData(sheetName);
   const vehicles = {};
 
   sheetData.forEach(row => {
-    if(row.length >= 2){
-      const veh = (row[0] || 'Unknown').trim();
-      const amt = parseFloat(row[1]) || 0;
-      if(veh && veh.length > 0 && !isNaN(amt)){
+    if(row.length > Math.max(colMap.vehicle, colMap.amount)){
+      const veh = (row[colMap.vehicle] || 'Unknown').trim();
+      const amt = parseFloat(row[colMap.amount]) || 0;
+      if(veh && veh.length > 0 && !isNaN(amt) && amt > 0){
         vehicles[veh] = (vehicles[veh] || 0) + amt;
       }
     }
@@ -3329,15 +3339,16 @@ async function showExpenseDetailWithVehicles(category, amount){
   if(sorted.length === 0){
     html += `<div style="color:var(--muted);padding:16px;text-align:center">No vehicle data available</div>`;
   } else {
-    html += sorted.map((item, idx) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;cursor:pointer;border-radius:6px;transition:.15s;hover:background:var(--panel2)" onclick="showVehicleTransactions('${item[0]}', '${category}', '${sheetName}')"><div><span style="font-weight:600">${idx+1}. ${item[0]}</span></div><span style="color:var(--amber);font-weight:600">${crore(item[1])}</span></div>`).join('');
+    html += sorted.map((item, idx) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;cursor:pointer;border-radius:6px;transition:.15s;hover:background:var(--panel2)" onclick="showVehicleTransactions('${item[0].replace(/'/g, "\\'")}', '${category}', '${sheetName}')"><div><span style="font-weight:600">${idx+1}. ${item[0]}</span></div><span style="color:var(--amber);font-weight:600">${crore(item[1])}</span></div>`).join('');
   }
 
   showAllExpenseModal(category + ' - Vehicle Details', html);
 }
 
 async function showVehicleTransactions(vehicle, category, sheetName){
+  const colMap = COLUMN_MAP[sheetName] || {vehicle: 0, amount: 1, date: 2, remarks: 3};
   const sheetData = await fetchExpenseSheetData(sheetName);
-  const transactions = sheetData.filter(row => row[0] && row[0].trim() === vehicle);
+  const transactions = sheetData.filter(row => row[colMap.vehicle] && row[colMap.vehicle].trim() === vehicle);
 
   let html = `<div class="det-row" style="margin-bottom:16px"><span style="font-weight:700;font-size:1.1rem">${vehicle}</span><span style="font-weight:700;color:var(--amber);font-size:1rem">${category}</span></div>`;
   html += `<div style="font-size:.9rem;color:var(--muted);margin-bottom:14px">${transactions.length} transactions:</div>`;
@@ -3346,9 +3357,9 @@ async function showVehicleTransactions(vehicle, category, sheetName){
     html += `<div style="color:var(--muted);padding:16px;text-align:center">No transactions</div>`;
   } else {
     html += transactions.slice(0,20).map((t, idx) => {
-      const amt = parseFloat(t[1]) || 0;
-      const date = t[2] ? t[2] : '—';
-      const remarks = t[3] ? t[3] : '';
+      const amt = parseFloat(t[colMap.amount]) || 0;
+      const date = t[colMap.date] ? t[colMap.date] : '—';
+      const remarks = t[colMap.remarks] ? t[colMap.remarks] : '';
       return `<div style="padding:10px;border-bottom:1px solid var(--line);font-size:.9rem">
         <div style="display:flex;justify-content:space-between;margin-bottom:4px">
           <span style="font-weight:600">${idx+1}. ${date}</span>
