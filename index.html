@@ -1383,11 +1383,17 @@ const SECTIONS = {
 
   allexpenses(){
     return `
-    <div class="section-intro">सभी खर्चों की विस्तृत जानकारी — डीजल, ड्राइवर, यात्री, टायर, आदि। गूगल शीट से लाइव डेटा हर 20 सेकंड में अपडेट होता है।</div>
-    <div id="allExpensesContainer" style="padding:20px;background:var(--panel);border:1px solid var(--line);border-radius:14px;text-align:center;color:var(--muted)">
-      <div style="font-size:1.1rem;margin:20px 0">📊 Loading All Expenses Dashboard...</div>
-      <div style="font-size:.9rem;color:var(--muted)">Connecting to Google Sheet...</div>
-    </div>`;
+    <div class="section-intro">सभी खर्चों की विस्तृत जानकारी — डीजल, ड्राइवर, यात्री, टायर, आदि। गूगल शीट से लाइव डेटा अपडेट होता है।</div>
+    <div id="allExpensesKPI" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div class="card"><h3>Expense Breakdown</h3><div id="allExpensesBreakdown" style="padding:16px"></div></div>
+      <div class="card"><h3>Profit & Loss</h3><div id="allExpensesPL" style="padding:16px"></div></div>
+    </div>
+    <div class="card"><h3>Series-wise Performance</h3><div class="table-wrap"><table>
+      <thead><tr><th>Series</th><th>Veh</th><th>Trips</th><th>Billing</th><th>Total Exp</th><th>Net Earnings</th></tr></thead>
+      <tbody id="allExpensesTable"></tbody>
+    </table></div></div>
+    <div id="allExpensesStatus" style="text-align:center;color:var(--muted);padding:20px;font-size:.9rem">Loading All Expenses data...</div>`;
   }
 };
 
@@ -3093,12 +3099,119 @@ function closeSidebar(){
   document.querySelector('.sidebar').classList.remove('open');
   document.getElementById('sidebarOverlay').classList.remove('open');
 }
-/* Load All Expenses Dashboard via iframe */
-function loadAllExpensesDashboard(){
-  const container = document.getElementById('allExpensesContainer');
-  if(!container) return;
+/* Load All Expenses Dashboard - Direct Integration */
+let allExpenseData = null;
+async function loadAllExpensesDashboard(){
+  try{
+    const SHEET_ID = '1EgXBPgwuSJPOcAk9tNtdaDSwYurkG_gAAhdb12wNTHU';
+    const SHEET_TAB = 'All Expense';
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent(SHEET_TAB)}&t=${Date.now()}`;
 
-  container.innerHTML = `<iframe src="All_Expense_Live_Dashboard%20(2).html" style="width:100%;height:600px;border:none;border-radius:10px;background:var(--bg)"></iframe>`;
+    const response = await fetch(url);
+    const text = await response.text();
+    const json = JSON.parse(text.substring(47).slice(0, -2));
+
+    if(!json.table){throw new Error('No data returned');}
+
+    const G = [];
+    const cols = json.table.cols || [];
+    const rows = json.table.rows || [];
+    const labels = cols.map(c => c && c.label ? c.label : '');
+    if(labels.some(x => String(x).trim() !== '')) G.push(labels);
+    for(const row of rows){
+      const c = (row && row.c) || [];
+      const r = [];
+      for(let i = 0; i < cols.length; i++){
+        const cell = c[i];
+        r.push(cell ? (cell.f != null ? cell.f : (cell.v != null ? cell.v : '')) : '');
+      }
+      G.push(r);
+    }
+
+    allExpenseData = parseAllExpenseGrid(G);
+    renderAllExpenses();
+  }catch(e){
+    document.getElementById('allExpensesStatus').innerHTML = `<span style="color:var(--accent)">⚠ Error loading data: ${e.message}</span>`;
+  }
+}
+
+function parseAllExpenseGrid(G){
+  const gv = (r,c) => (G[r]&&G[r][c]!=null)?G[r][c]:'';
+  const findRC = (text,exact) => {text=text.toLowerCase();
+    for(let r=0;r<G.length;r++){const row=G[r]||[];for(let c=0;c<row.length;c++){
+      const v=String(gv(r,c)).trim().toLowerCase();if(v==='')continue;
+      if(exact?v===text:v.includes(text))return[r,c];}}return null;};
+  const toNum = s => {if(typeof s==='number')return s;const m=String(s).replace(/[^0-9.\-]/g,'');return parseFloat(m)||0;};
+
+  const d = {};
+  const p = findRC('period:',false);
+  d.period = p ? String(gv(p[0],p[1])) : 'All data';
+  const below = lbl => {const rc=findRC(lbl,false);return rc?toNum(gv(rc[0]+1,rc[1])):0;};
+  d.kpis = {billing:below('total billing'),expense:below('total expense'),op_profit:below('operating profit'),net:below('net earnings'),
+    trips:below('total trips'),km:below('total km'),diesel:below('total diesel'),emi:below('total emi'),
+    money_adv:below('total money advance'),settlement:below('total settlement'),loading_wt:below('total loading'),avg_rev_km:below('avg revenue')};
+
+  d.expense_breakdown = [];const eh = findRC('expense head',false);
+  if(eh){for(let r=eh[0]+1;r<G.length;r++){const nm=String(gv(r,0)).trim();if(!nm)break;
+    d.expense_breakdown.push([nm,toNum(gv(r,3)),toNum(gv(r,5))]);if(nm.toLowerCase().includes('total expense'))break;}}
+
+  d.pl_summary = [];const li = findRC('line item',false);
+  if(li){for(let r=li[0]+1;r<G.length;r++){const lab=String(gv(r,7)).trim();if(!lab)break;
+    d.pl_summary.push([lab,toNum(gv(r,10))]);if(lab.toLowerCase().includes('net earnings'))break;}}
+
+  const margin = findRC('net margin',false);d.net_margin = margin?toNum(gv(margin[0],10)):0;
+
+  d.top = [];d.bottom = [];const tb = findRC('top 5',false);
+  if(tb){const base=tb[0]+2;for(let i=0;i<5;i++){const r=base+i;
+    const tv=String(gv(r,7)).trim(),bv=String(gv(r,10)).trim();
+    if(tv)d.top.push([tv,String(gv(r,9)).trim()]);if(bv)d.bottom.push([bv,String(gv(r,11)).trim()]);}}
+
+  const pf = findRC('profitable vehicles',false);d.profitable = pf?toNum(gv(pf[0],9)):0;
+  const lm = findRC('loss-making',false);d.lossmaking = lm?toNum(gv(lm[0],9)):0;
+
+  d.series = [];const sh = findRC('series',true);
+  if(sh){for(let r=sh[0]+1;r<G.length;r++){const nm=String(gv(r,0)).trim();if(!nm)break;
+    d.series.push([nm,toNum(gv(r,1)),toNum(gv(r,2)),String(gv(r,3)).trim(),String(gv(r,4)).trim(),String(gv(r,5)).trim()]);
+    if(nm.toUpperCase()==='TOTAL')break;}}
+
+  return d;
+}
+
+function renderAllExpenses(){
+  if(!allExpenseData)return;
+  const d = allExpenseData;
+  const inr = n => '₹' + Math.round(n).toLocaleString('en-IN');
+  const crore = n => {const a=Math.abs(n),s=n<0?'-':'';
+    if(a>=1e7)return s+'₹'+(a/1e7).toFixed(2)+' Cr';if(a>=1e5)return s+'₹'+(a/1e5).toFixed(2)+' L';
+    return s+'₹'+Math.round(a).toLocaleString('en-IN');};
+  const num = n => Math.round(n).toLocaleString('en-IN');
+  const isNeg = s => typeof s==='string'?s.trim().startsWith('('):s<0;
+
+  // KPI cards
+  const kpis = [{lbl:'Total Billing',val:crore(d.kpis.billing),cls:''},{lbl:'Total Expense',val:crore(d.kpis.expense),cls:''},{lbl:'Operating Profit',val:crore(d.kpis.op_profit),cls:d.kpis.op_profit<0?'neg':'pos'},{lbl:'Net Earnings',val:crore(d.kpis.net),cls:d.kpis.net<0?'neg':'pos'}];
+  document.getElementById('allExpensesKPI').innerHTML = kpis.map(k => `<div class="kpi-card"><div class="kpi-label">${k.lbl}</div><div class="kpi-value ${k.cls}">${k.val}</div></div>`).join('');
+
+  // Expense breakdown
+  const rows = d.expense_breakdown.filter(r => r[0] && !String(r[0]).toUpperCase().includes('TOTAL'));
+  const total = d.expense_breakdown.find(r => String(r[0]).toUpperCase().includes('TOTAL'));
+  const maxPct = Math.max(...rows.map(r => +r[2]||0));
+  document.getElementById('allExpensesBreakdown').innerHTML = rows.map(r => {const pct=(+r[2]||0);const w=maxPct?(pct/maxPct*100):0;
+    return `<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:.85rem;font-weight:600">${r[0]}</span><span style="font-size:.8rem;color:var(--muted)">${(pct*100).toFixed(1)}%</span></div>
+    <div style="height:8px;border-radius:6px;background:var(--panel2);overflow:hidden"><div style="height:100%;background:var(--amber);width:${w}%;border-radius:6px"></div></div>
+    <div style="font-size:.75rem;color:var(--muted);margin-top:3px">${inr(r[1])}</div></div>`;}).join('') + (total?`<div style="border-top:1px solid var(--line);padding-top:10px;margin-top:10px;font-weight:700">Total: ${inr(total[1])}</div>`:'');
+
+  // P&L summary
+  const pl = d.pl_summary;
+  const body = pl.slice(0,-1).map(r => {const v=+r[1];const cls=v<0?'neg':'pos';
+    return `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:.85rem"><span>${r[0]}</span><span class="${cls}" style="font-weight:600">${v<0?'('+inr(-v)+')':inr(v)}</span></div>`;}).join('');
+  const fv = +pl[pl.length-1][1];
+  document.getElementById('allExpensesPL').innerHTML = body + `<div style="display:flex;justify-content:space-between;padding:12px 0;margin-top:8px;border-top:2px solid var(--line);font-weight:700;font-size:.95rem"><span>${pl[pl.length-1][0]}</span><span class="${fv<0?'neg':'pos'}">${fv<0?'('+inr(-fv)+')':inr(fv)}</span></div>`;
+
+  // Series table
+  document.getElementById('allExpensesTable').innerHTML = d.series.map(r => {const isTotal=String(r[0]).toUpperCase()==='TOTAL';const netCls=isNeg(r[5])?'neg':'pos';
+    return `<tr ${isTotal?'style="background:var(--panel2);font-weight:700"':''} ><td>${r[0]}</td><td class="num">${num(r[1])}</td><td class="num">${num(r[2])}</td><td class="num">${r[3]}</td><td class="num">${r[4]}</td><td class="num ${netCls}">${r[5]}</td></tr>`;}).join('');
+
+  document.getElementById('allExpensesStatus').innerHTML = `<span style="color:var(--green)">✓ Updated ${new Date().toLocaleTimeString('en-IN')}</span>`;
 }
 
 function renderCurrent(){
