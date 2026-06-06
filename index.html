@@ -466,6 +466,9 @@ th.sortable .sort-arrow{display:inline-block;margin-left:4px;color:var(--accent)
     <div class="nav-item" data-sec="analytics">
       <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 21H4a1 1 0 01-1-1V3M7 14l4-4 3 3 5-6"/><circle cx="7" cy="14" r="1"/><circle cx="11" cy="10" r="1"/><circle cx="14" cy="13" r="1"/></svg>
       Analytics</div>
+    <div class="nav-item" data-sec="allexpenses">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20M6 6h12v12H6z"/></svg>
+      All Expenses</div>
     <div class="sidebar-foot">
       Data source: P&amp;L Sheet<br>
       <span id="rowCount">0</span> vehicles loaded
@@ -1375,6 +1378,15 @@ const SECTIONS = {
         <div class="chart-box" style="height:380px"><canvas id="anQuad"></canvas></div></div>
       <div class="card"><h3>Revenue vs Expense<span class="tag">each dot = one truck</span></h3>
         <div class="chart-box" style="height:380px"><canvas id="anRevExp"></canvas></div></div>
+    </div>`;
+  },
+
+  allexpenses(){
+    return `
+    <div class="section-intro">सभी खर्चों की विस्तृत जानकारी — डीजल, ड्राइवर, यात्री, टायर, आदि। गूगल शीट से लाइव डेटा हर 20 सेकंड में अपडेट होता है।</div>
+    <div id="allExpensesContainer" style="padding:20px;background:var(--panel);border:1px solid var(--line);border-radius:14px;text-align:center;color:var(--muted)">
+      <div style="font-size:1.1rem;margin:20px 0">📊 Loading All Expenses Dashboard...</div>
+      <div style="font-size:.9rem;color:var(--muted)">Connecting to Google Sheet...</div>
     </div>`;
   }
 };
@@ -3056,7 +3068,8 @@ const TITLES={overview:['Overview','Fleet performance summary'],
   expenses:['Expenses','Cost breakdown by category'],
   series:['Series Analysis','Performance grouped by series'],
   watchlist:['Watchlist','Vehicles jin par turant action chahiye'],
-  analytics:['Analytics','Saare graphs ek jagah — visual analysis']};
+  analytics:['Analytics','Saare graphs ek jagah — visual analysis'],
+  allexpenses:['All Expenses','Complete expense data — live from Google Sheet']};
 /* Expense category slice click -> Expenses page us category par filter */
 function showExpenseCategory(label){
   const map={'Driver':'Driver A/C'};
@@ -3080,11 +3093,22 @@ function closeSidebar(){
   document.querySelector('.sidebar').classList.remove('open');
   document.getElementById('sidebarOverlay').classList.remove('open');
 }
+/* Load All Expenses Dashboard via iframe */
+function loadAllExpensesDashboard(){
+  const container = document.getElementById('allExpensesContainer');
+  if(!container) return;
+
+  container.innerHTML = `<iframe src="All_Expense_Live_Dashboard%20(2).html" style="width:100%;height:600px;border:none;border-radius:10px;background:var(--bg)"></iframe>`;
+}
+
 function renderCurrent(){
   document.getElementById('content').innerHTML=SECTIONS[CURRENT]();
   document.getElementById('rowCount').textContent=DATA.length;
   if(CURRENT==='vehicles')fillVehicles('');
   if(CURRENT==='expenses')updateOtherExpenseDisplay();  /* Re-populate Other Expense list after re-render */
+  if(CURRENT==='allexpenses'){
+    loadAllExpensesDashboard();
+  }
   if(CURRENT==='overview'){
     buildInsights();   /* turant, bina delay */
     /* Total KM card update */
