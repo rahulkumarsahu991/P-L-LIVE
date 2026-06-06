@@ -3187,9 +3187,15 @@ function renderAllExpenses(){
   const num = n => Math.round(n).toLocaleString('en-IN');
   const isNeg = s => typeof s==='string'?s.trim().startsWith('('):s<0;
 
-  // KPI cards - styled like Overview
-  const kpis = [{lbl:'Total Billing',val:crore(d.kpis.billing),cls:''},{lbl:'Total Expense',val:crore(d.kpis.expense),cls:''},{lbl:'Operating Profit',val:crore(d.kpis.op_profit),cls:d.kpis.op_profit<0?'neg':'pos'},{lbl:'Net Earnings',val:crore(d.kpis.net),cls:d.kpis.net<0?'neg':'pos'}];
-  document.getElementById('allExpensesKPI').innerHTML = kpis.map(k => `<div class="kpi-card ${k.cls==='neg'?'':k.cls==='pos'?'g':''}"><div class="kpi-label">${k.lbl}</div><div class="kpi-value ${k.cls}">${k.val}</div></div>`).join('');
+  // KPI cards - styled like Overview with subtitles
+  const vehCount = num(DATA.length || 286);
+  const kpis = [
+    {lbl:'Total Billing',val:crore(d.kpis.billing),cls:'',sub:`across ${vehCount} vehicles`},
+    {lbl:'Total Expense',val:crore(d.kpis.expense),cls:'',sub:`from all sources`},
+    {lbl:'Operating Profit',val:crore(d.kpis.op_profit),cls:d.kpis.op_profit<0?'neg':'pos',sub:`billing minus expense`},
+    {lbl:'Net Earnings',val:crore(d.kpis.net),cls:d.kpis.net<0?'neg':'pos',sub:`after EMI & paper`}
+  ];
+  document.getElementById('allExpensesKPI').innerHTML = kpis.map(k => `<div class="kpi-card ${k.cls==='neg'?'':k.cls==='pos'?'g':''}"><div class="kpi-label">${k.lbl}</div><div class="kpi-value ${k.cls}">${k.val}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
 
   // Expense breakdown
   const rows = d.expense_breakdown.filter(r => r[0] && !String(r[0]).toUpperCase().includes('TOTAL'));
