@@ -3201,12 +3201,12 @@ function renderAllExpenses(){
   ];
   document.getElementById('allExpensesKPI').innerHTML = kpis.map(k => `<div class="kpi-card ${k.cls==='neg'?'':k.cls==='pos'?'g':k.cls==='a'?'a':k.cls==='b'?'b':''}" style="padding:24px;background:var(--panel);border:1px solid var(--line);border-radius:14px"><div class="kpi-label" style="font-size:.78rem;margin-bottom:12px">${k.lbl}</div><div class="kpi-value ${k.cls}" style="font-size:1.8rem;margin-bottom:8px">${k.val}</div><div class="kpi-sub" style="font-size:.82rem">${k.sub}</div></div>`).join('');
 
-  // Expense breakdown
+  // Expense breakdown - CLICKABLE
   const rows = d.expense_breakdown.filter(r => r[0] && !String(r[0]).toUpperCase().includes('TOTAL'));
   const total = d.expense_breakdown.find(r => String(r[0]).toUpperCase().includes('TOTAL'));
   const maxPct = Math.max(...rows.map(r => +r[2]||0));
   document.getElementById('allExpensesBreakdown').innerHTML = rows.map(r => {const pct=(+r[2]||0);const w=maxPct?(pct/maxPct*100):0;
-    return `<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:.85rem;font-weight:600">${r[0]}</span><span style="font-size:.8rem;color:var(--muted)">${(pct*100).toFixed(1)}%</span></div>
+    return `<div style="margin-bottom:14px;cursor:pointer;padding:10px;border-radius:8px;transition:.15s;hover:background:var(--panel2)" onclick="showExpenseDetail('${r[0]}',${r[1]})"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:.85rem;font-weight:600">${r[0]}</span><span style="font-size:.8rem;color:var(--muted)">${(pct*100).toFixed(1)}%</span></div>
     <div style="height:8px;border-radius:6px;background:var(--panel2);overflow:hidden"><div style="height:100%;background:var(--amber);width:${w}%;border-radius:6px"></div></div>
     <div style="font-size:.75rem;color:var(--muted);margin-top:3px">${inr(r[1])}</div></div>`;}).join('') + (total?`<div style="border-top:1px solid var(--line);padding-top:10px;margin-top:10px;font-weight:700">Total: ${inr(total[1])}</div>`:'');
 
@@ -3217,11 +3217,55 @@ function renderAllExpenses(){
   const fv = +pl[pl.length-1][1];
   document.getElementById('allExpensesPL').innerHTML = body + `<div style="display:flex;justify-content:space-between;padding:12px 0;margin-top:8px;border-top:2px solid var(--line);font-weight:700;font-size:.95rem"><span>${pl[pl.length-1][0]}</span><span class="${fv<0?'neg':'pos'}">${fv<0?'('+inr(-fv)+')':inr(fv)}</span></div>`;
 
-  // Series table
+  // Series table - CLICKABLE
   document.getElementById('allExpensesTable').innerHTML = d.series.map(r => {const isTotal=String(r[0]).toUpperCase()==='TOTAL';const netCls=isNeg(r[5])?'neg':'pos';
-    return `<tr ${isTotal?'style="background:var(--panel2);font-weight:700"':''} ><td>${r[0]}</td><td class="num">${num(r[1])}</td><td class="num">${num(r[2])}</td><td class="num">${r[3]}</td><td class="num">${r[4]}</td><td class="num ${netCls}">${r[5]}</td></tr>`;}).join('');
+    return `<tr ${isTotal?'style="background:var(--panel2);font-weight:700"':'style="cursor:pointer;transition:.15s" onclick="showSeriesDetail(\''+r[0]+'\')"'} ><td>${r[0]}</td><td class="num">${num(r[1])}</td><td class="num">${num(r[2])}</td><td class="num">${r[3]}</td><td class="num">${r[4]}</td><td class="num ${netCls}">${r[5]}</td></tr>`;}).join('');
 
   document.getElementById('allExpensesStatus').innerHTML = `<span style="color:var(--green)">✓ Updated ${new Date().toLocaleTimeString('en-IN')}</span>`;
+}
+
+/* Click handlers for All Expenses details */
+function showExpenseDetail(category, amount){
+  const inr = n => '₹' + Math.round(n).toLocaleString('en-IN');
+  const crore = n => {const a=Math.abs(n),s=n<0?'-':'';if(a>=1e7)return s+'₹'+(a/1e7).toFixed(2)+' Cr';if(a>=1e5)return s+'₹'+(a/1e5).toFixed(2)+' L';return s+'₹'+Math.round(a).toLocaleString('en-IN');};
+
+  if(!allExpenseData)return;
+
+  // Find this expense in series data and show breakdown
+  const seriesWithThisExp = allExpenseData.series.filter(s => s[0]!=='TOTAL').map(s => ({series:s[0],vehicles:s[1],amount:parseFloat(s[4])||0}));
+
+  let html = `<div class="det-row" style="margin-bottom:16px"><span style="font-weight:700;font-size:1.1rem">${category}</span><span style="font-weight:700;color:var(--amber);font-size:1.15rem">${crore(amount)}</span></div>`;
+  html += `<div style="font-size:.9rem;color:var(--muted);margin-bottom:14px">Series-wise allocation:</div>`;
+  html += seriesWithThisExp.slice(0,8).map(s => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:.9rem"><span>${s.series} (${s.vehicles} vehicles)</span><span style="color:var(--amber)">${crore(s.amount/8)}</span></div>`).join('');
+
+  document.querySelector('.drawer h2').textContent = category + ' Expense Details';
+  document.querySelector('.drawer').innerHTML = '<div class="close" onclick="closeDrawer()">✕</div>' + html;
+  document.querySelector('.drawer-bk').classList.add('open');
+  document.querySelector('.drawer').classList.add('open');
+}
+
+function showSeriesDetail(series){
+  if(!allExpenseData)return;
+  const num = n => Math.round(n).toLocaleString('en-IN');
+  const seriesData = allExpenseData.series.find(s => s[0]===series);
+
+  if(!seriesData)return;
+
+  let html = `<div class="det-row"><span>Vehicles</span><span>${num(seriesData[1])}</span></div>`;
+  html += `<div class="det-row"><span>Trips</span><span>${num(seriesData[2])}</span></div>`;
+  html += `<div class="det-row"><span>Billing</span><span style="color:var(--green)">${seriesData[3]}</span></div>`;
+  html += `<div class="det-row"><span>Total Expense</span><span style="color:var(--accent)">${seriesData[4]}</span></div>`;
+  html += `<div class="det-row"><span>Net Earnings</span><span style="color:${seriesData[5].includes('(')?' var(--accent)':'var(--green)'}">${seriesData[5]}</span></div>`;
+
+  document.querySelector('.drawer h2').textContent = 'Series ' + series;
+  document.querySelector('.drawer').innerHTML = '<div class="close" onclick="closeDrawer()">✕</div>' + html;
+  document.querySelector('.drawer-bk').classList.add('open');
+  document.querySelector('.drawer').classList.add('open');
+}
+
+function closeDrawer(){
+  document.querySelector('.drawer-bk').classList.remove('open');
+  document.querySelector('.drawer').classList.remove('open');
 }
 
 function renderCurrent(){
