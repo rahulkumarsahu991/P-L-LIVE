@@ -3201,14 +3201,16 @@ function renderAllExpenses(){
   ];
   document.getElementById('allExpensesKPI').innerHTML = kpis.map(k => `<div class="kpi-card ${k.cls==='neg'?'':k.cls==='pos'?'g':k.cls==='a'?'a':k.cls==='b'?'b':''}" style="padding:24px;background:var(--panel);border:1px solid var(--line);border-radius:14px"><div class="kpi-label" style="font-size:.78rem;margin-bottom:12px">${k.lbl}</div><div class="kpi-value ${k.cls}" style="font-size:1.8rem;margin-bottom:8px">${k.val}</div><div class="kpi-sub" style="font-size:.82rem">${k.sub}</div></div>`).join('');
 
-  // Expense breakdown - CLICKABLE
+  // Expense breakdown - KPI CARD STYLE (matching Overview section)
   const rows = d.expense_breakdown.filter(r => r[0] && !String(r[0]).toUpperCase().includes('TOTAL'));
   const total = d.expense_breakdown.find(r => String(r[0]).toUpperCase().includes('TOTAL'));
-  const maxPct = Math.max(...rows.map(r => +r[2]||0));
-  document.getElementById('allExpensesBreakdown').innerHTML = rows.map(r => {const pct=(+r[2]||0);const w=maxPct?(pct/maxPct*100):0;
-    return `<div style="margin-bottom:14px;cursor:pointer;padding:10px;border-radius:8px;transition:.15s;hover:background:var(--panel2)" onclick="showExpenseDetail('${r[0]}',${r[1]})"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:.85rem;font-weight:600">${r[0]}</span><span style="font-size:.8rem;color:var(--muted)">${(pct*100).toFixed(1)}%</span></div>
-    <div style="height:8px;border-radius:6px;background:var(--panel2);overflow:hidden"><div style="height:100%;background:var(--amber);width:${w}%;border-radius:6px"></div></div>
-    <div style="font-size:.75rem;color:var(--muted);margin-top:3px">${inr(r[1])}</div></div>`;}).join('') + (total?`<div style="border-top:1px solid var(--line);padding-top:10px;margin-top:10px;font-weight:700">Total: ${inr(total[1])}</div>`:'');
+  document.getElementById('allExpensesBreakdown').innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px">
+    ${rows.map(r => {const pct = (+r[2]||0)/100;return `<div style="padding:20px;background:var(--panel);border:1px solid var(--line);border-radius:12px;cursor:pointer;transition:.15s;border-left:4px solid var(--amber)" onclick="showExpenseDetail('${r[0]}',${r[1]})">
+      <div style="font-size:.78rem;color:var(--muted);margin-bottom:10px;font-weight:600">${r[0]}</div>
+      <div style="font-size:1.6rem;font-weight:700;color:var(--text);margin-bottom:8px">${crore(r[1])}</div>
+      <div style="font-size:.82rem;color:var(--amber)">${(pct*100).toFixed(1)}% of total</div>
+    </div>`;}).join('')}
+  </div>`;
 
   // P&L summary
   const pl = d.pl_summary;
