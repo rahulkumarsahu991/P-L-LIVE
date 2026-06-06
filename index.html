@@ -3224,48 +3224,46 @@ function renderAllExpenses(){
   document.getElementById('allExpensesStatus').innerHTML = `<span style="color:var(--green)">✓ Updated ${new Date().toLocaleTimeString('en-IN')}</span>`;
 }
 
-/* Click handlers for All Expenses details */
+/* Click handlers for All Expenses details - custom modal */
 function showExpenseDetail(category, amount){
-  const inr = n => '₹' + Math.round(n).toLocaleString('en-IN');
   const crore = n => {const a=Math.abs(n),s=n<0?'-':'';if(a>=1e7)return s+'₹'+(a/1e7).toFixed(2)+' Cr';if(a>=1e5)return s+'₹'+(a/1e5).toFixed(2)+' L';return s+'₹'+Math.round(a).toLocaleString('en-IN');};
-
   if(!allExpenseData)return;
-
-  // Find this expense in series data and show breakdown
   const seriesWithThisExp = allExpenseData.series.filter(s => s[0]!=='TOTAL').map(s => ({series:s[0],vehicles:s[1],amount:parseFloat(s[4])||0}));
-
   let html = `<div class="det-row" style="margin-bottom:16px"><span style="font-weight:700;font-size:1.1rem">${category}</span><span style="font-weight:700;color:var(--amber);font-size:1.15rem">${crore(amount)}</span></div>`;
   html += `<div style="font-size:.9rem;color:var(--muted);margin-bottom:14px">Series-wise allocation:</div>`;
   html += seriesWithThisExp.slice(0,8).map(s => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:.9rem"><span>${s.series} (${s.vehicles} vehicles)</span><span style="color:var(--amber)">${crore(s.amount/8)}</span></div>`).join('');
-
-  document.querySelector('.drawer h2').textContent = category + ' Expense Details';
-  document.querySelector('.drawer').innerHTML = '<div class="close" onclick="closeDrawer()">✕</div>' + html;
-  document.querySelector('.drawer-bk').classList.add('open');
-  document.querySelector('.drawer').classList.add('open');
+  showAllExpenseModal(category + ' Expense Details', html);
 }
 
 function showSeriesDetail(series){
   if(!allExpenseData)return;
   const num = n => Math.round(n).toLocaleString('en-IN');
   const seriesData = allExpenseData.series.find(s => s[0]===series);
-
   if(!seriesData)return;
-
   let html = `<div class="det-row"><span>Vehicles</span><span>${num(seriesData[1])}</span></div>`;
   html += `<div class="det-row"><span>Trips</span><span>${num(seriesData[2])}</span></div>`;
   html += `<div class="det-row"><span>Billing</span><span style="color:var(--green)">${seriesData[3]}</span></div>`;
   html += `<div class="det-row"><span>Total Expense</span><span style="color:var(--accent)">${seriesData[4]}</span></div>`;
   html += `<div class="det-row"><span>Net Earnings</span><span style="color:${seriesData[5].includes('(')?' var(--accent)':'var(--green)'}">${seriesData[5]}</span></div>`;
-
-  document.querySelector('.drawer h2').textContent = 'Series ' + series;
-  document.querySelector('.drawer').innerHTML = '<div class="close" onclick="closeDrawer()">✕</div>' + html;
-  document.querySelector('.drawer-bk').classList.add('open');
-  document.querySelector('.drawer').classList.add('open');
+  showAllExpenseModal('Series ' + series, html);
 }
 
-function closeDrawer(){
-  document.querySelector('.drawer-bk').classList.remove('open');
-  document.querySelector('.drawer').classList.remove('open');
+function showAllExpenseModal(title, content){
+  let modal = document.getElementById('allExpensesModal');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'allExpensesModal';
+    modal.innerHTML = `<div style="position:fixed;inset:0;background:rgba(8,12,20,.72);z-index:60;backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center" onclick="if(event.target.id==='allExpensesModal')closeAllExpenseModal()"><div style="position:relative;background:var(--panel);border:1px solid var(--line);width:min(600px,calc(100vw - 48px));max-height:calc(100vh - 48px);border-radius:16px;overflow-y:auto;padding:28px 32px;box-shadow:0 30px 80px rgba(0,0,0,.5)"><div style="position:absolute;right:18px;top:18px;cursor:pointer;color:var(--muted);background:var(--panel2);border:1px solid var(--line);width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;line-height:1;transition:.15s" onclick="closeAllExpenseModal()" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--line)';this.style.color='var(--muted)'">✕</div><h2 style="font-size:1.35rem;font-weight:800;margin-bottom:24px" id="allExpensesModalTitle"></h2><div id="allExpensesModalBody"></div></div></div>`;
+    document.body.appendChild(modal);
+  }
+  document.getElementById('allExpensesModalTitle').textContent = title;
+  document.getElementById('allExpensesModalBody').innerHTML = content;
+  modal.style.display = 'flex';
+}
+
+function closeAllExpenseModal(){
+  const modal = document.getElementById('allExpensesModal');
+  if(modal)modal.style.display = 'none';
 }
 
 function renderCurrent(){
