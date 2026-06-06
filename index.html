@@ -3153,7 +3153,7 @@ function parseAllExpenseGrid(G){
 
   d.expense_breakdown = [];const eh = findRC('expense head',false);
   if(eh){for(let r=eh[0]+1;r<G.length;r++){const nm=String(gv(r,0)).trim();if(!nm)break;
-    d.expense_breakdown.push([nm,toNum(gv(r,3)),toNum(gv(r,5))]);if(nm.toLowerCase().includes('total expense'))break;}}
+    d.expense_breakdown.push([nm,toNum(gv(r,2)),toNum(gv(r,3))]);if(nm.toLowerCase().includes('total expense'))break;}}
 
   d.pl_summary = [];const li = findRC('line item',false);
   if(li){for(let r=li[0]+1;r<G.length;r++){const lab=String(gv(r,7)).trim();if(!lab)break;
