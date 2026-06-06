@@ -3317,29 +3317,57 @@ async function showExpenseDetailWithVehicles(category, amount){
   const crore = n => {const a=Math.abs(n),s=n<0?'-':'';if(a>=1e7)return s+'₹'+(a/1e7).toFixed(2)+' Cr';if(a>=1e5)return s+'₹'+(a/1e5).toFixed(2)+' L';return s+'₹'+Math.round(a).toLocaleString('en-IN');};
 
   let html = `<div class="det-row" style="margin-bottom:16px"><span style="font-weight:700;font-size:1.1rem">${category}</span><span style="font-weight:700;color:var(--amber);font-size:1.15rem">${crore(amount)}</span></div>`;
-  html += `<div style="font-size:.9rem;color:var(--muted);margin-bottom:14px">Top vehicles by expense:</div>`;
+  html += `<div style="font-size:.9rem;color:var(--muted);margin-bottom:14px">All vehicles with transactions:</div>`;
 
   const sheetName = EXPENSE_SHEET_MAP[category];
   const colMap = COLUMN_MAP[sheetName] || {vehicle: 0, amount: 1, date: 2, remarks: 3};
   const sheetData = await fetchExpenseSheetData(sheetName);
   const vehicles = {};
 
+  // Aggregate transactions by vehicle
+  const vehicleTransactions = {};
   sheetData.forEach(row => {
     if(row.length > Math.max(colMap.vehicle, colMap.amount)){
       const veh = (row[colMap.vehicle] || 'Unknown').trim();
       const amt = parseFloat(row[colMap.amount]) || 0;
       if(veh && veh.length > 0 && !isNaN(amt) && amt > 0){
         vehicles[veh] = (vehicles[veh] || 0) + amt;
+        if(!vehicleTransactions[veh]) vehicleTransactions[veh] = [];
+        vehicleTransactions[veh].push(row);
       }
     }
   });
 
-  const sorted = Object.entries(vehicles).sort((a,b) => b[1] - a[1]).slice(0, 10);
+  const sorted = Object.entries(vehicles).sort((a,b) => b[1] - a[1]);
 
   if(sorted.length === 0){
     html += `<div style="color:var(--muted);padding:16px;text-align:center">No vehicle data available</div>`;
   } else {
-    html += sorted.map((item, idx) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;cursor:pointer;border-radius:6px;transition:.15s;hover:background:var(--panel2)" onclick="showVehicleTransactions('${item[0].replace(/'/g, "\\'")}', '${category}', '${sheetName}')"><div><span style="font-weight:600">${idx+1}. ${item[0]}</span></div><span style="color:var(--amber);font-weight:600">${crore(item[1])}</span></div>`).join('');
+    html += sorted.map((item, idx) => {
+      const veh = item[0];
+      const total = item[1];
+      const txnCount = vehicleTransactions[veh].length;
+      return `<div style="margin-bottom:8px;border:1px solid var(--line);border-radius:8px;overflow:hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;cursor:pointer;background:var(--panel2);transition:.15s" onclick="document.getElementById('txn_${idx}').style.display = document.getElementById('txn_${idx}').style.display==='none'?'block':'none'">
+          <div><span style="font-weight:600">${idx+1}. ${veh}</span><span style="font-size:.8rem;color:var(--muted);margin-left:8px">(${txnCount} txn)</span></div>
+          <span style="color:var(--amber);font-weight:600">${crore(total)}</span>
+        </div>
+        <div id="txn_${idx}" style="display:none;padding:8px;background:var(--bg);max-height:200px;overflow-y:auto">
+          ${vehicleTransactions[veh].slice(0,20).map((t, tidx) => {
+            const amt = parseFloat(t[colMap.amount]) || 0;
+            const date = t[colMap.date] ? t[colMap.date] : '—';
+            const remarks = t[colMap.remarks] ? t[colMap.remarks] : '—';
+            return `<div style="padding:8px;border-bottom:1px solid var(--line);font-size:.85rem">
+              <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+                <span>${date}</span>
+                <span style="color:var(--amber);font-weight:600">₹${amt.toLocaleString('en-IN')}</span>
+              </div>
+              ${remarks !== '—' ? `<div style="color:var(--muted);font-size:.8rem">${remarks}</div>` : ''}
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }).join('');
   }
 
   showAllExpenseModal(category + ' - Vehicle Details', html);
