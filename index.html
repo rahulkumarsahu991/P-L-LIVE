@@ -3392,38 +3392,39 @@ async function showExpenseDetailWithVehicles(category, amount){
   const isCash = category && category.toLowerCase().trim() === 'cash';
   console.log(`Is Cash? ${isCash}`);
   if(isCash){
-    console.log('✅ Fetching from 4 sheets for Cash (1 gviz + 3 CSV)...');
+    console.log('✅ Fetching from 4 sheets for Cash (PARALLEL)...');
     const sheets = [
       {name: 'CASH SHEET', type: 'gviz'},
       {name: 'EMAMI PLANT ADV', type: 'csv'},
       {name: 'JK PLANT ADV', type: 'csv'},
       {name: 'SHREE PLANT ADV', type: 'csv'}
     ];
-    for(const sheet of sheets){
-      try{
-        const colMap = COLUMN_MAP[sheet.name];
-        if(!colMap){console.warn(`No column map for ${sheet.name}`);continue;}
 
-        const sheetData = sheet.type === 'csv'
-          ? await fetchCSVData(sheet.name)
-          : await fetchExpenseSheetData(sheet.name);
+    // Fetch ALL sheets in PARALLEL (not sequential)
+    const sheetDataArray = await Promise.all(sheets.map(sheet =>
+      (sheet.type === 'csv' ? fetchCSVData(sheet.name) : fetchExpenseSheetData(sheet.name))
+        .catch(e => {console.error(`Error fetching ${sheet.name}:`, e); return [];})
+    ));
 
-        console.log(`Fetched ${sheet.name}: ${sheetData.length} rows`);
-        sheetData.forEach(row => {
-          if(row.length > Math.max(colMap.vehicle, colMap.amount)){
-            const veh = (row[colMap.vehicle] || 'Unknown').trim();
-            const amt = parseFloat(row[colMap.amount]) || 0;
-            if(veh && veh.length > 0 && !isNaN(amt) && amt > 0){
-              vehicles[veh] = (vehicles[veh] || 0) + amt;
-              if(!vehicleTransactions[veh]) vehicleTransactions[veh] = [];
-              vehicleTransactions[veh].push({...row, sheet: sheet.name});
-            }
+    // Process all fetched data
+    sheets.forEach((sheet, idx) => {
+      const sheetData = sheetDataArray[idx];
+      const colMap = COLUMN_MAP[sheet.name];
+      if(!colMap){console.warn(`No column map for ${sheet.name}`);return;}
+
+      console.log(`✓ ${sheet.name}: ${sheetData.length} rows`);
+      sheetData.forEach(row => {
+        if(row.length > Math.max(colMap.vehicle, colMap.amount)){
+          const veh = (row[colMap.vehicle] || 'Unknown').trim();
+          const amt = parseFloat(row[colMap.amount]) || 0;
+          if(veh && veh.length > 0 && !isNaN(amt) && amt > 0){
+            vehicles[veh] = (vehicles[veh] || 0) + amt;
+            if(!vehicleTransactions[veh]) vehicleTransactions[veh] = [];
+            vehicleTransactions[veh].push({...row, sheet: sheet.name});
           }
-        });
-      }catch(e){
-        console.error(`Error fetching ${sheet.name}:`, e);
-      }
-    }
+        }
+      });
+    })
   } else {
     // For other categories: fetch single sheet
     const sheetName = EXPENSE_SHEET_MAP[category];
@@ -3483,7 +3484,7 @@ async function showExpenseDetailWithVehicles(category, amount){
 async function showVehicleTransactions(vehicle, category, sheetName){
   let transactions = [];
 
-  // For Cash: fetch from ALL 4 sheets and combine
+  // For Cash: fetch from ALL 4 sheets and combine (PARALLEL)
   const isCash = category && category.toLowerCase().trim() === 'cash';
   if(isCash){
     const sheets = [
@@ -3492,18 +3493,20 @@ async function showVehicleTransactions(vehicle, category, sheetName){
       {name: 'JK PLANT ADV', type: 'csv'},
       {name: 'SHREE PLANT ADV', type: 'csv'}
     ];
-    for(const sheet of sheets){
-      try{
-        const colMap = COLUMN_MAP[sheet.name];
-        const sheetData = sheet.type === 'csv'
-          ? await fetchCSVData(sheet.name)
-          : await fetchExpenseSheetData(sheet.name);
-        const filtered = sheetData.filter(row => row[colMap.vehicle] && row[colMap.vehicle].trim() === vehicle);
-        transactions = transactions.concat(filtered.map(row => ({...row, sheet: sheet.name})));
-      }catch(e){
-        console.error(`Error fetching ${sheet.name}:`, e);
-      }
-    }
+
+    // Fetch ALL sheets in PARALLEL
+    const sheetDataArray = await Promise.all(sheets.map(sheet =>
+      (sheet.type === 'csv' ? fetchCSVData(sheet.name) : fetchExpenseSheetData(sheet.name))
+        .catch(e => {console.error(`Error fetching ${sheet.name}:`, e); return [];})
+    ));
+
+    // Process all fetched data
+    sheets.forEach((sheet, idx) => {
+      const sheetData = sheetDataArray[idx];
+      const colMap = COLUMN_MAP[sheet.name];
+      const filtered = sheetData.filter(row => row[colMap.vehicle] && row[colMap.vehicle].trim() === vehicle);
+      transactions = transactions.concat(filtered.map(row => ({...row, sheet: sheet.name})));
+    })
   } else {
     // For other categories: fetch single sheet
     const colMap = COLUMN_MAP[category] || COLUMN_MAP[sheetName] || {vehicle: 0, amount: 1, date: 2, remarks: 3};
