@@ -3309,11 +3309,19 @@ const CSV_LINKS = {
 
 async function fetchCSVData(sheetName){
   try{
+    // Check cache first
+    const cacheKey = `csv_cache_${sheetName}`;
+    const cached = localStorage.getItem(cacheKey);
+    if(cached){
+      console.log(`📦 Using cached data for ${sheetName}`);
+      return JSON.parse(cached);
+    }
+
     const csvUrl = CSV_LINKS[sheetName];
     if(!csvUrl){console.warn(`No CSV link for ${sheetName}`);return [];}
 
     console.log(`⏳ Fetching CSV: ${sheetName}`);
-    const response = await fetch(csvUrl);
+    const response = await fetch(csvUrl, {signal: AbortSignal.timeout(15000)});
     if(!response.ok)throw new Error(`HTTP ${response.status}`);
 
     const csvText = await response.text();
@@ -3325,6 +3333,8 @@ async function fetchCSVData(sheetName){
         skipEmptyLines: true,
         complete: (results) => {
           console.log(`✓ ${sheetName} parsed: ${results.data.length} rows`);
+          // Cache the data
+          try{localStorage.setItem(cacheKey, JSON.stringify(results.data));}catch(e){console.warn(`Cache failed for ${sheetName}`);}
           resolve(results.data);
         },
         error: (error) => {
@@ -3335,23 +3345,32 @@ async function fetchCSVData(sheetName){
     });
   }catch(e){
     console.error(`✗ Error fetching CSV ${sheetName}:`, e.message);
+    // Return cached data even if fetch fails
+    const cacheKey = `csv_cache_${sheetName}`;
+    const cached = localStorage.getItem(cacheKey);
+    if(cached)return JSON.parse(cached);
     return [];
   }
 }
 
 async function fetchExpenseSheetData(sheetName){
   try{
+    // Check cache first
+    const cacheKey = `gviz_cache_${sheetName}`;
+    const cached = localStorage.getItem(cacheKey);
+    if(cached){
+      console.log(`📦 Using cached data for ${sheetName}`);
+      return JSON.parse(cached);
+    }
+
     const SHEET_ID = '1EgXBPgwuSJPOcAk9tNtdaDSwYurkG_gAAhdb12wNTHU';
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent(sheetName)}&t=${Date.now()}`;
 
-    console.log(`⏳ Fetching: ${sheetName} from URL: ${url}`);
-    const response = await fetch(url, {mode: 'cors'});
-    console.log(`Response status: ${response.status}, ok: ${response.ok}`);
-    if(!response.ok)throw new Error(`HTTP ${response.status} - ${response.statusText}`);
+    console.log(`⏳ Fetching: ${sheetName}`);
+    const response = await fetch(url, {mode: 'cors', signal: AbortSignal.timeout(15000)});
+    if(!response.ok)throw new Error(`HTTP ${response.status}`);
 
     const text = await response.text();
-    console.log(`Response text length: ${text.length}, first 100 chars: ${text.substring(0,100)}`);
-
     const json = JSON.parse(text.substring(47).slice(0, -2));
 
     if(!json.table){console.warn(`⚠ No table for ${sheetName}`);return [];}
@@ -3370,9 +3389,15 @@ async function fetchExpenseSheetData(sheetName){
       rows.push(r);
     }
     console.log(`✓ ${sheetName}: ${rows.length} rows fetched`);
+    // Cache the data
+    try{localStorage.setItem(cacheKey, JSON.stringify(rows));}catch(e){console.warn(`Cache failed for ${sheetName}`);}
     return rows;
   }catch(e){
-    console.error(`✗ Error fetching ${sheetName}:`, e.message, e.stack);
+    console.error(`✗ Error fetching ${sheetName}:`, e.message);
+    // Return cached data even if fetch fails
+    const cacheKey = `gviz_cache_${sheetName}`;
+    const cached = localStorage.getItem(cacheKey);
+    if(cached)return JSON.parse(cached);
     return [];
   }
 }
