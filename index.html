@@ -3282,15 +3282,22 @@ const EXPENSE_SHEET_MAP = {
 const COLUMN_MAP = {
   'Diesel': {vehicle: 2, amount: 5, date: 1, remarks: 7},  // DIESEL&UREA sheet: C, F, B, H
   'Urea': {vehicle: 2, amount: 11, date: 1, remarks: 7},  // DIESEL&UREA sheet: C, L, B, H
-  'FASTAG SHEET': {vehicle: 1, amount: 2, date: 0, remarks: 3},  // B, C, A, D
-  'MONEY ADVANCE SHEET': {vehicle: 11, amount: 4, date: 7, remarks: 20},  // L, E, H, U
-  'CASH SHEET': {vehicle: 4, amount: 7, date: 0, remarks: 8},  // E, H, A, I
+  'DIESEL&UREA': {vehicle: 2, amount: 5, date: 1, remarks: 7},  // map both ways for sheet name lookup
+  'Fastag': {vehicle: 1, amount: 2, date: 0, remarks: 3},  // FASTAG SHEET: B, C, A, D
+  'FASTAG SHEET': {vehicle: 1, amount: 2, date: 0, remarks: 3},
+  'Driver A/C': {vehicle: 11, amount: 4, date: 7, remarks: 20},  // MONEY ADVANCE SHEET: L, E, H, U
+  'MONEY ADVANCE SHEET': {vehicle: 11, amount: 4, date: 7, remarks: 20},
+  'Cash': {vehicle: 4, amount: 7, date: 0, remarks: 8},  // CASH SHEET: E, H, A, I
+  'CASH SHEET': {vehicle: 4, amount: 7, date: 0, remarks: 8},
   'EMAMI PLANT ADV': {vehicle: 3, amount: 4, date: 0, remarks: 2},  // D, E, A, C
   'JK PLANT ADV': {vehicle: 3, amount: 4, date: 0, remarks: 2},  // D, E, A, C
   'SHREE PLANT ADV': {vehicle: 3, amount: 4, date: 0, remarks: 2},  // D, E, A, C
-  'UPI SHEET': {vehicle: 5, amount: 7, date: 0, remarks: 1},  // F, H, A, B
-  'TYRE SHEET': {vehicle: 1, amount: 4, date: 0, remarks: 2},  // B, E, A, C
-  'TAX SHEET': {vehicle: 0, amount: 3, date: 1, remarks: 2}  // A, D, B, C
+  'UPI': {vehicle: 5, amount: 7, date: 0, remarks: 1},  // UPI SHEET: F, H, A, B
+  'UPI SHEET': {vehicle: 5, amount: 7, date: 0, remarks: 1},
+  'Tyre': {vehicle: 1, amount: 4, date: 0, remarks: 2},  // TYRE SHEET: B, E, A, C
+  'TYRE SHEET': {vehicle: 1, amount: 4, date: 0, remarks: 2},
+  'RTO': {vehicle: 0, amount: 3, date: 1, remarks: 2},  // TAX SHEET: A, D, B, C
+  'TAX SHEET': {vehicle: 0, amount: 3, date: 1, remarks: 2}
 };
 
 async function fetchExpenseSheetData(sheetName){
