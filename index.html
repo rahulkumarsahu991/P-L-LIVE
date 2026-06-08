@@ -3321,7 +3321,7 @@ async function fetchCSVData(sheetName){
     if(!csvUrl){console.warn(`No CSV link for ${sheetName}`);return [];}
 
     console.log(`⏳ Fetching CSV: ${sheetName}`);
-    const response = await fetch(csvUrl, {signal: AbortSignal.timeout(15000)});
+    const response = await fetch(csvUrl);
     if(!response.ok)throw new Error(`HTTP ${response.status}`);
 
     const csvText = await response.text();
@@ -3367,7 +3367,7 @@ async function fetchExpenseSheetData(sheetName){
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent(sheetName)}&t=${Date.now()}`;
 
     console.log(`⏳ Fetching: ${sheetName}`);
-    const response = await fetch(url, {mode: 'cors', signal: AbortSignal.timeout(15000)});
+    const response = await fetch(url, {mode: 'cors'});
     if(!response.ok)throw new Error(`HTTP ${response.status}`);
 
     const text = await response.text();
