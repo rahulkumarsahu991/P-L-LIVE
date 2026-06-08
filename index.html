@@ -3298,11 +3298,14 @@ async function fetchExpenseSheetData(sheetName){
     const SHEET_ID = '1EgXBPgwuSJPOcAk9tNtdaDSwYurkG_gAAhdb12wNTHU';
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent(sheetName)}&t=${Date.now()}`;
 
+    console.log(`⏳ Fetching: ${sheetName}`);
     const response = await fetch(url);
+    if(!response.ok)throw new Error(`HTTP ${response.status}`);
+
     const text = await response.text();
     const json = JSON.parse(text.substring(47).slice(0, -2));
 
-    if(!json.table)return [];
+    if(!json.table){console.warn(`⚠ No table for ${sheetName}`);return [];}
 
     const rows = [];
     const cols = json.table.cols || [];
@@ -3317,9 +3320,10 @@ async function fetchExpenseSheetData(sheetName){
       }
       rows.push(r);
     }
+    console.log(`✓ ${sheetName}: ${rows.length} rows fetched`);
     return rows;
   }catch(e){
-    console.error('Error fetching sheet:', sheetName, e);
+    console.error(`✗ Error fetching ${sheetName}:`, e.message);
     return [];
   }
 }
@@ -3337,19 +3341,25 @@ async function showExpenseDetailWithVehicles(category, amount){
   if(category === 'Cash'){
     const sheets = ['CASH SHEET', 'EMAMI PLANT ADV', 'JK PLANT ADV', 'SHREE PLANT ADV'];
     for(const sheet of sheets){
-      const colMap = COLUMN_MAP[sheet];
-      const sheetData = await fetchExpenseSheetData(sheet);
-      sheetData.forEach(row => {
-        if(row.length > Math.max(colMap.vehicle, colMap.amount)){
-          const veh = (row[colMap.vehicle] || 'Unknown').trim();
-          const amt = parseFloat(row[colMap.amount]) || 0;
-          if(veh && veh.length > 0 && !isNaN(amt) && amt > 0){
-            vehicles[veh] = (vehicles[veh] || 0) + amt;
-            if(!vehicleTransactions[veh]) vehicleTransactions[veh] = [];
-            vehicleTransactions[veh].push({...row, sheet: sheet});
+      try{
+        const colMap = COLUMN_MAP[sheet];
+        if(!colMap){console.warn(`No column map for ${sheet}`);continue;}
+        const sheetData = await fetchExpenseSheetData(sheet);
+        console.log(`Fetched ${sheet}: ${sheetData.length} rows`);
+        sheetData.forEach(row => {
+          if(row.length > Math.max(colMap.vehicle, colMap.amount)){
+            const veh = (row[colMap.vehicle] || 'Unknown').trim();
+            const amt = parseFloat(row[colMap.amount]) || 0;
+            if(veh && veh.length > 0 && !isNaN(amt) && amt > 0){
+              vehicles[veh] = (vehicles[veh] || 0) + amt;
+              if(!vehicleTransactions[veh]) vehicleTransactions[veh] = [];
+              vehicleTransactions[veh].push({...row, sheet: sheet});
+            }
           }
-        }
-      });
+        });
+      }catch(e){
+        console.error(`Error fetching ${sheet}:`, e);
+      }
     }
   } else {
     // For other categories: fetch single sheet
