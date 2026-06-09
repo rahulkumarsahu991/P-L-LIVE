@@ -3300,17 +3300,18 @@ const COLUMN_MAP = {
   'TAX SHEET': {vehicle: 0, amount: 3, date: 1, remarks: 2}
 };
 
-// CSV links for plant sheets (used instead of gviz API)
+// CSV links for sheets (used instead of gviz API when gviz fails)
 const CSV_LINKS = {
   'EMAMI PLANT ADV': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTFfJ5JJKrDtauj07HVgMLNludDmnC4S7Kji5LfAXI28tn552OygrZiXQZc6FSo_kEfGoFSePKeALEh/pub?gid=142737568&single=true&output=csv',
   'JK PLANT ADV': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTFfJ5JJKrDtauj07HVgMLNludDmnC4S7Kji5LfAXI28tn552OygrZiXQZc6FSo_kEfGoFSePKeALEh/pub?gid=1030417261&single=true&output=csv',
-  'SHREE PLANT ADV': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTFfJ5JJKrDtauj07HVgMLNludDmnC4S7Kji5LfAXI28tn552OygrZiXQZc6FSo_kEfGoFSePKeALEh/pub?gid=1804028662&single=true&output=csv'
+  'SHREE PLANT ADV': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTFfJ5JJKrDtauj07HVgMLNludDmnC4S7Kji5LfAXI28tn552OygrZiXQZc6FSo_kEfGoFSePKeALEh/pub?gid=1804028662&single=true&output=csv',
+  'UPI SHEET': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTFfJ5JJKrDtauj07HVgMLNludDmnC4S7Kji5LfAXI28tn552OygrZiXQZc6FSo_kEfGoFSePKeALEh/pub?gid=33245272&single=true&output=csv'
 };
 
 async function fetchCSVData(sheetName){
   try{
     // Check cache first
-    const cacheKey = `csv_cache_${sheetName}`;
+    const cacheKey = `cache_${sheetName}`;
     const cached = localStorage.getItem(cacheKey);
     if(cached){
       console.log(`📦 Using cached data for ${sheetName}`);
@@ -3346,7 +3347,6 @@ async function fetchCSVData(sheetName){
   }catch(e){
     console.error(`✗ Error fetching CSV ${sheetName}:`, e.message);
     // Return cached data even if fetch fails
-    const cacheKey = `csv_cache_${sheetName}`;
     const cached = localStorage.getItem(cacheKey);
     if(cached)return JSON.parse(cached);
     return [];
@@ -3356,11 +3356,17 @@ async function fetchCSVData(sheetName){
 async function fetchExpenseSheetData(sheetName){
   try{
     // Check cache first
-    const cacheKey = `gviz_cache_${sheetName}`;
+    const cacheKey = `cache_${sheetName}`;
     const cached = localStorage.getItem(cacheKey);
     if(cached){
       console.log(`📦 Using cached data for ${sheetName}`);
       return JSON.parse(cached);
+    }
+
+    // If CSV link exists, use CSV instead of gviz
+    if(CSV_LINKS[sheetName]){
+      console.log(`Using CSV link for ${sheetName}`);
+      return await fetchCSVData(sheetName);
     }
 
     const SHEET_ID = '1EgXBPgwuSJPOcAk9tNtdaDSwYurkG_gAAhdb12wNTHU';
@@ -3395,7 +3401,6 @@ async function fetchExpenseSheetData(sheetName){
   }catch(e){
     console.error(`✗ Error fetching ${sheetName}:`, e.message);
     // Return cached data even if fetch fails
-    const cacheKey = `gviz_cache_${sheetName}`;
     const cached = localStorage.getItem(cacheKey);
     if(cached)return JSON.parse(cached);
     return [];
