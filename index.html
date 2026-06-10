@@ -3430,15 +3430,21 @@ async function showExpenseDetailWithVehicles(category, amount){
       {name: 'SHREE PLANT ADV', type: 'csv'}
     ];
 
-    // Fetch ALL sheets in PARALLEL (not sequential)
-    const sheetDataArray = await Promise.all(sheets.map(sheet =>
-      (sheet.type === 'csv' ? fetchCSVData(sheet.name) : fetchExpenseSheetData(sheet.name))
-        .catch(e => {console.error(`Error fetching ${sheet.name}:`, e); return [];})
+    // Fetch ALL sheets in PARALLEL with graceful fallback
+    const sheetDataArray = await Promise.allSettled(sheets.map(sheet =>
+      sheet.type === 'csv' ? fetchCSVData(sheet.name) : fetchExpenseSheetData(sheet.name)
     ));
+
+    // Convert allSettled results to data arrays
+    const processedData = sheetDataArray.map((result, idx) => {
+      if(result.status === 'fulfilled') return result.value;
+      console.error(`Failed to fetch ${sheets[idx].name}:`, result.reason);
+      return [];
+    });
 
     // Process all fetched data
     sheets.forEach((sheet, idx) => {
-      const sheetData = sheetDataArray[idx];
+      const sheetData = processedData[idx];
       const colMap = COLUMN_MAP[sheet.name];
       if(!colMap){console.warn(`No column map for ${sheet.name}`);return;}
 
@@ -3524,15 +3530,21 @@ async function showVehicleTransactions(vehicle, category, sheetName){
       {name: 'SHREE PLANT ADV', type: 'csv'}
     ];
 
-    // Fetch ALL sheets in PARALLEL
-    const sheetDataArray = await Promise.all(sheets.map(sheet =>
-      (sheet.type === 'csv' ? fetchCSVData(sheet.name) : fetchExpenseSheetData(sheet.name))
-        .catch(e => {console.error(`Error fetching ${sheet.name}:`, e); return [];})
+    // Fetch ALL sheets in PARALLEL with graceful fallback
+    const sheetDataArray = await Promise.allSettled(sheets.map(sheet =>
+      sheet.type === 'csv' ? fetchCSVData(sheet.name) : fetchExpenseSheetData(sheet.name)
     ));
+
+    // Convert allSettled results to data arrays
+    const processedData = sheetDataArray.map((result, idx) => {
+      if(result.status === 'fulfilled') return result.value;
+      console.error(`Failed to fetch ${sheets[idx].name}:`, result.reason);
+      return [];
+    });
 
     // Process all fetched data
     sheets.forEach((sheet, idx) => {
-      const sheetData = sheetDataArray[idx];
+      const sheetData = processedData[idx];
       const colMap = COLUMN_MAP[sheet.name];
       const filtered = sheetData.filter(row => row[colMap.vehicle] && row[colMap.vehicle].trim() === vehicle);
       transactions = transactions.concat(filtered.map(row => ({...row, sheet: sheet.name})));
