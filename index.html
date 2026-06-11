@@ -2794,8 +2794,8 @@ async function openExpenseBreakdown(category){
   const ov = document.getElementById('expOverlay');
   const body = document.getElementById('expOvBody');
   document.getElementById('expOvTitle').textContent = category+' — date-wise';
-  /* 🔧 Window ka period = dashboard filter (CURRENT_RANGE). Filter nahi to FULL DATA —
-     taaki list me dikha total aur window ka total hamesha match kare. */
+  /* 🔧 Window ka period: pehle dashboard filter (CURRENT_RANGE), warna sheet ki active
+     date-window (DATA_PERIOD — wahi jo upar chip me dikhti hai), warna full data. */
   let expLo=null, expHi=null, periodTxt='full period';
   if(CURRENT_RANGE){
     const ps=parseSheetDate(CURRENT_RANGE.start), pe=parseSheetDate(CURRENT_RANGE.end);
@@ -2804,6 +2804,11 @@ async function openExpenseBreakdown(category){
       expLo=ps.getTime(); expHi=pe.getTime();
       periodTxt=fmtDate2(ps)+' → '+fmtDate2(pe);
     }
+  } else if(window.DATA_PERIOD_START && window.DATA_PERIOD_END){
+    const pe2 = new Date(window.DATA_PERIOD_END.getTime());
+    pe2.setHours(23,59,59,999);
+    expLo=window.DATA_PERIOD_START.getTime(); expHi=pe2.getTime();
+    periodTxt=fmtDate2(window.DATA_PERIOD_START)+' → '+fmtDate2(window.DATA_PERIOD_END);
   }
   document.getElementById('expOvSub').textContent = veh+'  ·  '+periodTxt;
   ov.style.display='flex';
