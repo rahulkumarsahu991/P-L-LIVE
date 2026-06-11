@@ -3711,21 +3711,14 @@ async function showVehicleTransactions(vehicle, category, sheetName){
       return row[colMap.vehicle] && row[colMap.vehicle].trim() === vehicle;
     });
 
-    // 🔧 FIX: Some rows have amount in Column F, some in Column G - check both!
-    // For UPI SHEET: try Column F first, if blank then use Column G
-    if(sheetName === 'UPI SHEET' || category === 'UPI'){
+    // 🔧 FIX: For UPI SHEET - some rows have amount in F(5), some in G(6) - use smaller/correct value
+    if(category === 'UPI' || sheetName.includes('UPI')){
       transactions = transactions.map(row => {
-        const amt5 = parseFloat(row[5]) || 0;
-        const amt6 = parseFloat(row[6]) || 0;
-        // Use Column F (5) if it has value, otherwise use Column G (6)
-        if(amt5 > 0 && amt6 > 0){
-          // Both have values - use the smaller one (likely the correct amount)
-          row[5] = Math.min(amt5, amt6);
-        } else if(amt6 > 0 && !amt5){
-          // Only Column G has value - move it to Column F
-          row[5] = amt6;
-        }
-        // If both are 0 or only Column F has value, leave as is
+        const f_val = parseFloat(row[5]) || 0;  // Gross Total (Column F)
+        const g_val = parseFloat(row[6]) || 0;  // IMPREST CASH (Column G)
+        // Use smaller value (the actual transaction amount)
+        const correctAmount = (f_val > 0 && g_val > 0) ? Math.min(f_val, g_val) : (f_val || g_val);
+        row[colMap.amount] = correctAmount;  // Update the amount column
         return row;
       });
     }
