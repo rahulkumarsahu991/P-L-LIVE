@@ -3108,6 +3108,62 @@ function closeSidebar(){
 }
 /* Load All Expenses Dashboard - Direct Integration */
 let allExpenseData = null;
+
+// 🔧 Calculate actual expense totals from individual sheets
+async function calculateActualExpenseTotals(){
+  const totals = {};
+  const expenses = ['Diesel', 'Urea', 'Fastag', 'Driver A/C', 'Cash', 'UPI', 'Tyre', 'RTO', 'Paper'];
+
+  for(const cat of expenses){
+    const sheetName = EXPENSE_SHEET_MAP[cat];
+    if(!sheetName) continue;
+
+    // For Cash: fetch from all 4 sheets
+    if(cat === 'Cash'){
+      const sheets = [
+        {name: 'CASH SHEET', type: 'gviz'},
+        {name: 'EMAMI PLANT ADV', type: 'csv'},
+        {name: 'JK PLANT ADV', type: 'csv'},
+        {name: 'SHREE PLANT ADV', type: 'csv'}
+      ];
+      const sheetDataArray = await Promise.allSettled(sheets.map(sheet =>
+        sheet.type === 'csv' ? fetchCSVData(sheet.name) : fetchExpenseSheetData(sheet.name)
+      ));
+      let catTotal = 0;
+      sheetDataArray.forEach((result, idx) => {
+        if(result.status === 'fulfilled'){
+          const sheetData = result.value;
+          const colMap = COLUMN_MAP[sheets[idx].name];
+          if(colMap){
+            sheetData.forEach(row => {
+              if(row.length > colMap.amount){
+                const amt = parseFloat(row[colMap.amount]) || 0;
+                catTotal += Math.max(0, amt);  // Only positive amounts
+              }
+            });
+          }
+        }
+      });
+      totals[cat] = catTotal;
+    } else {
+      // For other categories: fetch single sheet
+      const sheetData = await fetchExpenseSheetData(sheetName);
+      const colMap = COLUMN_MAP[cat] || COLUMN_MAP[sheetName];
+      let catTotal = 0;
+      if(colMap){
+        sheetData.forEach(row => {
+          if(row.length > colMap.amount){
+            const amt = parseFloat(row[colMap.amount]) || 0;
+            catTotal += Math.max(0, amt);  // Only positive amounts
+          }
+        });
+      }
+      totals[cat] = catTotal;
+    }
+  }
+  return totals;
+}
+
 async function loadAllExpensesDashboard(){
   try{
     const SHEET_ID = '1EgXBPgwuSJPOcAk9tNtdaDSwYurkG_gAAhdb12wNTHU';
@@ -3136,8 +3192,16 @@ async function loadAllExpensesDashboard(){
     }
 
     allExpenseData = parseAllExpenseGrid(G);
+
+    // 🔧 Fetch actual expense totals from individual sheets
+    console.log('⏳ Calculating actual expense totals from individual sheets...');
+    const actualTotals = await calculateActualExpenseTotals();
+    allExpenseData.actualExpenseTotals = actualTotals;
+    console.log('✓ Actual expense totals calculated:', actualTotals);
+
     renderAllExpenses();
   }catch(e){
+    console.error('Error:', e);
     document.getElementById('allExpensesStatus').innerHTML = `<span style="color:var(--accent)">⚠ Error loading data: ${e.message}</span>`;
   }
 }
@@ -3209,19 +3273,30 @@ function renderAllExpenses(){
   document.getElementById('allExpensesKPI').innerHTML = kpis.map(k => `<div class="kpi-card ${k.cls==='neg'?'':k.cls==='pos'?'g':k.cls==='a'?'a':k.cls==='b'?'b':''}" style="padding:24px;background:var(--panel);border:1px solid var(--line);border-radius:14px"><div class="kpi-label" style="font-size:.78rem;margin-bottom:12px">${k.lbl}</div><div class="kpi-value ${k.cls}" style="font-size:1.8rem;margin-bottom:8px">${k.val}</div><div class="kpi-sub" style="font-size:.82rem">${k.sub}</div></div>`).join('');
 
   // Expense breakdown - SAME STYLE AS KPI CARDS (colored left border, clean minimal)
-  const rows = d.expense_breakdown.filter(r => r[0] && !String(r[0]).toUpperCase().includes('TOTAL'));
-  const total = d.expense_breakdown.find(r => String(r[0]).toUpperCase().includes('TOTAL'));
+  // 🔧 Use actual calculated totals instead of sheet values
   const borderColors = {
     'Diesel': '#ff6b35', 'Urea': '#f5b945', 'Fastag': '#ff1744', 'Driver A/C': '#2196f3',
     'Cash': '#f50057', 'UPI': '#00bcd4', 'Tyre': '#4caf50', 'RTO': '#ff9800'
   };
-  document.getElementById('allExpensesBreakdown').innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px">
-    ${rows.map(r => {const pct = (+r[2]||0)/100;const bColor=borderColors[r[0]]||'#757575';return `<div style="padding:20px;background:var(--panel);border:1px solid var(--line);border-left:4px solid ${bColor};border-radius:10px;cursor:pointer;transition:.15s" onclick="showExpenseDetail('${r[0]}',${r[1]})">
-      <div style="font-size:.75rem;color:var(--muted);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">${r[0]}</div>
-      <div style="font-size:1.6rem;font-weight:800;color:var(--text);margin-bottom:8px">${crore(r[1])}</div>
-      <div style="font-size:.8rem;color:var(--muted)">${(pct*100).toFixed(1)}% this view | ${(pct*100).toFixed(1)}% fleet</div>
-    </div>`;}).join('')}
-  </div>`;
+
+  const actualTotals = d.actualExpenseTotals || {};
+  const categoryOrder = ['Diesel', 'Urea', 'Fastag', 'Driver A/C', 'Cash', 'UPI', 'Tyre', 'RTO', 'Paper'];
+  const totalExpense = Object.values(actualTotals).reduce((s, v) => s + v, 0);
+
+  const expenseCards = categoryOrder
+    .filter(cat => actualTotals[cat] > 0)
+    .map(cat => {
+      const amount = actualTotals[cat] || 0;
+      const pct = totalExpense ? (amount / totalExpense) * 100 : 0;
+      const bColor = borderColors[cat] || '#757575';
+      return `<div style="padding:20px;background:var(--panel);border:1px solid var(--line);border-left:4px solid ${bColor};border-radius:10px;cursor:pointer;transition:.15s" onclick="showExpenseDetail('${cat}',${amount})">
+        <div style="font-size:.75rem;color:var(--muted);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">${cat}</div>
+        <div style="font-size:1.6rem;font-weight:800;color:var(--text);margin-bottom:8px">${crore(amount)}</div>
+        <div style="font-size:.8rem;color:var(--muted)">${pct.toFixed(1)}% this period | ${pct.toFixed(1)}% fleet</div>
+      </div>`;
+    }).join('');
+
+  document.getElementById('allExpensesBreakdown').innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px">${expenseCards}</div>`;
 
   // P&L summary
   const pl = d.pl_summary;
