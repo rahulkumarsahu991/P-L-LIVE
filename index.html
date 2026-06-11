@@ -3493,7 +3493,21 @@ async function showExpenseDetailWithVehicles(category, amount){
   console.log(`🚀 showExpenseDetailWithVehicles called with category: ${category}`);
   const crore = n => {const a=Math.abs(n),s=n<0?'-':'';if(a>=1e7)return s+'₹'+(a/1e7).toFixed(2)+' Cr';if(a>=1e5)return s+'₹'+(a/1e5).toFixed(2)+' L';return s+'₹'+Math.round(a).toLocaleString('en-IN');};
 
-  let html = `<div class="det-row" style="margin-bottom:16px"><span style="font-weight:700;font-size:1.1rem">${category}</span><span style="font-weight:700;color:var(--amber);font-size:1.15rem">${crore(amount)}</span></div>`;
+  // 🔧 Helper to check if date is within current range
+  const isDateInRange = (dateStr) => {
+    if(!CURRENT_RANGE) return true;  // No filter active
+    const dateObj = parseSheetDate(dateStr);
+    if(!dateObj) return false;
+    const rangeStart = new Date(CURRENT_RANGE.start);
+    const rangeEnd = new Date(CURRENT_RANGE.end);
+    rangeEnd.setHours(23, 59, 59, 999);
+    return dateObj >= rangeStart && dateObj <= rangeEnd;
+  };
+
+  // 🔧 Add date range to modal title if filter is active
+  const dateRangeText = CURRENT_RANGE ? ` · ${CURRENT_RANGE.start} → ${CURRENT_RANGE.end}` : '';
+
+  let html = `<div class="det-row" style="margin-bottom:16px"><span style="font-weight:700;font-size:1.1rem">${category}${dateRangeText}</span><span style="font-weight:700;color:var(--amber);font-size:1.15rem">${crore(amount)}</span></div>`;
   html += `<div style="font-size:.9rem;color:var(--muted);margin-bottom:14px">All vehicles with transactions:</div>`;
 
   const vehicles = {};
@@ -3533,6 +3547,9 @@ async function showExpenseDetailWithVehicles(category, amount){
       console.log(`✓ ${sheet.name}: ${sheetData.length} rows`);
       sheetData.forEach(row => {
         if(row.length > Math.max(colMap.vehicle, colMap.amount)){
+          // 🔧 Filter by date range if active
+          if(!isDateInRange(row[colMap.date])) return;
+
           const veh = (row[colMap.vehicle] || '').trim();
           const amt = parseFloat(row[colMap.amount]) || 0;
           if(veh && veh.length > 0 && !isNaN(amt) && amt > 0){
@@ -3550,6 +3567,9 @@ async function showExpenseDetailWithVehicles(category, amount){
     const sheetData = await fetchExpenseSheetData(sheetName);
     sheetData.forEach(row => {
       if(row.length > Math.max(colMap.vehicle, colMap.amount)){
+        // 🔧 Filter by date range if active
+        if(!isDateInRange(row[colMap.date])) return;
+
         let veh = (row[colMap.vehicle] || '').trim();
         if(!veh) veh = 'Unknown';
         const amt = parseFloat(row[colMap.amount]) || 0;
