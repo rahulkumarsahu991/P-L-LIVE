@@ -3489,6 +3489,19 @@ async function showExpenseDetailWithVehicles(category, amount){
 
   const sorted = Object.entries(vehicles).sort((a,b) => b[1] - a[1]);
 
+  // 🔧 Calculate actual total from fetched data
+  const actualTotal = sorted.reduce((sum, item) => sum + item[1], 0);
+
+  // 🔧 Update header with actual total instead of parameter amount
+  html = `<div class="det-row" style="margin-bottom:16px"><span style="font-weight:700;font-size:1.1rem">${category}</span><span style="font-weight:700;color:var(--amber);font-size:1.15rem">${crore(actualTotal)}</span></div>`;
+
+  // 🔧 Add search box
+  html += `<div style="margin-bottom:14px">
+    <input type="text" id="vehicleSearch" placeholder="Search vehicle..." style="width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:.9rem" onkeyup="filterVehicles()">
+  </div>`;
+
+  html += `<div style="font-size:.9rem;color:var(--muted);margin-bottom:14px">All vehicles with transactions:</div>`;
+
   if(sorted.length === 0){
     html += `<div style="color:var(--muted);padding:16px;text-align:center">No vehicle data available</div>`;
   } else {
@@ -3496,7 +3509,7 @@ async function showExpenseDetailWithVehicles(category, amount){
       const veh = item[0];
       const total = item[1];
       const txnCount = vehicleTransactions[veh].length;
-      return `<div style="margin-bottom:8px;border:1px solid var(--line);border-radius:8px;overflow:hidden">
+      return `<div class="vehicleRow" style="margin-bottom:8px;border:1px solid var(--line);border-radius:8px;overflow:hidden" data-vehicle="${veh.toLowerCase()}">
         <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;cursor:pointer;background:var(--panel2);transition:.15s" onclick="document.getElementById('txn_${idx}').style.display = document.getElementById('txn_${idx}').style.display==='none'?'block':'none'">
           <div><span style="font-weight:600">${idx+1}. ${veh}</span><span style="font-size:.8rem;color:var(--muted);margin-left:8px">(${txnCount} txn)</span></div>
           <span style="color:var(--amber);font-weight:600">${crore(total)}</span>
@@ -3523,6 +3536,16 @@ async function showExpenseDetailWithVehicles(category, amount){
   }
 
   showAllExpenseModal(category + ' - Vehicle Details', html);
+}
+
+// 🔧 Filter vehicles by search text
+function filterVehicles(){
+  const searchText = document.getElementById('vehicleSearch')?.value.toLowerCase() || '';
+  const rows = document.querySelectorAll('.vehicleRow');
+  rows.forEach(row => {
+    const vehicleName = row.getAttribute('data-vehicle');
+    row.style.display = vehicleName.includes(searchText) ? 'block' : 'none';
+  });
 }
 
 async function showVehicleTransactions(vehicle, category, sheetName){
