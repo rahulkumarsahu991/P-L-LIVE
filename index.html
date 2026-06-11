@@ -3153,7 +3153,14 @@ async function calculateActualExpenseTotals(){
       if(colMap){
         sheetData.forEach(row => {
           if(row.length > colMap.amount){
-            const amt = parseFloat(row[colMap.amount]) || 0;
+            // 🔧 FIX: For UPI, check both F(5) and G(6), use smaller value
+            let amt = parseFloat(row[colMap.amount]) || 0;
+            if(cat === 'UPI' && row.length > 6){
+              const f_val = parseFloat(row[5]) || 0;
+              const g_val = parseFloat(row[6]) || 0;
+              // Use smaller non-zero value
+              amt = (f_val > 0 && g_val > 0) ? Math.min(f_val, g_val) : (f_val || g_val);
+            }
             catTotal += Math.max(0, amt);  // Only positive amounts
           }
         });
