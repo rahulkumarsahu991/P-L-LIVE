@@ -618,7 +618,13 @@ const EXPENSE_SHEETS = {
   'Driver A/C': { gid:'1326041906', dateCol:7, amountCol:4,  vehCol:11, remarkCol:6, noteCols:[1,9] },
   'Diesel':     { gid:'463193473',  dateCol:1, amountCol:5,  vehCol:2,  remarkCol:-1, noteCols:[0,3,7] },
   'Urea':       { gid:'463193473',  dateCol:1, amountCol:11, vehCol:2,  remarkCol:-1, noteCols:[0,10], skipZero:true },
-  'Cash':       { gid:'388031044',  dateCol:0, amountCol:7,  vehCol:10, remarkCol:4,  noteCols:[2,8] },
+  /* Cash = 4 sheets (Cash sheet + EMAMI + JK + SHREE plant advances) */
+  'Cash':       { sources:[
+    { gid:'388031044',  dateCol:0, amountCol:7, vehCol:10, remarkCol:4, noteCols:[2,8], label:'Cash' },
+    { gid:'142737568',  dateCol:0, amountCol:4, vehCol:3,  remarkCol:2, noteCols:[2],   label:'EMAMI' },
+    { gid:'1030417261', dateCol:0, amountCol:4, vehCol:3,  remarkCol:2, noteCols:[2],   label:'JK' },
+    { gid:'1804028662', dateCol:0, amountCol:4, vehCol:3,  remarkCol:2, noteCols:[2],   label:'SHREE' }
+  ]},
   'Fastag':     { gid:'2070024063', dateCol:0, amountCol:2,  vehCol:1,  remarkCol:-1, noteCols:[3] },
   'UPI':        { gid:'33245272',   dateCol:0, amountCol:6,  vehCol:5,  remarkCol:3,  noteCols:[1,3], excludeCol:2, excludeVal:'receipt' },
   'Tyre':       { gid:'1031783248', dateCol:0, amountCol:4,  vehCol:5,  remarkCol:1,  noteCols:[2,3] },
