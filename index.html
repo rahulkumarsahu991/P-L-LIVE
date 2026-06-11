@@ -2775,16 +2775,20 @@ function collectExpEntries(src, matrix, vehU, lo, hi){
   }
   for(let i=1;i<matrix.length;i++){
     const row = matrix[i]; if(!row || !row.length) continue;
-    /* vehicle match: pehle exact match, phir suffix match (CA2011 matches CG10CA2011), phir remark se */
+    /* vehicle match: pehle exact match, phir suffix match (CA2011 matches CG10CA2011).
+       🔧 Agar vehicle column me value HAI aur match nahi hui to row SKIP — remark se
+       cross-match mat karo (voucher text me doosri gadi ka naam ho sakta hai).
+       Remark fallback sirf tab jab vehicle column khali ho. */
     let matchVeh=false;
-    if(src.vehCol>=0 && row[src.vehCol]){
-      const sheetVeh = String(row[src.vehCol]).toUpperCase().trim();
+    const sheetVehRaw = (src.vehCol>=0 && row[src.vehCol]) ? String(row[src.vehCol]).toUpperCase().trim() : '';
+    if(sheetVehRaw){
       // Exact match
-      if(sheetVeh===vehU) matchVeh=true;
+      if(sheetVehRaw===vehU) matchVeh=true;
       // Suffix match (CA2011 in CG10CA2011) ✅
-      else if(vehU.endsWith(sheetVeh) && sheetVeh.length>=4) matchVeh=true;
-    }
-    if(!matchVeh && src.remarkCol>=0 && row[src.remarkCol]){
+      else if(vehU.endsWith(sheetVehRaw) && sheetVehRaw.length>=4) matchVeh=true;
+      // vehicle column bhara hai par match nahi — ye row kisi aur gadi ki hai
+      if(!matchVeh) continue;
+    } else if(src.remarkCol>=0 && row[src.remarkCol]){
       const toks=String(row[src.remarkCol]).trim().split(/\s+/);
       for(const raw of toks){
         const tok=raw.toUpperCase().replace(/[^A-Z0-9]/g,'');
