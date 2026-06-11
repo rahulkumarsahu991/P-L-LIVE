@@ -3374,8 +3374,8 @@ const COLUMN_MAP = {
   'EMAMI PLANT ADV': {vehicle: 3, amount: 4, date: 0, remarks: 2},  // D, E, A, C
   'JK PLANT ADV': {vehicle: 3, amount: 4, date: 0, remarks: 2},  // D, E, A, C
   'SHREE PLANT ADV': {vehicle: 3, amount: 4, date: 0, remarks: 2},  // D, E, A, C
-  'UPI': {vehicle: 4, amount: 5, date: 0, remarks: 2},  // UPI SHEET: E, F, A, C (Voucher Ref. No., Gross Total, Date, Voucher Type)
-  'UPI SHEET': {vehicle: 4, amount: 5, date: 0, remarks: 2},
+  'UPI': {vehicle: 4, amount: 5, date: 0, remarks: 2},  // UPI SHEET: E(4), F(5), A(0), C(2) - Voucher Ref No, Gross Total, Date, Voucher Type
+  'UPI SHEET': {vehicle: 4, amount: 5, date: 0, remarks: 2},  // VERIFIED: col[4]=vehicle, col[5]=amount (Gross Total, NOT col[6])
   'Tyre': {vehicle: 1, amount: 4, date: 0, remarks: 2},  // TYRE SHEET: B, E, A, C
   'TYRE SHEET': {vehicle: 1, amount: 4, date: 0, remarks: 2},
   'RTO': {vehicle: 0, amount: 3, date: 1, remarks: 2},  // TAX SHEET: A, D, B, C
@@ -3710,6 +3710,17 @@ async function showVehicleTransactions(vehicle, category, sheetName){
       if(!isDateInRange(row[colMap.date])) return false;
       return row[colMap.vehicle] && row[colMap.vehicle].trim() === vehicle;
     });
+
+    // 🔧 DEBUG: Log all CG08AQ9711 rows to see column structure
+    if(vehicle.includes('CG08AQ9711')){
+      transactions.forEach((t, idx) => {
+        console.log(`🔍 ${vehicle} Row ${idx}:`, t);
+        console.log(`   vehicle=${t[colMap.vehicle]} (col ${colMap.vehicle}), amount=${t[colMap.amount]} (col ${colMap.amount}), date=${t[colMap.date]}`);
+        for(let i = 0; i < Math.min(8, t.length); i++){
+          console.log(`   col[${i}] = ${t[i]}`);
+        }
+      });
+    }
   }
 
   // 🔧 Add date range to header if filter is active
