@@ -2663,28 +2663,43 @@ function applyDateFilter(){
     return;
   }
 
-  CURRENT_RANGE = {start, end};
-  DISPATCH_DATA = null;  // 🔧 Clear dispatch cache to re-fetch with new date range
+  // 🔧 Context-aware filtering: set appropriate range based on active section
+  if(CURRENT === 'allexpenses'){
+    ALL_EXPENSES_DATE_RANGE = {start, end};
+    console.log(`📊 All Expenses filter applied:`, ALL_EXPENSES_DATE_RANGE);
+    loadAllExpensesDashboard();  // Refresh All Expenses with new filter
+  } else {
+    CURRENT_RANGE = {start, end};
+    DISPATCH_DATA = null;  // 🔧 Clear dispatch cache to re-fetch with new date range
+    if(CURRENT==='overview') buildInsights();
+    fetchLive().then(()=>{
+      // 🔧 Force refresh Total KM after filter applied
+      if(CURRENT==='overview') buildInsights();
+    }).catch(()=>{});
+  }
   closeDateModal();
   document.getElementById('liveStatus').textContent='Applying dates...';
-  fetchLive().then(()=>{
-    // 🔧 Force refresh Total KM after filter applied
-    if(CURRENT==='overview') buildInsights();
-  }).catch(()=>{});
 }
 
 /* Date range hatao + SAARI FILTERS RESET + WINDOW PERIOD CLEAR -> wapas pura data */
 function clearDateRange(){
-  // ✅ Reset all data variables
-  CURRENT_RANGE = null;
-  DISPATCH_DATA = null;  // 🔧 Clear cache when filter cleared
-  DATE_MODE = null;
-  DATA_PERIOD_START = null;
-  DATA_PERIOD_END = null;
-  SERIES_FILTER = 'all';
-  STATUS_FILTER = 'all';
+  // 🔧 Context-aware: clear appropriate range based on active section
+  if(CURRENT === 'allexpenses'){
+    ALL_EXPENSES_DATE_RANGE = null;
+    console.log(`📊 All Expenses filter cleared`);
+    loadAllExpensesDashboard();  // Refresh All Expenses
+  } else {
+    // ✅ Reset all data variables for Overview/Vehicles/other sections
+    CURRENT_RANGE = null;
+    DISPATCH_DATA = null;  // 🔧 Clear cache when filter cleared
+    DATE_MODE = null;
+    DATA_PERIOD_START = null;
+    DATA_PERIOD_END = null;
+    SERIES_FILTER = 'all';
+    STATUS_FILTER = 'all';
+  }
 
-  // ✅ Clear form inputs
+  // ✅ Clear form inputs (always reset UI)
   document.getElementById('dmDays').value = '5';
   const now = new Date();
   const monthStr = String(now.getFullYear()) + '-' + String(now.getMonth()+1).padStart(2,'0');
