@@ -2763,14 +2763,19 @@ function collectExpEntries(src, matrix, vehU, lo, hi){
     const header = matrix[0]||[];
     for(let i=1;i<matrix.length;i++){
       const row=matrix[i]; if(!row||!row.length) continue;
-      if(String(row[src.vehCol]||'').toUpperCase().trim()!==vehU) continue;
+      /* 🔧 "CG08AX6111 BODY" jaisi rows bhi usi gadi me judengi —
+         pehla token vehicle se match karo, saari matching rows jodo (break nahi) */
+      const cellRaw = String(row[src.vehCol]||'').toUpperCase().trim();
+      if(!cellRaw) continue;
+      const firstTok = cellRaw.split(/\s+/)[0];
+      if(firstTok!==vehU) continue;
+      const extra = cellRaw.slice(firstTok.length).trim();   // e.g. "BODY"
       for(let c=src.firstMonthCol;c<header.length;c++){
         const amt=num(row[c]); if(amt<=0) continue;
         const d=parseMonthLabel(header[c]);
         if(lo!=null && hi!=null && d){ const x=d.getTime(); if(x<lo||x>hi) continue; }
-        out.push({dRaw:String(header[c]).trim(), d, amt, note:src.label||'Monthly'});
+        out.push({dRaw:String(header[c]).trim(), d, amt, note:(extra?extra+' EMI':(src.label||'Monthly'))});
       }
-      break;
     }
     return out;
   }
