@@ -2794,8 +2794,17 @@ async function openExpenseBreakdown(category){
   const ov = document.getElementById('expOverlay');
   const body = document.getElementById('expOvBody');
   document.getElementById('expOvTitle').textContent = category+' — date-wise';
-  const periodTxt = (window.DATA_PERIOD_START&&window.DATA_PERIOD_END)
-    ? fmtDate2(window.DATA_PERIOD_START)+' → '+fmtDate2(window.DATA_PERIOD_END) : 'full period';
+  /* 🔧 Window ka period = dashboard filter (CURRENT_RANGE). Filter nahi to FULL DATA —
+     taaki list me dikha total aur window ka total hamesha match kare. */
+  let expLo=null, expHi=null, periodTxt='full period';
+  if(CURRENT_RANGE){
+    const ps=parseSheetDate(CURRENT_RANGE.start), pe=parseSheetDate(CURRENT_RANGE.end);
+    if(ps && pe){
+      pe.setHours(23,59,59,999);
+      expLo=ps.getTime(); expHi=pe.getTime();
+      periodTxt=fmtDate2(ps)+' → '+fmtDate2(pe);
+    }
+  }
   document.getElementById('expOvSub').textContent = veh+'  ·  '+periodTxt;
   ov.style.display='flex';
 
@@ -2810,8 +2819,7 @@ async function openExpenseBreakdown(category){
   body.innerHTML = `<div style="text-align:center;color:var(--muted);padding:24px">⏳ Loading ${category} entries...</div>`;
   try{
     const vehU = veh;
-    const ps = window.DATA_PERIOD_START, pe = window.DATA_PERIOD_END;
-    const lo = ps?ps.getTime():null, hi = pe?pe.getTime():null;
+    const lo = expLo, hi = expHi;   // 🔧 dashboard filter se aligned (null = full data)
     /* ek expense ek ya zyada sheet se aa sakta hai (jaise Paper = 2, Cash = 4 sheets) */
     const sources = cfg.sources || [cfg];
 
