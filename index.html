@@ -3451,10 +3451,9 @@ async function showExpenseDetailWithVehicles(category, amount){
       console.log(`✓ ${sheet.name}: ${sheetData.length} rows`);
       sheetData.forEach(row => {
         if(row.length > Math.max(colMap.vehicle, colMap.amount)){
-          let veh = (row[colMap.vehicle] || '').trim();
-          if(!veh) veh = 'Unknown';
+          const veh = (row[colMap.vehicle] || '').trim();
           const amt = parseFloat(row[colMap.amount]) || 0;
-          if(!isNaN(amt) && amt > 0){
+          if(veh && veh.length > 0 && !isNaN(amt) && amt > 0){
             vehicles[veh] = (vehicles[veh] || 0) + amt;
             if(!vehicleTransactions[veh]) vehicleTransactions[veh] = [];
             vehicleTransactions[veh].push({...row, sheet: sheet.name});
