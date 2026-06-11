@@ -3498,9 +3498,11 @@ async function showExpenseDetailWithVehicles(category, amount){
     if(!CURRENT_RANGE) return true;  // No filter active
     const dateObj = parseSheetDate(dateStr);
     if(!dateObj) return false;
-    const rangeStart = new Date(CURRENT_RANGE.start);
-    const rangeEnd = new Date(CURRENT_RANGE.end);
-    rangeEnd.setHours(23, 59, 59, 999);
+    // 🔧 Parse range dates correctly using parseSheetDate
+    const rangeStart = parseSheetDate(CURRENT_RANGE.start);
+    const rangeEnd = parseSheetDate(CURRENT_RANGE.end);
+    if(!rangeStart || !rangeEnd) return true;  // Invalid range, show all
+    rangeEnd.setHours(23, 59, 59, 999);  // Include whole end day
     return dateObj >= rangeStart && dateObj <= rangeEnd;
   };
 
@@ -3732,8 +3734,9 @@ function renderCurrent(){
           if(!t.start) return false;
           const tripDate = parseSheetDate(t.start);
           if(!tripDate) return false;
-          const rangeStart = new Date(CURRENT_RANGE.start);
-          const rangeEnd = new Date(CURRENT_RANGE.end);
+          const rangeStart = parseSheetDate(CURRENT_RANGE.start);
+          const rangeEnd = parseSheetDate(CURRENT_RANGE.end);
+          if(!rangeStart || !rangeEnd) return true;  // Invalid range, show all
           rangeEnd.setHours(23,59,59,999);  // Include whole end day
           return tripDate >= rangeStart && tripDate <= rangeEnd;
         });
