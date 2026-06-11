@@ -2666,7 +2666,10 @@ function applyDateFilter(){
   DISPATCH_DATA = null;  // 🔧 Clear dispatch cache to re-fetch with new date range
   closeDateModal();
   document.getElementById('liveStatus').textContent='Applying dates...';
-  fetchLive().catch(()=>{});
+  fetchLive().then(()=>{
+    // 🔧 Force refresh Total KM after filter applied
+    if(CURRENT==='overview') buildInsights();
+  }).catch(()=>{});
 }
 
 /* Date range hatao + SAARI FILTERS RESET + WINDOW PERIOD CLEAR -> wapas pura data */
@@ -2697,6 +2700,8 @@ function clearDateRange(){
   // ✅ Close modal and reset display
   closeDateModal();
   document.getElementById('dataPeriod').textContent = '📅 Full data';
+  // 🔧 Refresh overview to update Total KM
+  if(CURRENT==='overview') buildInsights();
   document.getElementById('liveStatus').textContent = 'Loading full unfiltered data...';
 
   // ✅ Send CLEAR command to Apps Script to remove date filters from sheet
