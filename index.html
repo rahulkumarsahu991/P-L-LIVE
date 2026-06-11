@@ -3720,14 +3720,19 @@ async function showVehicleTransactions(vehicle, category, sheetName){
     });
 
     if(hasUPIStructure){
-      transactions = transactions.map(row => {
-        const f_val = parseFloat(row[5]) || 0;  // Gross Total
-        const g_val = parseFloat(row[6]) || 0;  // IMPREST CASH
-        // Use smaller value, or non-zero value
+      console.log(`🔍 UPI Structure detected! Fixing amounts...`);
+      transactions = transactions.map((row, idx) => {
+        const f_val = parseFloat(row[5]) || 0;  // Gross Total (F)
+        const g_val = parseFloat(row[6]) || 0;  // IMPREST CASH (G)
         const correctAmount = Math.min(f_val || Infinity, g_val || Infinity);
+
+        if(row[0] && row[0].includes('19-05')){
+          console.log(`🔧 Row ${idx} (19-05-2026): F=${f_val}, G=${g_val}, Using=${correctAmount}`);
+        }
+
         if(correctAmount !== Infinity){
-          row[5] = correctAmount;  // Force Column F to have correct amount
-          row[colMap.amount] = correctAmount;  // Also update via colMap
+          row[5] = correctAmount;  // Force Column F
+          row[colMap.amount] = correctAmount;  // Also via colMap
         }
         return row;
       });
