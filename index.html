@@ -3575,9 +3575,13 @@ async function showExpenseDetailWithVehicles(category, amount){
         let veh = (row[colMap.vehicle] || '').trim();
         if(!veh) veh = 'Unknown';
         const amt = parseFloat(row[colMap.amount]) || 0;
-        // 🔧 DEBUG: Log first few rows to verify column mapping
-        if(rowIdx < 3){
-          console.log(`🔍 Row ${rowIdx}: vehicle=${veh} (col ${colMap.vehicle}), amount=${amt} (col ${colMap.amount}), date=${row[colMap.date]} (col ${colMap.date})`);
+        // 🔧 DEBUG: Log ALL rows with vehicle CG08AQ9711
+        if(veh.includes('CG08AQ9711')){
+          console.log(`🔍 Row ${rowIdx} (${sheetName}):`, row);
+          console.log(`   → vehicle=${veh} (col ${colMap.vehicle}), amount=${amt} (col ${colMap.amount}), date=${row[colMap.date]} (col ${colMap.date})`);
+          for(let i = 0; i < row.length; i++){
+            console.log(`   col[${i}] = ${row[i]}`);
+          }
         }
         if(!isNaN(amt) && amt > 0){
           vehicles[veh] = (vehicles[veh] || 0) + amt;
