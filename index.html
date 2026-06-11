@@ -3149,9 +3149,15 @@ async function calculateActualExpenseTotals(){
       // For other categories: fetch single sheet
       const sheetData = await fetchExpenseSheetData(sheetName);
       const colMap = COLUMN_MAP[cat] || COLUMN_MAP[sheetName];
+
+      // 🔧 DEBUG UPI
+      if(cat === 'UPI'){
+        console.log(`📊 UPI Data fetch: sheetName=${sheetName}, rows=${sheetData.length}, colMap=${JSON.stringify(colMap)}`);
+      }
+
       let catTotal = 0;
       if(colMap){
-        sheetData.forEach(row => {
+        sheetData.forEach((row, idx) => {
           if(row.length > colMap.amount){
             // 🔧 FIX: For UPI, check both F(5) and G(6), use smaller value
             let amt = parseFloat(row[colMap.amount]) || 0;
@@ -3160,12 +3166,14 @@ async function calculateActualExpenseTotals(){
               const g_val = parseFloat(row[6]) || 0;
               // Use smaller non-zero value
               amt = (f_val > 0 && g_val > 0) ? Math.min(f_val, g_val) : (f_val || g_val);
+              if(idx < 3) console.log(`🔧 UPI Row ${idx}: F=${f_val}, G=${g_val}, Using=${amt}`);
             }
             catTotal += Math.max(0, amt);  // Only positive amounts
           }
         });
       }
       totals[cat] = catTotal;
+      if(cat === 'UPI') console.log(`✓ UPI Total: ${catTotal}`);
     }
   }
   return totals;
