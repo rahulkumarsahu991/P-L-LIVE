@@ -3711,16 +3711,14 @@ async function showVehicleTransactions(vehicle, category, sheetName){
       return row[colMap.vehicle] && row[colMap.vehicle].trim() === vehicle;
     });
 
-    // 🔧 DEBUG: Log all CG08AQ9711 rows to see column structure
-    if(vehicle.includes('CG08AQ9711')){
-      transactions.forEach((t, idx) => {
-        console.log(`🔍 ${vehicle} Row ${idx}:`, t);
-        console.log(`   vehicle=${t[colMap.vehicle]} (col ${colMap.vehicle}), amount=${t[colMap.amount]} (col ${colMap.amount}), date=${t[colMap.date]}`);
-        for(let i = 0; i < Math.min(8, t.length); i++){
-          console.log(`   col[${i}] = ${t[i]}`);
-        }
-      });
-    }
+    // 🔧 DEDUP: Remove exact duplicate rows (same date + vehicle + amount + remarks)
+    const seen = new Set();
+    transactions = transactions.filter(row => {
+      const key = `${row[colMap.date]||''}|${row[colMap.vehicle]||''}|${row[colMap.amount]||''}|${row[colMap.remarks]||''}`;
+      if(seen.has(key)) return false;  // Skip duplicate
+      seen.add(key);
+      return true;
+    });
   }
 
   // 🔧 Add date range to header if filter is active
