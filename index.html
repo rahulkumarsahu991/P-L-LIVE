@@ -2746,8 +2746,9 @@ function clearDateRange(){
     document.getElementById('liveStatus').textContent = 'Loading full unfiltered data...';
   }
 
-  // ✅ Background me fresh full data bhi le aao (force — auto-refresh se skip nahi hoga)
-  fetchLive(true).catch(()=>{});
+  // ✅ Background me fresh full data bhi le aao (thoda ruk ke — Apps Script sheet clear kar le,
+  //    warna stale filtered CSV instant-restore kiye hue full data ko overwrite kar dega)
+  setTimeout(()=>fetchLive(true).catch(()=>{}), 2000);
 }
 
 /* ===== EXPENSE DATE-WISE BREAKDOWN ===== */
