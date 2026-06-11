@@ -3648,6 +3648,18 @@ function filterVehicles(){
 async function showVehicleTransactions(vehicle, category, sheetName){
   let transactions = [];
 
+  // 🔧 Helper to check if date is within current range
+  const isDateInRange = (dateStr) => {
+    if(!CURRENT_RANGE) return true;  // No filter active
+    const dateObj = parseSheetDate(dateStr);
+    if(!dateObj) return false;
+    const rangeStart = parseSheetDate(CURRENT_RANGE.start);
+    const rangeEnd = parseSheetDate(CURRENT_RANGE.end);
+    if(!rangeStart || !rangeEnd) return true;  // Invalid range, show all
+    rangeEnd.setHours(23, 59, 59, 999);  // Include whole end day
+    return dateObj >= rangeStart && dateObj <= rangeEnd;
+  };
+
   // For Cash: fetch from ALL 4 sheets and combine (PARALLEL)
   const isCash = category && category.toLowerCase().trim() === 'cash';
   if(isCash){
@@ -3674,17 +3686,28 @@ async function showVehicleTransactions(vehicle, category, sheetName){
     sheets.forEach((sheet, idx) => {
       const sheetData = processedData[idx];
       const colMap = COLUMN_MAP[sheet.name];
-      const filtered = sheetData.filter(row => row[colMap.vehicle] && row[colMap.vehicle].trim() === vehicle);
+      const filtered = sheetData.filter(row => {
+        // 🔧 Filter by vehicle AND date range
+        if(!isDateInRange(row[colMap.date])) return false;
+        return row[colMap.vehicle] && row[colMap.vehicle].trim() === vehicle;
+      });
       transactions = transactions.concat(filtered.map(row => ({...row, sheet: sheet.name})));
     })
   } else {
     // For other categories: fetch single sheet
     const colMap = COLUMN_MAP[category] || COLUMN_MAP[sheetName] || {vehicle: 0, amount: 1, date: 2, remarks: 3};
     const sheetData = await fetchExpenseSheetData(sheetName);
-    transactions = sheetData.filter(row => row[colMap.vehicle] && row[colMap.vehicle].trim() === vehicle);
+    transactions = sheetData.filter(row => {
+      // 🔧 Filter by vehicle AND date range
+      if(!isDateInRange(row[colMap.date])) return false;
+      return row[colMap.vehicle] && row[colMap.vehicle].trim() === vehicle;
+    });
   }
 
-  let html = `<div class="det-row" style="margin-bottom:16px"><span style="font-weight:700;font-size:1.1rem">${vehicle}</span><span style="font-weight:700;color:var(--amber);font-size:1rem">${category}</span></div>`;
+  // 🔧 Add date range to header if filter is active
+  const dateRangeText = CURRENT_RANGE ? ` · ${CURRENT_RANGE.start} → ${CURRENT_RANGE.end}` : '';
+
+  let html = `<div class="det-row" style="margin-bottom:16px"><span style="font-weight:700;font-size:1.1rem">${vehicle}${dateRangeText}</span><span style="font-weight:700;color:var(--amber);font-size:1rem">${category}</span></div>`;
   html += `<div style="font-size:.9rem;color:var(--muted);margin-bottom:14px">${transactions.length} transactions:</div>`;
 
   if(transactions.length === 0){
