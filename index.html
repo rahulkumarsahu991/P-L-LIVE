@@ -3607,7 +3607,20 @@ function renderCurrent(){
       const sub=document.getElementById('benchKmSub');
       if(!val) return;
       const wanted = new Set(DATA.map(r=>(r.Vehicle||'').toUpperCase()));
-      const total = rows.filter(t=>wanted.has((t.vehicle||'').toUpperCase()))
+      // 🔧 Filter by date range if CURRENT_RANGE is set
+      let filtered = rows;
+      if(CURRENT_RANGE){
+        filtered = rows.filter(t=>{
+          if(!t.start) return false;
+          const tripDate = parseSheetDate(t.start);
+          if(!tripDate) return false;
+          const rangeStart = new Date(CURRENT_RANGE.start);
+          const rangeEnd = new Date(CURRENT_RANGE.end);
+          rangeEnd.setHours(23,59,59,999);  // Include whole end day
+          return tripDate >= rangeStart && tripDate <= rangeEnd;
+        });
+      }
+      const total = filtered.filter(t=>wanted.has((t.vehicle||'').toUpperCase()))
                         .reduce((s,t)=>s+(t.km||0),0);
       val.textContent = total ? fmt(total) + ' km' : '—';
       sub.textContent = total ? 'dispatch sheet se' : 'data load nahi hua';
