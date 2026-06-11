@@ -626,7 +626,8 @@ const EXPENSE_SHEETS = {
     { gid:'1804028662', dateCol:0, amountCol:4, vehCol:3,  remarkCol:2, noteCols:[2],   label:'SHREE' }
   ]},
   'Fastag':     { gid:'2070024063', dateCol:0, amountCol:2,  vehCol:1,  remarkCol:-1, noteCols:[3] },
-  'UPI':        { gid:'33245272',   dateCol:0, amountCol:6,  vehCol:5,  remarkCol:3,  noteCols:[1,3], excludeCol:2, excludeVal:'receipt' },
+  /* UPI: vehicle Col E(4), amount Col F(5) — kabhi amount sirf Col G(6) me hota hai, isliye amountColAlt */
+  'UPI':        { gid:'33245272',   dateCol:0, amountCol:5, amountColAlt:6, vehCol:4,  remarkCol:3,  noteCols:[1,3], excludeCol:2, excludeVal:'receipt' },
   'Tyre':       { gid:'1031783248', dateCol:0, amountCol:4,  vehCol:5,  remarkCol:1,  noteCols:[2,3] },
   'EMI':        { gid:'2108749699', type:'monthMatrix', vehCol:0, firstMonthCol:2 },
   'RTO':        { gid:'2098250408', dateCol:1, amountCol:3,  vehCol:5,  remarkCol:0,  noteCols:[2,4] },
@@ -2796,7 +2797,12 @@ function collectExpEntries(src, matrix, vehU, lo, hi){
     if(lo!=null && hi!=null && d){ const x=d.getTime(); if(x<lo||x>hi) continue; }
     if(src.excludeCol>=0 && src.excludeVal && row[src.excludeCol]!=null
       && String(row[src.excludeCol]).toLowerCase().includes(src.excludeVal)) continue;
-    const amt = num(row[src.amountCol]);
+    /* 🔧 amountColAlt: amount kabhi primary col me, kabhi alt col me — chhota non-zero lo (UPI F/G) */
+    let amt = num(row[src.amountCol]);
+    if(src.amountColAlt!==undefined){
+      const alt = num(row[src.amountColAlt]);
+      amt = (amt>0 && alt>0) ? Math.min(amt, alt) : (amt || alt);
+    }
     if(src.skipZero && amt<=0) continue;
     let note = (src.noteCols||[]).map(c=>String(row[c]||'').trim()).filter(Boolean).join(' · ');
     if(src.label) note = (note? note+' · ':'')+src.label;
