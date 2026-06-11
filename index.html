@@ -1383,8 +1383,19 @@ const SECTIONS = {
   },
 
   allexpenses(){
+    const r = ALL_EXPENSES_DATE_RANGE;
     return `
     <div class="section-intro">सभी खर्चों की विस्तृत जानकारी — डीजल, ड्राइवर, यात्री, टायर, आदि। गूगल शीट से लाइव डेटा अपडेट होता है।</div>
+    <!-- 🔧 Dedicated All Expenses date filter (independent, purple theme) -->
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:22px;padding:14px 18px;background:linear-gradient(135deg,rgba(155,89,255,.10),rgba(155,89,255,.03));border:1px solid #9b59ff;border-radius:12px">
+      <span style="font-weight:700;font-size:.8rem;color:#b98aff;letter-spacing:.06em;text-transform:uppercase">📅 All Expenses Filter</span>
+      <input type="date" id="aeFrom" value="${r?r.start:''}" style="background:var(--panel2);border:1px solid #9b59ff66;border-radius:8px;padding:6px 10px;color:var(--text);font-family:inherit;font-size:.8rem">
+      <span style="color:var(--muted)">→</span>
+      <input type="date" id="aeTo" value="${r?r.end:''}" style="background:var(--panel2);border:1px solid #9b59ff66;border-radius:8px;padding:6px 10px;color:var(--text);font-family:inherit;font-size:.8rem">
+      <button onclick="applyAllExpFilter()" style="background:#9b59ff;color:#fff;border:none;border-radius:8px;padding:7px 16px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer">Apply</button>
+      <button onclick="clearAllExpFilter()" style="background:transparent;color:#b98aff;border:1px solid #9b59ff66;border-radius:8px;padding:7px 14px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer">Clear</button>
+      <span id="aeFilterStatus" style="font-size:.78rem;color:${r?'#b98aff':'var(--muted)'};font-family:'Spline Sans Mono',monospace">${r?`Active: ${r.start} → ${r.end}`:'No filter — full data'}</span>
+    </div>
     <div id="allExpensesKPI" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;margin-bottom:28px"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
       <div class="card"><h3>Expense Breakdown</h3><div id="allExpensesBreakdown" style="padding:16px"></div></div>
@@ -2663,41 +2674,27 @@ function applyDateFilter(){
     return;
   }
 
-  // 🔧 Context-aware filtering: set appropriate range based on active section
-  if(CURRENT === 'allexpenses'){
-    ALL_EXPENSES_DATE_RANGE = {start, end};
-    console.log(`📊 All Expenses filter applied:`, ALL_EXPENSES_DATE_RANGE);
-    loadAllExpensesDashboard();  // Refresh All Expenses with new filter
-  } else {
-    CURRENT_RANGE = {start, end};
-    DISPATCH_DATA = null;  // 🔧 Clear dispatch cache to re-fetch with new date range
+  // 🔧 Global filter (All Expenses has its own dedicated filter — see applyAllExpFilter)
+  CURRENT_RANGE = {start, end};
+  DISPATCH_DATA = null;  // 🔧 Clear dispatch cache to re-fetch with new date range
+  fetchLive().then(()=>{
+    // 🔧 Force refresh Total KM after filter applied
     if(CURRENT==='overview') buildInsights();
-    fetchLive().then(()=>{
-      // 🔧 Force refresh Total KM after filter applied
-      if(CURRENT==='overview') buildInsights();
-    }).catch(()=>{});
-  }
+  }).catch(()=>{});
   closeDateModal();
   document.getElementById('liveStatus').textContent='Applying dates...';
 }
 
 /* Date range hatao + SAARI FILTERS RESET + WINDOW PERIOD CLEAR -> wapas pura data */
 function clearDateRange(){
-  // 🔧 Context-aware: clear appropriate range based on active section
-  if(CURRENT === 'allexpenses'){
-    ALL_EXPENSES_DATE_RANGE = null;
-    console.log(`📊 All Expenses filter cleared`);
-    loadAllExpensesDashboard();  // Refresh All Expenses
-  } else {
-    // ✅ Reset all data variables for Overview/Vehicles/other sections
-    CURRENT_RANGE = null;
-    DISPATCH_DATA = null;  // 🔧 Clear cache when filter cleared
-    DATE_MODE = null;
-    DATA_PERIOD_START = null;
-    DATA_PERIOD_END = null;
-    SERIES_FILTER = 'all';
-    STATUS_FILTER = 'all';
-  }
+  // ✅ Reset all data variables (All Expenses has its own clear — see clearAllExpFilter)
+  CURRENT_RANGE = null;
+  DISPATCH_DATA = null;  // 🔧 Clear cache when filter cleared
+  DATE_MODE = null;
+  DATA_PERIOD_START = null;
+  DATA_PERIOD_END = null;
+  SERIES_FILTER = 'all';
+  STATUS_FILTER = 'all';
 
   // ✅ Clear form inputs (always reset UI)
   document.getElementById('dmDays').value = '5';
@@ -3210,6 +3207,32 @@ async function calculateActualExpenseTotals(){
     }
   }
   return totals;
+}
+
+// 🔧 Dedicated All Expenses filter controls (independent from global filter)
+function applyAllExpFilter(){
+  const start = document.getElementById('aeFrom')?.value;
+  const end = document.getElementById('aeTo')?.value;
+  if(!start || !end){alert('Dono dates select karo (From aur To)');return;}
+  if(start > end){alert('From date To date se pehle honi chahiye');return;}
+  ALL_EXPENSES_DATE_RANGE = {start, end};
+  console.log(`📊 All Expenses filter applied:`, ALL_EXPENSES_DATE_RANGE);
+  const st = document.getElementById('aeFilterStatus');
+  if(st){st.textContent = `Active: ${start} → ${end}`;st.style.color = '#b98aff';}
+  document.getElementById('allExpensesStatus').innerHTML = '<span style="color:var(--muted)">Filtering data...</span>';
+  loadAllExpensesDashboard();
+}
+
+function clearAllExpFilter(){
+  ALL_EXPENSES_DATE_RANGE = null;
+  console.log(`📊 All Expenses filter cleared`);
+  const f = document.getElementById('aeFrom'), t = document.getElementById('aeTo');
+  if(f) f.value = '';
+  if(t) t.value = '';
+  const st = document.getElementById('aeFilterStatus');
+  if(st){st.textContent = 'No filter — full data';st.style.color = 'var(--muted)';}
+  document.getElementById('allExpensesStatus').innerHTML = '<span style="color:var(--muted)">Loading full data...</span>';
+  loadAllExpensesDashboard();
 }
 
 async function loadAllExpensesDashboard(){
