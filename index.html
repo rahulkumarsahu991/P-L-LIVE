@@ -625,7 +625,8 @@ const EXPENSE_SHEETS = {
     { gid:'1030417261', dateCol:0, amountCol:4, vehCol:3,  remarkCol:2, noteCols:[2],   label:'JK' },
     { gid:'1804028662', dateCol:0, amountCol:4, vehCol:3,  remarkCol:2, noteCols:[2],   label:'SHREE' }
   ]},
-  'Fastag':     { gid:'2070024063', dateCol:0, amountCol:2,  vehCol:1,  remarkCol:-1, noteCols:[3] },
+  /* Fastag: Col E (Corrected Vehicle Details) hamesha full/clean vehicle hai — Col B kabhi short hota hai */
+  'Fastag':     { gid:'2070024063', dateCol:0, amountCol:2,  vehCol:4,  remarkCol:-1, noteCols:[1,3] },
   /* UPI: vehicle Col E(4), amount Col F(5) — kabhi amount sirf Col G(6) me hota hai, isliye amountColAlt */
   'UPI':        { gid:'33245272',   dateCol:0, amountCol:5, amountColAlt:6, vehCol:4,  remarkCol:3,  noteCols:[1,3], excludeCol:2, excludeVal:'receipt' },
   'Tyre':       { gid:'1031783248', dateCol:0, amountCol:4,  vehCol:5,  remarkCol:1,  noteCols:[2,3] },
@@ -3336,7 +3337,10 @@ async function fetchAEKpis(range){
   }
 }
 
+let AE_LOADING = false;  // 🔧 Double-load guard (renderCurrent kabhi 2 baar call hota hai)
 async function loadAllExpensesDashboard(){
+  if(AE_LOADING) return;
+  AE_LOADING = true;
   try{
     // 🔧 Use ALL_EXPENSES_DATE_RANGE if set, otherwise no filter (independent from CURRENT_RANGE)
     const activeRange = ALL_EXPENSES_DATE_RANGE;  // Not using CURRENT_RANGE!
@@ -3395,6 +3399,8 @@ async function loadAllExpensesDashboard(){
   }catch(e){
     console.error('Error:', e);
     document.getElementById('allExpensesStatus').innerHTML = `<span style="color:var(--accent)">⚠ Error loading data: ${e.message}</span>`;
+  }finally{
+    AE_LOADING = false;
   }
 }
 
@@ -4044,6 +4050,28 @@ async function bootDashboard(){
     document.getElementById('liveStatus').textContent='Snapshot';
     document.getElementById('lastUpd').textContent='from uploaded file';
   }
+  /* 🔧 SPEED: expense sheets background me prefetch — click par window INSTANT khulegi */
+  setTimeout(prefetchExpenseSheets, 2500);
+}
+
+/* 🔧 Saari expense-detail sheets ko chupchaap pehle se load karke EXP_CACHE me rakho */
+async function prefetchExpenseSheets(){
+  const gids = new Set();
+  Object.values(EXPENSE_SHEETS).forEach(cfg => {
+    (cfg.sources || [cfg]).forEach(src => { if(src.gid) gids.add(src.gid); });
+  });
+  await Promise.allSettled([...gids].map(async gid => {
+    if(EXP_CACHE[gid]) return;
+    try{
+      const res = await fetch(EXP_PUB_PREFIX+gid+EXP_PUB_SUFFIX+'&t='+Date.now());
+      if(!res.ok) return;
+      const txt = await res.text();
+      if(txt.trim().startsWith('<')) return;               // HTML/error page — cache mat karo
+      const matrix = Papa.parse(txt,{header:false,skipEmptyLines:false}).data;
+      if(matrix && matrix.length >= 2) EXP_CACHE[gid] = matrix;
+    }catch(e){ /* silent — window kholne par retry hoga */ }
+  }));
+  console.log(`⚡ Prefetched ${Object.keys(EXP_CACHE).length} expense sheets — windows ab instant khulenge`);
 }
 bootDashboard();
 </script>
