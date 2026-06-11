@@ -792,9 +792,13 @@ function updateDataPeriod(matrix){
 
 let FETCHING=false;
 let DATA_READY=false;  // Track if initial data load complete
-async function fetchLive(){
+let FULL_DATA_SNAPSHOT=null;  // 🔧 Last unfiltered dataset — Clear All instant banane ke liye
+async function fetchLive(force=false){
   if(!USE_LIVE || SHEET_CSV_URL.includes('PASTE_')) return;
-  if(FETCHING) return;            // pichhla fetch chal raha ho to skip (overlap rok)
+  if(FETCHING){
+    if(force) setTimeout(()=>fetchLive(true), 300);  // 🔧 User action kabhi skip na ho — retry
+    return;
+  }
   FETCHING=true;
   try{
     if(!DATA_READY){
@@ -862,6 +866,7 @@ async function fetchLive(){
     }
     if(rows.length){
       BYSERIES_CACHE=null;    // ❌ Cache clear - naya data aaya
+      if(!CURRENT_RANGE) FULL_DATA_SNAPSHOT=rows;  // 🔧 Unfiltered data snapshot (instant Clear ke liye)
       ALL_DATA=rows;          // live data master dataset me daalo
       applyGlobalFilter();    // active series/status filter ke saath DATA rebuild
       DATA_READY=true;        // ✅ Initial data load complete!
@@ -2683,12 +2688,12 @@ function applyDateFilter(){
   // 🔧 Global filter (All Expenses has its own dedicated filter — see applyAllExpFilter)
   CURRENT_RANGE = {start, end};
   DISPATCH_DATA = null;  // 🔧 Clear dispatch cache to re-fetch with new date range
-  fetchLive().then(()=>{
+  closeDateModal();      // 🔧 Modal turant band — UI block na ho
+  document.getElementById('liveStatus').textContent='Applying dates...';
+  fetchLive(true).then(()=>{   // 🔧 force=true: auto-refresh chal raha ho to bhi skip nahi hoga
     // 🔧 Force refresh Total KM after filter applied
     if(CURRENT==='overview') buildInsights();
   }).catch(()=>{});
-  closeDateModal();
-  document.getElementById('liveStatus').textContent='Applying dates...';
 }
 
 /* Date range hatao + SAARI FILTERS RESET + WINDOW PERIOD CLEAR -> wapas pura data */
@@ -2719,20 +2724,30 @@ function clearDateRange(){
   // ✅ Close modal and reset display
   closeDateModal();
   document.getElementById('dataPeriod').textContent = '📅 Full data';
-  // 🔧 Refresh overview to update Total KM
-  if(CURRENT==='overview') buildInsights();
-  document.getElementById('liveStatus').textContent = 'Loading full unfiltered data...';
 
-  // ✅ Send CLEAR command to Apps Script to remove date filters from sheet
+  // ✅ Send CLEAR command to Apps Script to remove date filters from sheet (background)
   if(APPS_SCRIPT_URL){
     fetch(APPS_SCRIPT_URL+'?start=&end=&t='+Date.now())
       .catch(()=>{});  // Silent fail, will use published CSV
   }
 
-  // ✅ Re-render everything
-  applyGlobalFilter();
-  renderCurrent();
-  setTimeout(()=>fetchLive().catch(()=>{}), 500);  // Slight delay for Apps Script
+  // 🔧 INSTANT: full-data snapshot cached ho to turant wahi dikhao (zero wait)
+  if(FULL_DATA_SNAPSHOT && FULL_DATA_SNAPSHOT.length){
+    BYSERIES_CACHE=null;
+    ALL_DATA = FULL_DATA_SNAPSHOT;
+    applyGlobalFilter();
+    renderCurrent();
+    if(CURRENT==='overview') buildInsights();
+    document.getElementById('liveStatus').textContent = 'Live';
+  } else {
+    applyGlobalFilter();
+    renderCurrent();
+    if(CURRENT==='overview') buildInsights();
+    document.getElementById('liveStatus').textContent = 'Loading full unfiltered data...';
+  }
+
+  // ✅ Background me fresh full data bhi le aao (force — auto-refresh se skip nahi hoga)
+  fetchLive(true).catch(()=>{});
 }
 
 /* ===== EXPENSE DATE-WISE BREAKDOWN ===== */
