@@ -3235,6 +3235,43 @@ function clearAllExpFilter(){
   loadAllExpensesDashboard();
 }
 
+// 🔧 Fetch date-filtered P&L KPIs (Billing, Trips, Net, etc.) via Apps Script for All Expenses only
+async function fetchAEKpis(range){
+  if(!range || !APPS_SCRIPT_URL) return null;
+  try{
+    const url = APPS_SCRIPT_URL
+      +'?start='+encodeURIComponent(range.start)
+      +'&end='+encodeURIComponent(range.end)
+      +'&t='+Date.now();
+    const res = await fetch(url);
+    const txt = await res.text();
+    const matrix = Papa.parse(txt,{header:false,skipEmptyLines:true}).data;
+    if(!matrix.length) return null;
+    const hRow = findHeaderRow(matrix);
+    const idx = buildIndex(matrix[hRow]);
+    if(idx.Vehicle===undefined) return null;
+    const get=(row,f)=> idx[f]===undefined ? '' : row[idx[f]];
+    const k = {billing:0,expense:0,net:0,emi:0,trips:0,profitable:0,lossmaking:0,vehCount:0};
+    for(let i=hRow+1;i<matrix.length;i++){
+      const r=matrix[i];
+      const veh=String(get(r,'Vehicle')||'').trim();
+      if(!veh || !veh.toUpperCase().startsWith('CG')) continue;
+      const net = num(get(r,'NetEarnings'));
+      k.billing += num(get(r,'Billing'));
+      k.expense += num(get(r,'TotalExpense'));
+      k.net += net;
+      k.emi += num(get(r,'EMI'));
+      k.trips += num(get(r,'Trips'));
+      if(net>0) k.profitable++; else if(net<0) k.lossmaking++;
+      k.vehCount++;
+    }
+    return k;
+  }catch(e){
+    console.warn('AE KPI fetch failed:', e.message);
+    return null;
+  }
+}
+
 async function loadAllExpensesDashboard(){
   try{
     // 🔧 Use ALL_EXPENSES_DATE_RANGE if set, otherwise no filter (independent from CURRENT_RANGE)
@@ -3268,11 +3305,27 @@ async function loadAllExpensesDashboard(){
 
     allExpenseData = parseAllExpenseGrid(G);
 
-    // 🔧 Fetch actual expense totals from individual sheets
+    // 🔧 Fetch actual expense totals + date-filtered KPIs in PARALLEL
     console.log('⏳ Calculating actual expense totals from individual sheets...');
-    const actualTotals = await calculateActualExpenseTotals();
+    const [actualTotals, aeKpis] = await Promise.all([
+      calculateActualExpenseTotals(),
+      fetchAEKpis(activeRange)   // null when no filter — keeps full-data KPIs
+    ]);
     allExpenseData.actualExpenseTotals = actualTotals;
     console.log('✓ Actual expense totals calculated:', actualTotals);
+
+    // 🔧 When AE filter active: override KPI cards with date-filtered values
+    if(aeKpis){
+      allExpenseData.kpis.billing = aeKpis.billing;
+      allExpenseData.kpis.expense = aeKpis.expense;
+      allExpenseData.kpis.op_profit = aeKpis.billing - aeKpis.expense;
+      allExpenseData.kpis.net = aeKpis.net;
+      allExpenseData.kpis.emi = aeKpis.emi;
+      allExpenseData.kpis.trips = aeKpis.trips;
+      allExpenseData.profitable = aeKpis.profitable;
+      allExpenseData.lossmaking = aeKpis.lossmaking;
+      console.log('✓ AE KPIs overridden with filtered values:', aeKpis);
+    }
 
     renderAllExpenses();
   }catch(e){
