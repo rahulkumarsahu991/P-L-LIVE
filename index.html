@@ -602,6 +602,7 @@ const REFRESH_MS = 15000;  // 15 seconds - slower refresh (was 8000ms)
    Deploy karne ke baad neeche wali line me URL paste kar do: */
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwf2DqkF9g2YoDzv0cgwiBSWZB6w-wHTSrQmapkrrFdfCD777oJiKDfqOBkd---an8YsA/exec";   // <-- yahan paste karo: https://script.google.com/macros/s/XXXX/exec
 let CURRENT_RANGE = null;     // {start:'YYYY-MM-DD', end:'YYYY-MM-DD'} ya null (= full data)
+let ALL_EXPENSES_DATE_RANGE = null;  // 🔧 Separate filter for All Expenses section only
 
 /* ====== EXPENSE DETAIL SHEETS (har expense ka alag tab) ======
    Har expense ke liye uska gid + columns (0-based) yahan add karo.
@@ -3111,6 +3112,9 @@ let allExpenseData = null;
 
 // 🔧 Calculate actual expense totals from individual sheets
 async function calculateActualExpenseTotals(){
+  // 🔧 Use ALL_EXPENSES_DATE_RANGE for independent filtering
+  const dateRange = ALL_EXPENSES_DATE_RANGE;
+
   const totals = {};
   const expenses = ['Diesel', 'Urea', 'Fastag', 'Driver A/C', 'Cash', 'UPI', 'Tyre', 'RTO', 'Paper'];
 
@@ -3181,6 +3185,10 @@ async function calculateActualExpenseTotals(){
 
 async function loadAllExpensesDashboard(){
   try{
+    // 🔧 Use ALL_EXPENSES_DATE_RANGE if set, otherwise no filter (independent from CURRENT_RANGE)
+    const activeRange = ALL_EXPENSES_DATE_RANGE;  // Not using CURRENT_RANGE!
+    console.log(`📊 Loading All Expenses with range:`, activeRange);
+
     const SHEET_ID = '1EgXBPgwuSJPOcAk9tNtdaDSwYurkG_gAAhdb12wNTHU';
     const SHEET_TAB = 'All Expense';
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent(SHEET_TAB)}&t=${Date.now()}`;
