@@ -2663,6 +2663,7 @@ function applyDateFilter(){
   }
 
   CURRENT_RANGE = {start, end};
+  DISPATCH_DATA = null;  // 🔧 Clear dispatch cache to re-fetch with new date range
   closeDateModal();
   document.getElementById('liveStatus').textContent='Applying dates...';
   fetchLive().catch(()=>{});
@@ -2672,6 +2673,7 @@ function applyDateFilter(){
 function clearDateRange(){
   // ✅ Reset all data variables
   CURRENT_RANGE = null;
+  DISPATCH_DATA = null;  // 🔧 Clear cache when filter cleared
   DATE_MODE = null;
   DATA_PERIOD_START = null;
   DATA_PERIOD_END = null;
