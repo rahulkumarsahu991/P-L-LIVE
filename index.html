@@ -3593,71 +3593,56 @@ const CSV_LINKS = {
   'UPI SHEET': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTFfJ5JJKrDtauj07HVgMLNludDmnC4S7Kji5LfAXI28tn552OygrZiXQZc6FSo_kEfGoFSePKeALEh/pub?gid=33245272&single=true&output=csv'
 };
 
+/* 🔧 In-memory cache only — localStorage 5MB quota se bachne ke liye (diesel sheet 1.8MB hai,
+   quota exceed hone par corrupt/stale cache reh jaata tha → diesel/urea data hi nahi aata tha) */
+const MEM_CACHE = {};
+/* Purani localStorage cache_* entries hata do (ek baar) — warna quota bhara rahega */
+try{
+  Object.keys(localStorage).forEach(k => { if(k.indexOf('cache_')===0) localStorage.removeItem(k); });
+}catch(e){}
+
 async function fetchCSVData(sheetName){
   try{
-    // Check cache first
-    const cacheKey = `cache_${sheetName}`;
-    const cached = localStorage.getItem(cacheKey);
-    if(cached){
-      console.log(`📦 Using cached data for ${sheetName}`);
-      return JSON.parse(cached);
-    }
+    if(MEM_CACHE[sheetName]) return MEM_CACHE[sheetName];
 
     const csvUrl = CSV_LINKS[sheetName];
     if(!csvUrl){console.warn(`No CSV link for ${sheetName}`);return [];}
 
-    console.log(`⏳ Fetching CSV: ${sheetName}`);
     const response = await fetch(csvUrl);
     if(!response.ok)throw new Error(`HTTP ${response.status}`);
 
     const csvText = await response.text();
-    console.log(`✓ CSV fetched for ${sheetName}: ${csvText.length} chars`);
+    if(csvText.trim().startsWith('<')) throw new Error('Invalid (HTML) response');
 
     return new Promise((resolve, reject) => {
       Papa.parse(csvText, {
         header: false,
         skipEmptyLines: true,
         complete: (results) => {
-          console.log(`✓ ${sheetName} parsed: ${results.data.length} rows`);
-          // Cache the data
-          try{localStorage.setItem(cacheKey, JSON.stringify(results.data));}catch(e){console.warn(`Cache failed for ${sheetName}`);}
-          resolve(results.data);
+          if(results.data && results.data.length >= 2) MEM_CACHE[sheetName] = results.data;  // valid hi cache
+          resolve(results.data || []);
         },
-        error: (error) => {
-          console.error(`✗ Parse error ${sheetName}:`, error);
-          reject(error);
-        }
+        error: (error) => reject(error)
       });
     });
   }catch(e){
     console.error(`✗ Error fetching CSV ${sheetName}:`, e.message);
-    // Return cached data even if fetch fails
-    const cached = localStorage.getItem(cacheKey);
-    if(cached)return JSON.parse(cached);
-    return [];
+    return MEM_CACHE[sheetName] || [];
   }
 }
 
 async function fetchExpenseSheetData(sheetName){
   try{
-    // Check cache first
-    const cacheKey = `cache_${sheetName}`;
-    const cached = localStorage.getItem(cacheKey);
-    if(cached){
-      console.log(`📦 Using cached data for ${sheetName}`);
-      return JSON.parse(cached);
-    }
+    if(MEM_CACHE[sheetName]) return MEM_CACHE[sheetName];
 
     // If CSV link exists, use CSV instead of gviz
     if(CSV_LINKS[sheetName]){
-      console.log(`Using CSV link for ${sheetName}`);
       return await fetchCSVData(sheetName);
     }
 
     const SHEET_ID = '1EgXBPgwuSJPOcAk9tNtdaDSwYurkG_gAAhdb12wNTHU';
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent(sheetName)}&t=${Date.now()}`;
 
-    console.log(`⏳ Fetching: ${sheetName}`);
     const response = await fetch(url, {mode: 'cors'});
     if(!response.ok)throw new Error(`HTTP ${response.status}`);
 
@@ -3679,16 +3664,12 @@ async function fetchExpenseSheetData(sheetName){
       }
       rows.push(r);
     }
+    if(rows.length) MEM_CACHE[sheetName] = rows;   // valid data hi cache
     console.log(`✓ ${sheetName}: ${rows.length} rows fetched`);
-    // Cache the data
-    try{localStorage.setItem(cacheKey, JSON.stringify(rows));}catch(e){console.warn(`Cache failed for ${sheetName}`);}
     return rows;
   }catch(e){
     console.error(`✗ Error fetching ${sheetName}:`, e.message);
-    // Return cached data even if fetch fails
-    const cached = localStorage.getItem(cacheKey);
-    if(cached)return JSON.parse(cached);
-    return [];
+    return MEM_CACHE[sheetName] || [];
   }
 }
 
