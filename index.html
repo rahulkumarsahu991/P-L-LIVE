@@ -1427,7 +1427,15 @@ const SECTIONS = {
       <thead><tr><th>Series</th><th>Veh</th><th>Trips</th><th>Billing</th><th>Total Exp</th><th>Net Earnings</th></tr></thead>
       <tbody id="allExpensesTable"></tbody>
     </table></div></div>
-    <div id="allExpensesStatus" style="text-align:center;color:var(--muted);padding:20px;font-size:.9rem">Loading All Expenses data...</div>`;
+    <div id="allExpensesStatus" style="text-align:center;color:var(--muted);padding:20px;font-size:.9rem">Loading All Expenses data...</div>
+
+    <!-- 🔧 Diesel & Urea — Amount + Quantity (separate sheet) -->
+    <div class="card" style="margin-top:8px">
+      <h3>Diesel &amp; Urea — Amount &amp; Quantity</h3>
+      <div id="duStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;padding:16px">
+        <div style="text-align:center;color:var(--muted);grid-column:1/-1;padding:14px">Loading…</div>
+      </div>
+    </div>`;
   }
 };
 
@@ -3367,6 +3375,52 @@ let AE_LOADING = false;  // 🔧 Double-load guard (renderCurrent kabhi 2 baar c
 // 🔧 Published CSV of the "All Expense" summary grid (reliable + auto-updates ~5 min)
 const ALL_EXPENSE_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTFfJ5JJKrDtauj07HVgMLNludDmnC4S7Kji5LfAXI28tn552OygrZiXQZc6FSo_kEfGoFSePKeALEh/pub?gid=1215783752&single=true&output=csv';
 
+// 🔧 Diesel & Urea Amount/Quantity sheet — cols: B(1)=date, D(3)=diesel qty, F(5)=diesel amt, J(9)=urea qty, L(11)=urea amt
+const DU_STATS_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTEGkh6DYzwBTrTWMjhER3MKxnChBo9pSYU1wnJrgXCGLworNsdplTb2BZ9ZD5loi4f7LFKOQGBg9Xx/pub?gid=1823283556&single=true&output=csv';
+let DU_STATS_RAW = null;  // parsed rows cache
+
+async function loadDieselUreaStats(){
+  const box = document.getElementById('duStats');
+  if(!box) return;
+  try{
+    if(!DU_STATS_RAW){
+      const res = await fetch(DU_STATS_CSV + '&t=' + Date.now());
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      const txt = await res.text();
+      if(txt.trim().startsWith('<')) throw new Error('Invalid response');
+      DU_STATS_RAW = Papa.parse(txt, {header:false, skipEmptyLines:true}).data;
+    }
+    const range = ALL_EXPENSES_DATE_RANGE;
+    const inRange = (s) => {
+      if(!range) return true;
+      const d = parseSheetDate(s); if(!d) return false;
+      const rs = parseSheetDate(range.start), re = parseSheetDate(range.end);
+      if(!rs || !re) return true; re.setHours(23,59,59,999);
+      return d >= rs && d <= re;
+    };
+    let dAmt=0, uAmt=0, dQty=0, uQty=0;
+    for(let i=1;i<DU_STATS_RAW.length;i++){           // row 0 = header
+      const r = DU_STATS_RAW[i]; if(!r || r.length < 12) continue;
+      if(!inRange(r[1])) continue;
+      dQty += num(r[3]);  dAmt += num(r[5]);  uQty += num(r[9]);  uAmt += num(r[11]);
+    }
+    const crore = n => {const a=Math.abs(n),s=n<0?'-':'';if(a>=1e7)return s+'₹'+(a/1e7).toFixed(2)+' Cr';if(a>=1e5)return s+'₹'+(a/1e5).toFixed(2)+' L';return s+'₹'+Math.round(a).toLocaleString('en-IN');};
+    const qty = n => Math.round(n).toLocaleString('en-IN') + ' L';
+    const cards = [
+      {lbl:'Diesel Amount', val:crore(dAmt), col:'#ff6b35'},
+      {lbl:'Urea Amount',   val:crore(uAmt), col:'#f5b945'},
+      {lbl:'Diesel Qty',    val:qty(dQty),   col:'#ff6b35'},
+      {lbl:'Urea Qty',      val:qty(uQty),   col:'#f5b945'}
+    ];
+    box.innerHTML = cards.map(c => `<div style="padding:20px;background:var(--panel);border:1px solid var(--line);border-left:4px solid ${c.col};border-radius:10px">
+        <div style="font-size:.75rem;color:var(--muted);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">${c.lbl}</div>
+        <div style="font-size:1.6rem;font-weight:800;color:var(--text)">${c.val}</div>
+      </div>`).join('');
+  }catch(e){
+    box.innerHTML = `<div style="color:var(--accent);grid-column:1/-1;padding:14px;text-align:center">⚠ ${e.message}</div>`;
+  }
+}
+
 async function loadAllExpensesDashboard(){
   if(AE_LOADING) return;
   AE_LOADING = true;
@@ -3389,6 +3443,7 @@ async function loadAllExpensesDashboard(){
       // ===== 2a) NO FILTER: seedha CSV grid se render — INSTANT, koi heavy fetch nahi =====
       allExpenseData.actualExpenseTotals = null;   // breakdown CSV ke expense_breakdown se aayega
       renderAllExpenses();
+      loadDieselUreaStats();   // 🔧 Diesel/Urea amount+qty section
     } else {
       // ===== 2b) FILTER active: KPIs + breakdown DONO Apps Script (master P&L) se =====
       // master P&L hi sheet ka source hai → diesel/urea/sab exactly sheet ke according
@@ -3410,6 +3465,7 @@ async function loadAllExpensesDashboard(){
         allExpenseData.actualExpenseTotals = null;
       }
       renderAllExpenses();
+      loadDieselUreaStats();   // 🔧 Diesel/Urea amount+qty (date-filtered)
     }
   }catch(e){
     console.error('Error:', e);
