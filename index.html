@@ -3321,7 +3321,9 @@ async function fetchAEKpis(range){
     const idx = buildIndex(matrix[hRow]);
     if(idx.Vehicle===undefined) return null;
     const get=(row,f)=> idx[f]===undefined ? '' : row[idx[f]];
-    const k = {billing:0,expense:0,net:0,emi:0,trips:0,profitable:0,lossmaking:0,vehCount:0};
+    const k = {billing:0,expense:0,net:0,emi:0,trips:0,profitable:0,lossmaking:0,vehCount:0,
+      // 🔧 per-category expense totals — master P&L se (sheet ke saath exact match)
+      breakdown:{Diesel:0,Urea:0,Fastag:0,'Driver A/C':0,Cash:0,UPI:0,Tyre:0,RTO:0,Paper:0}};
     for(let i=hRow+1;i<matrix.length;i++){
       const r=matrix[i];
       const veh=String(get(r,'Vehicle')||'').trim();
@@ -3334,6 +3336,16 @@ async function fetchAEKpis(range){
       k.trips += num(get(r,'Trips'));
       if(net>0) k.profitable++; else if(net<0) k.lossmaking++;
       k.vehCount++;
+      // per-category (master P&L columns)
+      k.breakdown.Diesel       += num(get(r,'Diesel'));
+      k.breakdown.Urea         += num(get(r,'Urea'));
+      k.breakdown.Fastag       += num(get(r,'Fastag'));
+      k.breakdown['Driver A/C']+= num(get(r,'DriverAC'));
+      k.breakdown.Cash         += num(get(r,'Cash'));
+      k.breakdown.UPI          += num(get(r,'UPI'));
+      k.breakdown.Tyre         += num(get(r,'Tyre'));
+      k.breakdown.RTO          += num(get(r,'RTO'));
+      k.breakdown.Paper        += num(get(r,'Paper'));
     }
     return k;
   }catch(e){
@@ -3369,13 +3381,10 @@ async function loadAllExpensesDashboard(){
       allExpenseData.actualExpenseTotals = null;   // breakdown CSV ke expense_breakdown se aayega
       renderAllExpenses();
     } else {
-      // ===== 2b) FILTER active: raw sheets se breakdown + Apps Script se KPIs (parallel) =====
+      // ===== 2b) FILTER active: KPIs + breakdown DONO Apps Script (master P&L) se =====
+      // master P&L hi sheet ka source hai → diesel/urea/sab exactly sheet ke according
       document.getElementById('allExpensesStatus').innerHTML = '<span style="color:var(--muted)">Filtering data…</span>';
-      const [actualTotals, aeKpis] = await Promise.all([
-        calculateActualExpenseTotals(),
-        fetchAEKpis(activeRange)
-      ]);
-      allExpenseData.actualExpenseTotals = actualTotals;
+      const aeKpis = await fetchAEKpis(activeRange);
       if(aeKpis){
         allExpenseData.kpis.billing = aeKpis.billing;
         allExpenseData.kpis.expense = aeKpis.expense;
@@ -3385,6 +3394,11 @@ async function loadAllExpensesDashboard(){
         allExpenseData.kpis.trips = aeKpis.trips;
         allExpenseData.profitable = aeKpis.profitable;
         allExpenseData.lossmaking = aeKpis.lossmaking;
+        // 🔧 breakdown bhi master P&L se (raw sheets nahi) — sheet se exact match
+        allExpenseData.actualExpenseTotals = aeKpis.breakdown;
+      } else {
+        // Apps Script fail → CSV breakdown hi dikhao (fallback)
+        allExpenseData.actualExpenseTotals = null;
       }
       renderAllExpenses();
     }
