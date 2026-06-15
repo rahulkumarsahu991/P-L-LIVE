@@ -3716,25 +3716,6 @@ async function showExpenseDetailWithVehicles(category, amount){
   // 🔧 Add date range to modal title if filter is active
   const dateRangeText = activeRange ? ` · ${activeRange.start} → ${activeRange.end}` : '';
 
-  /* 🔧 DIESEL/UREA: vehicle-wise breakdown master P&L (ALL_DATA) se — taaki window ka total
-     card (5.85 Cr) se exactly match kare. Raw fuel sheet (5.11 Cr) se alag hota hai. */
-  if((category === 'Diesel' || category === 'Urea') && !activeRange){
-    const field = category;  // ALL_DATA me 'Diesel' / 'Urea' field
-    const src = (typeof ALL_DATA !== 'undefined' && ALL_DATA.length) ? ALL_DATA : DATA;
-    const list = src.map(r => [r.Vehicle, +r[field]||0]).filter(x => x[1] > 0).sort((a,b)=>b[1]-a[1]);
-    const tot = list.reduce((s,x)=>s+x[1], 0);
-
-    let h = `<div class="det-row" style="margin-bottom:16px"><span style="font-weight:700;font-size:1.1rem">${category}</span><span style="font-weight:700;color:var(--amber);font-size:1.15rem">${crore(tot)}</span></div>`;
-    h += `<div style="margin-bottom:14px"><input type="text" id="vehicleSearch" placeholder="Search vehicle..." style="width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:.9rem" onkeyup="filterVehicles()"></div>`;
-    h += `<div style="font-size:.9rem;color:var(--muted);margin-bottom:14px">${list.length} vehicles · P&L master se</div>`;
-    h += list.map((it, idx) => `<div class="vehicleRow" data-vehicle="${(it[0]||'').toLowerCase()}" style="display:flex;justify-content:space-between;align-items:center;padding:12px;margin-bottom:8px;border:1px solid var(--line);border-radius:8px;background:var(--panel2)">
-        <span style="font-weight:600">${idx+1}. ${it[0]}</span>
-        <span style="color:var(--amber);font-weight:600">${crore(it[1])}</span>
-      </div>`).join('');
-    showAllExpenseModal(category + ' - Vehicle Details', h);
-    return;
-  }
-
   let html = `<div class="det-row" style="margin-bottom:16px"><span style="font-weight:700;font-size:1.1rem">${category}${dateRangeText}</span><span style="font-weight:700;color:var(--amber);font-size:1.15rem">${crore(amount)}</span></div>`;
   html += `<div style="font-size:.9rem;color:var(--muted);margin-bottom:14px">All vehicles with transactions:</div>`;
 
@@ -3820,16 +3801,26 @@ async function showExpenseDetailWithVehicles(category, amount){
 
   const sorted = Object.entries(vehicles).sort((a,b) => b[1] - a[1]);
 
-  // 🔧 Calculate actual total from fetched data
+  // 🔧 Calculate actual total from fetched data (raw transactions)
   const actualTotal = sorted.reduce((sum, item) => sum + item[1], 0);
 
-  // 🔧 Update header with actual total instead of parameter amount
-  html = `<div class="det-row" style="margin-bottom:16px"><span style="font-weight:700;font-size:1.1rem">${category}</span><span style="font-weight:700;color:var(--amber);font-size:1.15rem">${crore(actualTotal)}</span></div>`;
+  /* 🔧 Diesel/Urea: header pe card wala amount (master P&L total, e.g. 5.85 Cr) dikhao —
+     bina filter ke. Baaki categories aur filtered view me actual transaction total. */
+  const isDieselUrea = (category === 'Diesel' || category === 'Urea');
+  const headerTotal = (isDieselUrea && !activeRange && amount > 0) ? amount : actualTotal;
+
+  // Header total
+  html = `<div class="det-row" style="margin-bottom:16px"><span style="font-weight:700;font-size:1.1rem">${category}${dateRangeText}</span><span style="font-weight:700;color:var(--amber);font-size:1.15rem">${crore(headerTotal)}</span></div>`;
 
   // 🔧 Add search box
   html += `<div style="margin-bottom:14px">
     <input type="text" id="vehicleSearch" placeholder="Search vehicle..." style="width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:.9rem" onkeyup="filterVehicles()">
   </div>`;
+
+  // Diesel/Urea me header (master P&L) aur transactions (fuel sheet) ka source alag hai — note
+  if(isDieselUrea && !activeRange && Math.abs(headerTotal - actualTotal) > 1){
+    html += `<div style="background:rgba(120,160,255,.10);border:1px solid rgba(120,160,255,.35);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:.76rem;color:#9bb8ff;line-height:1.5">ℹ️ Upar P&L master ka total (${crore(headerTotal)}) hai. Neeche actual fuel-sheet transactions hain — inka jod ${crore(actualTotal)} aata hai (method alag hai).</div>`;
+  }
 
   html += `<div style="font-size:.9rem;color:var(--muted);margin-bottom:14px">All vehicles with transactions:</div>`;
 
