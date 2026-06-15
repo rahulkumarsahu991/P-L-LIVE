@@ -1434,11 +1434,29 @@ const SECTIONS = {
       </svg>
       <span id="aeFilterStatus" style="font-size:.78rem;color:${r?'#b98aff':'var(--muted)'};font-family:'Spline Sans Mono',monospace">${r?`Active: ${r.start} → ${r.end}`:'No filter — full data'}</span>
     </div>
-    <!-- 🔧 Loading overlay (filter apply ke waqt) -->
-    <div id="aeLoading" style="display:none;position:fixed;inset:0;z-index:80;background:rgba(8,12,20,.55);backdrop-filter:blur(2px);align-items:center;justify-content:center">
-      <div style="display:flex;flex-direction:column;align-items:center;gap:14px">
-        <div class="ae-spinner"></div>
-        <div style="color:var(--text);font-size:.9rem;font-weight:600">Loading…</div>
+    <!-- 🔧 Loading overlay — truck tyre/wheel ghoomta hua -->
+    <div id="aeLoading" style="display:none;position:fixed;inset:0;z-index:80;background:rgba(8,12,20,.6);backdrop-filter:blur(2px);align-items:center;justify-content:center">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:16px">
+        <svg viewBox="0 0 100 100" width="84" height="84">
+          <g class="ae-wheel-spin" style="transform-origin:50px 50px">
+            <!-- tyre (black rubber) -->
+            <circle cx="50" cy="50" r="46" fill="#1a1d24" stroke="#0c0e12" stroke-width="3"/>
+            <circle cx="50" cy="50" r="46" fill="none" stroke="#2a2e38" stroke-width="2" stroke-dasharray="5 5"/>
+            <!-- rim -->
+            <circle cx="50" cy="50" r="33" fill="none" stroke="#9b59ff" stroke-width="5"/>
+            <!-- hub -->
+            <circle cx="50" cy="50" r="11" fill="#9b59ff"/>
+            <circle cx="50" cy="50" r="4" fill="#1a1d24"/>
+            <!-- lug nuts / spokes -->
+            <g stroke="#b98aff" stroke-width="5" stroke-linecap="round">
+              <line x1="50" y1="18" x2="50" y2="34"/><line x1="50" y1="66" x2="50" y2="82"/>
+              <line x1="18" y1="50" x2="34" y2="50"/><line x1="66" y1="50" x2="82" y2="50"/>
+              <line x1="27" y1="27" x2="38" y2="38"/><line x1="62" y1="62" x2="73" y2="73"/>
+              <line x1="73" y1="27" x2="62" y2="38"/><line x1="38" y1="62" x2="27" y2="73"/>
+            </g>
+          </g>
+        </svg>
+        <div style="color:var(--text);font-size:.9rem;font-weight:600">🚛 Loading…</div>
       </div>
     </div>
     <div id="allExpensesKPI" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;margin-bottom:28px"></div>
