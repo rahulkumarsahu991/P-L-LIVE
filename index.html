@@ -1431,7 +1431,7 @@ const SECTIONS = {
 
     <!-- 🔧 Diesel & Urea — Amount + Quantity (separate sheet) -->
     <div class="card" style="margin-top:8px">
-      <h3>Diesel &amp; Urea — Amount &amp; Quantity</h3>
+      <h3>Diesel &amp; Urea — Amount &amp; Quantity <span id="duRangeLbl" style="font-weight:500;font-size:.75rem;color:var(--muted)"></span></h3>
       <div id="duStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;padding:16px">
         <div style="text-align:center;color:var(--muted);grid-column:1/-1;padding:14px">Loading…</div>
       </div>
@@ -3391,6 +3391,8 @@ async function loadDieselUreaStats(){
       DU_STATS_RAW = Papa.parse(txt, {header:false, skipEmptyLines:true}).data;
     }
     const range = ALL_EXPENSES_DATE_RANGE;
+    const lbl = document.getElementById('duRangeLbl');
+    if(lbl) lbl.textContent = range ? `· ${range.start} → ${range.end}` : '· full data';
     const inRange = (s) => {
       if(!range) return true;
       const d = parseSheetDate(s); if(!d) return false;
