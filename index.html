@@ -3343,64 +3343,51 @@ async function fetchAEKpis(range){
 }
 
 let AE_LOADING = false;  // 🔧 Double-load guard (renderCurrent kabhi 2 baar call hota hai)
+// 🔧 Published CSV of the "All Expense" summary grid (reliable + auto-updates ~5 min)
+const ALL_EXPENSE_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTFfJ5JJKrDtauj07HVgMLNludDmnC4S7Kji5LfAXI28tn552OygrZiXQZc6FSo_kEfGoFSePKeALEh/pub?gid=1215783752&single=true&output=csv';
+
 async function loadAllExpensesDashboard(){
   if(AE_LOADING) return;
   AE_LOADING = true;
   try{
-    // 🔧 Use ALL_EXPENSES_DATE_RANGE if set, otherwise no filter (independent from CURRENT_RANGE)
-    const activeRange = ALL_EXPENSES_DATE_RANGE;  // Not using CURRENT_RANGE!
+    // 🔧 Independent filter (purple bar) — NOT global CURRENT_RANGE
+    const activeRange = ALL_EXPENSES_DATE_RANGE;
     console.log(`📊 Loading All Expenses with range:`, activeRange);
 
-    const SHEET_ID = '1EgXBPgwuSJPOcAk9tNtdaDSwYurkG_gAAhdb12wNTHU';
-    const SHEET_TAB = 'All Expense';
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent(SHEET_TAB)}&t=${Date.now()}`;
-
-    const response = await fetch(url);
+    // ===== 1) Base summary grid published CSV se (fast, ek hi chhoti file) =====
+    const response = await fetch(ALL_EXPENSE_CSV + '&t=' + Date.now());
+    if(!response.ok) throw new Error(`HTTP ${response.status}`);
     const text = await response.text();
-    const json = JSON.parse(text.substring(47).slice(0, -2));
-
-    if(!json.table){throw new Error('No data returned');}
-
-    const G = [];
-    const cols = json.table.cols || [];
-    const rows = json.table.rows || [];
-    const labels = cols.map(c => c && c.label ? c.label : '');
-    if(labels.some(x => String(x).trim() !== '')) G.push(labels);
-    for(const row of rows){
-      const c = (row && row.c) || [];
-      const r = [];
-      for(let i = 0; i < cols.length; i++){
-        const cell = c[i];
-        r.push(cell ? (cell.f != null ? cell.f : (cell.v != null ? cell.v : '')) : '');
-      }
-      G.push(r);
-    }
+    if(text.trim().startsWith('<')) throw new Error('Invalid (HTML) response');
+    const G = Papa.parse(text, {header:false, skipEmptyLines:false}).data;
+    if(!G || G.length < 5) throw new Error('Empty CSV');
 
     allExpenseData = parseAllExpenseGrid(G);
 
-    // 🔧 Fetch actual expense totals + date-filtered KPIs in PARALLEL
-    console.log('⏳ Calculating actual expense totals from individual sheets...');
-    const [actualTotals, aeKpis] = await Promise.all([
-      calculateActualExpenseTotals(),
-      fetchAEKpis(activeRange)   // null when no filter — keeps full-data KPIs
-    ]);
-    allExpenseData.actualExpenseTotals = actualTotals;
-    console.log('✓ Actual expense totals calculated:', actualTotals);
-
-    // 🔧 When AE filter active: override KPI cards with date-filtered values
-    if(aeKpis){
-      allExpenseData.kpis.billing = aeKpis.billing;
-      allExpenseData.kpis.expense = aeKpis.expense;
-      allExpenseData.kpis.op_profit = aeKpis.billing - aeKpis.expense;
-      allExpenseData.kpis.net = aeKpis.net;
-      allExpenseData.kpis.emi = aeKpis.emi;
-      allExpenseData.kpis.trips = aeKpis.trips;
-      allExpenseData.profitable = aeKpis.profitable;
-      allExpenseData.lossmaking = aeKpis.lossmaking;
-      console.log('✓ AE KPIs overridden with filtered values:', aeKpis);
+    if(!activeRange){
+      // ===== 2a) NO FILTER: seedha CSV grid se render — INSTANT, koi heavy fetch nahi =====
+      allExpenseData.actualExpenseTotals = null;   // breakdown CSV ke expense_breakdown se aayega
+      renderAllExpenses();
+    } else {
+      // ===== 2b) FILTER active: raw sheets se breakdown + Apps Script se KPIs (parallel) =====
+      document.getElementById('allExpensesStatus').innerHTML = '<span style="color:var(--muted)">Filtering data…</span>';
+      const [actualTotals, aeKpis] = await Promise.all([
+        calculateActualExpenseTotals(),
+        fetchAEKpis(activeRange)
+      ]);
+      allExpenseData.actualExpenseTotals = actualTotals;
+      if(aeKpis){
+        allExpenseData.kpis.billing = aeKpis.billing;
+        allExpenseData.kpis.expense = aeKpis.expense;
+        allExpenseData.kpis.op_profit = aeKpis.billing - aeKpis.expense;
+        allExpenseData.kpis.net = aeKpis.net;
+        allExpenseData.kpis.emi = aeKpis.emi;
+        allExpenseData.kpis.trips = aeKpis.trips;
+        allExpenseData.profitable = aeKpis.profitable;
+        allExpenseData.lossmaking = aeKpis.lossmaking;
+      }
+      renderAllExpenses();
     }
-
-    renderAllExpenses();
   }catch(e){
     console.error('Error:', e);
     document.getElementById('allExpensesStatus').innerHTML = `<span style="color:var(--accent)">⚠ Error loading data: ${e.message}</span>`;
@@ -3482,20 +3469,29 @@ function renderAllExpenses(){
     'Cash': '#f50057', 'UPI': '#00bcd4', 'Tyre': '#4caf50', 'RTO': '#ff9800'
   };
 
-  const actualTotals = d.actualExpenseTotals || {};
   const categoryOrder = ['Diesel', 'Urea', 'Fastag', 'Driver A/C', 'Cash', 'UPI', 'Tyre', 'RTO', 'Paper'];
-  const totalExpense = Object.values(actualTotals).reduce((s, v) => s + v, 0);
 
-  const expenseCards = categoryOrder
-    .filter(cat => actualTotals[cat] > 0)
-    .map(cat => {
-      const amount = actualTotals[cat] || 0;
-      const pct = totalExpense ? (amount / totalExpense) * 100 : 0;
+  /* 🔧 Filter active → raw-sheet totals (actualExpenseTotals). Warna → CSV ka expense_breakdown
+     (fast, sheet ke saath exact match). Dono case me cards same dikhte hain. */
+  let cardData;  // [{cat, amount, pct}]
+  if(d.actualExpenseTotals){
+    const at = d.actualExpenseTotals;
+    const tot = Object.values(at).reduce((s,v)=>s+v, 0);
+    cardData = categoryOrder.filter(c=>at[c]>0).map(c=>({cat:c, amount:at[c], pct: tot?(at[c]/tot*100):0}));
+  } else {
+    const tot = (d.expense_breakdown||[]).filter(r=>!String(r[0]).toUpperCase().includes('TOTAL'))
+                  .reduce((s,r)=>s+(+r[1]||0), 0);
+    cardData = (d.expense_breakdown||[])
+      .filter(r => r[0] && !String(r[0]).toUpperCase().includes('TOTAL') && (+r[1]||0) > 0)
+      .map(r => ({cat:String(r[0]).trim(), amount:+r[1]||0, pct: (+r[2]||0)? (+r[2]) : (tot?((+r[1]||0)/tot*100):0)}));
+  }
+
+  const expenseCards = cardData.map(({cat, amount, pct}) => {
       const bColor = borderColors[cat] || '#757575';
       return `<div style="padding:20px;background:var(--panel);border:1px solid var(--line);border-left:4px solid ${bColor};border-radius:10px;cursor:pointer;transition:.15s" onclick="showExpenseDetail('${cat}',${amount})">
         <div style="font-size:.75rem;color:var(--muted);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">${cat}</div>
         <div style="font-size:1.6rem;font-weight:800;color:var(--text);margin-bottom:8px">${crore(amount)}</div>
-        <div style="font-size:.8rem;color:var(--muted)">${pct.toFixed(1)}% this period | ${pct.toFixed(1)}% fleet</div>
+        <div style="font-size:.8rem;color:var(--muted)">${pct.toFixed(1)}% of total expense</div>
       </div>`;
     }).join('');
 
@@ -4059,6 +4055,13 @@ async function prefetchExpenseSheets(){
   }));
   console.log(`⚡ Prefetched ${Object.keys(EXP_CACHE).length} expense sheets — windows ab instant khulenge`);
 }
+/* 🔧 Auto-update: All Expenses section khula ho aur koi filter na ho to har 3 min
+   me published CSV se silently refresh (CSV ~5 min me update hota hai) */
+setInterval(()=>{
+  if(CURRENT==='allexpenses' && !ALL_EXPENSES_DATE_RANGE && !AE_LOADING){
+    loadAllExpensesDashboard();
+  }
+}, 180000);
 bootDashboard();
 </script>
 
