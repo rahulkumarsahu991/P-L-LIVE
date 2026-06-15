@@ -515,7 +515,7 @@ th.sortable .sort-arrow{display:inline-block;margin-left:4px;color:var(--accent)
         <span id="dataPeriod" onclick="openDateModal()" title="Click karke date range badlo"
           style="background:var(--panel2);border:1px solid var(--line);border-radius:7px;cursor:pointer;
           padding:5px 10px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.72rem">📅 Full data</span>
-        <span><span class="live-dot"></span><span id="liveStatus">Live</span></span>
+        <span style="display:inline-flex;align-items:center;gap:6px"><span class="live-dot"></span><span id="liveStatus">Live</span><svg id="liveWheel" viewBox="0 0 24 24" width="15" height="15" style="display:none;flex:none"><g class="ae-wheel-spin" style="transform-origin:12px 12px"><circle cx="12" cy="12" r="10" fill="#15171d" stroke="#0c0e12" stroke-width="1.5"/><circle cx="12" cy="12" r="7" fill="none" stroke="#ff7a3d" stroke-width="2"/><circle cx="12" cy="12" r="2.6" fill="#ff7a3d"/><g stroke="#ffb088" stroke-width="1.6" stroke-linecap="round"><line x1="12" y1="4" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="20"/><line x1="4" y1="12" x2="8" y2="12"/><line x1="16" y1="12" x2="20" y2="12"/></g></g></svg></span>
         <span id="lastUpd">--</span>
         <button id="refreshBtn" onclick="fetchLive()"
           style="background:var(--accent);color:#fff;border:none;border-radius:8px;
@@ -835,6 +835,7 @@ async function fetchLive(force=false){
     return;
   }
   FETCHING=true;
+  const lw=document.getElementById('liveWheel'); if(lw) lw.style.display='inline-block';  // 🔧 wheel ghoomega
   try{
     if(!DATA_READY){
       document.getElementById('liveStatus').textContent='Loading data...';
@@ -918,6 +919,7 @@ async function fetchLive(force=false){
     document.getElementById('lastUpd').textContent='fetch failed';
   }finally{
     FETCHING=false;
+    const lw2=document.getElementById('liveWheel'); if(lw2) lw2.style.display='none';  // 🔧 wheel hatao
   }
 }
 
