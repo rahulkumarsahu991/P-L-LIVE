@@ -770,6 +770,15 @@ function parseSheetTotals(matrix){
 function updateDataPeriod(matrix){
   const el = document.getElementById('dataPeriod');
   if(!el) return;
+  /* 🔧 Koi date filter active nahi (Clear All ke baad) → chip hamesha "Full data" rahe,
+     sheet ke header dates se date range mat dikhao. */
+  if(!CURRENT_RANGE){
+    window.DATA_PERIOD_START = null;
+    window.DATA_PERIOD_END = null;
+    el.textContent = '📅 Full data';
+    el.style.borderColor = 'var(--line)';
+    return;
+  }
   let start='', end='';
   for(let i=0;i<Math.min(matrix.length,6);i++){
     const row = matrix[i]||[];
