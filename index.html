@@ -3804,10 +3804,10 @@ async function showExpenseDetailWithVehicles(category, amount){
   // 🔧 Calculate actual total from fetched data
   const actualTotal = sorted.reduce((sum, item) => sum + item[1], 0);
 
-  /* 🔧 Diesel/Urea (bina filter): header pe card wala total (master P&L = 5.85 Cr) dikhao.
-     Baaki sab me actual transaction total. */
-  const headerTotal = ((category === 'Diesel' || category === 'Urea') && !activeRange && amount > 0)
-    ? amount : actualTotal;
+  /* 🔧 Bina filter: header pe card wala total (master P&L / summary CSV) dikhao — sabhi
+     categories (Diesel, Urea, Fastag, Driver A/C, Cash, UPI, Tyre, RTO). Filter active ho
+     to actual transaction total. */
+  const headerTotal = (!activeRange && amount > 0) ? amount : actualTotal;
 
   // 🔧 Header total
   html = `<div class="det-row" style="margin-bottom:16px"><span style="font-weight:700;font-size:1.1rem">${category}${dateRangeText}</span><span style="font-weight:700;color:var(--amber);font-size:1.15rem">${crore(headerTotal)}</span></div>`;
