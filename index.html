@@ -794,16 +794,9 @@ function parseSheetTotals(matrix){
 function updateDataPeriod(matrix){
   const el = document.getElementById('dataPeriod');
   if(!el) return;
-  /* 🔧 Koi date filter active nahi (Clear All ke baad) → chip hamesha "Full data" rahe,
-     sheet ke header dates se date range mat dikhao. */
-  if(!CURRENT_RANGE){
-    window.DATA_PERIOD_START = null;
-    window.DATA_PERIOD_END = null;
-    el.textContent = '📅 Full data';
-    el.style.borderColor = 'var(--line)';
-    return;
-  }
   let start='', end='';
+  /* 🔧 Sheet ke header se active Start/End hamesha nikaalo (chip se alag) — date-wise
+     window isi se filter karega taaki window = list (jo data abhi dikh raha) ke saath match kare. */
   for(let i=0;i<Math.min(matrix.length,6);i++){
     const row = matrix[i]||[];
     for(let c=0;c<row.length;c++){
@@ -812,9 +805,20 @@ function updateDataPeriod(matrix){
       if(cell==='end date'   && row[c+1]) end   = String(row[c+1]).trim();
     }
   }
-  /* Analysis window ko Date objects me store karo — trip details isi se filter honge */
-  window.DATA_PERIOD_START = start ? parseSheetDate(start) : null;
-  window.DATA_PERIOD_END   = end   ? parseSheetDate(end)   : null;
+  window.SHEET_PERIOD_START = start ? parseSheetDate(start) : null;
+  window.SHEET_PERIOD_END   = end   ? parseSheetDate(end)   : null;
+
+  /* Koi dashboard date filter active nahi (Clear All ke baad) → chip "Full data" rahe. */
+  if(!CURRENT_RANGE){
+    window.DATA_PERIOD_START = window.SHEET_PERIOD_START;
+    window.DATA_PERIOD_END   = window.SHEET_PERIOD_END;
+    el.textContent = '📅 Full data';
+    el.style.borderColor = 'var(--line)';
+    return;
+  }
+  /* Dashboard filter active — chip pe range dikhao. Analysis window sheet ke active period se. */
+  window.DATA_PERIOD_START = window.SHEET_PERIOD_START;
+  window.DATA_PERIOD_END   = window.SHEET_PERIOD_END;
   if(start || end){
     el.textContent = '📅 '+(start||'…')+'  →  '+(end||'…');
     el.style.borderColor = 'var(--green)';
@@ -2892,11 +2896,12 @@ async function openExpenseBreakdown(category){
       expLo=ps.getTime(); expHi=pe.getTime();
       periodTxt=fmtDate2(ps)+' → '+fmtDate2(pe);
     }
-  } else if(window.DATA_PERIOD_START && window.DATA_PERIOD_END){
-    const pe2 = new Date(window.DATA_PERIOD_END.getTime());
+  } else if(window.SHEET_PERIOD_START && window.SHEET_PERIOD_END){
+    // 🔧 Dashboard filter nahi, par sheet khud kisi period par set hai → window usi period ka data
+    const pe2 = new Date(window.SHEET_PERIOD_END.getTime());
     pe2.setHours(23,59,59,999);
-    expLo=window.DATA_PERIOD_START.getTime(); expHi=pe2.getTime();
-    periodTxt=fmtDate2(window.DATA_PERIOD_START)+' → '+fmtDate2(window.DATA_PERIOD_END);
+    expLo=window.SHEET_PERIOD_START.getTime(); expHi=pe2.getTime();
+    periodTxt=fmtDate2(window.SHEET_PERIOD_START)+' → '+fmtDate2(window.SHEET_PERIOD_END);
   }
   document.getElementById('expOvSub').textContent = veh+'  ·  '+periodTxt;
   ov.style.display='flex';
