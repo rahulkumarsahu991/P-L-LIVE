@@ -652,7 +652,9 @@ const EXPENSE_SHEETS = {
   /* Fastag: Col E (Corrected Vehicle Details) hamesha full/clean vehicle hai — Col B kabhi short hota hai */
   'Fastag':     { gid:'2070024063', dateCol:0, amountCol:2,  vehCol:4,  remarkCol:-1, noteCols:[1,3] },
   /* UPI: vehicle Col E(4), amount Col F(5) — kabhi amount sirf Col G(6) me hota hai, isliye amountColAlt */
-  'UPI':        { gid:'33245272',   dateCol:0, amountCol:5, amountColAlt:6, vehCol:4,  remarkCol:3,  noteCols:[1,3], excludeCol:2, excludeVal:'receipt' },
+  /* UPI: remarkCol:-1 → sirf vehicle column (E/4) se exact match; "TA D01315" jaisi
+     khaali-vehicle rows (jinka col4 blank hai) remark text se match hokar nahi aayengi */
+  'UPI':        { gid:'33245272',   dateCol:0, amountCol:5, amountColAlt:6, vehCol:4,  remarkCol:-1, noteCols:[1,3], excludeCol:2, excludeVal:'receipt' },
   'Tyre':       { gid:'1031783248', dateCol:0, amountCol:4,  vehCol:5,  remarkCol:1,  noteCols:[2,3] },
   'EMI':        { gid:'2108749699', type:'monthMatrix', vehCol:0, firstMonthCol:2 },
   'RTO':        { gid:'2098250408', dateCol:1, amountCol:3,  vehCol:5,  remarkCol:0,  noteCols:[2,4] },
