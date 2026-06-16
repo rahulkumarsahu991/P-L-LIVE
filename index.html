@@ -654,7 +654,7 @@ const EXPENSE_SHEETS = {
   /* UPI: vehicle Col E(4), amount Col F(5) — kabhi amount sirf Col G(6) me hota hai, isliye amountColAlt */
   'UPI':        { gid:'33245272',   dateCol:0, amountCol:5, amountColAlt:6, vehCol:4,  remarkCol:3,  noteCols:[1,3], excludeCol:2, excludeVal:'receipt' },
   'Tyre':       { gid:'1031783248', dateCol:0, amountCol:4,  vehCol:5,  remarkCol:1,  noteCols:[2,3] },
-  'EMI':        { gid:'2108749699', type:'monthMatrix', vehCol:0, firstMonthCol:1 },
+  'EMI':        { gid:'2108749699', type:'monthMatrix', vehCol:0, firstMonthCol:2 },
   'RTO':        { gid:'2098250408', dateCol:1, amountCol:3,  vehCol:5,  remarkCol:0,  noteCols:[2,4] },
   /* Paper = 2 sheets (Paper sheet + RTO/tax sheet) */
   'Paper':      { sources:[
@@ -2831,9 +2831,10 @@ function collectExpEntries(src, matrix, vehU, lo, hi){
       if(firstTok!==vehU) continue;
       const extra = cellRaw.slice(firstTok.length).trim();   // e.g. "BODY"
       for(let c=src.firstMonthCol;c<header.length;c++){
-        const amt=num(row[c]); if(amt<=0) continue;
         const d=parseMonthLabel(header[c]);
-        if(lo!=null && hi!=null && d){ const x=d.getTime(); if(x<lo||x>hi) continue; }
+        if(!d) continue;   // 🔧 header valid month nahi (jaise "EMI") to column skip
+        const amt=num(row[c]); if(amt<=0) continue;
+        if(lo!=null && hi!=null){ const x=d.getTime(); if(x<lo||x>hi) continue; }
         out.push({dRaw:String(header[c]).trim(), d, amt, note:(extra?extra+' EMI':(src.label||'Monthly'))});
       }
     }
