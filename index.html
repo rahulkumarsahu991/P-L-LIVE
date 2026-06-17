@@ -3458,16 +3458,18 @@ async function fetchAEKpis(range){
     const k = {billing:0,expense:0,net:0,emi:0,trips:0,profitable:0,lossmaking:0,vehCount:0,
       // 🔧 per-category expense totals — master P&L se (sheet ke saath exact match)
       breakdown:{Diesel:0,Urea:0,Fastag:0,'Driver A/C':0,Cash:0,UPI:0,Tyre:0,RTO:0,Paper:0}};
+    const seriesAgg = {};   // 🔧 series-wise aggregation
     for(let i=hRow+1;i<matrix.length;i++){
       const r=matrix[i];
       const veh=String(get(r,'Vehicle')||'').trim();
       if(!veh || !veh.toUpperCase().startsWith('CG')) continue;
       const net = num(get(r,'NetEarnings'));
-      k.billing += num(get(r,'Billing'));
-      k.expense += num(get(r,'TotalExpense'));
-      k.net += net;
+      const bill = num(get(r,'Billing'));
+      const exp = num(get(r,'TotalExpense'));
+      const trp = num(get(r,'Trips'));
+      k.billing += bill; k.expense += exp; k.net += net;
       k.emi += num(get(r,'EMI'));
-      k.trips += num(get(r,'Trips'));
+      k.trips += trp;
       if(net>0) k.profitable++; else if(net<0) k.lossmaking++;
       k.vehCount++;
       // per-category (master P&L columns)
@@ -3480,7 +3482,20 @@ async function fetchAEKpis(range){
       k.breakdown.Tyre         += num(get(r,'Tyre'));
       k.breakdown.RTO          += num(get(r,'RTO'));
       k.breakdown.Paper        += num(get(r,'Paper'));
+      // series-wise
+      const ser = String(get(r,'Series')||'').trim() || '—';
+      if(!seriesAgg[ser]) seriesAgg[ser] = {veh:0,trips:0,bill:0,exp:0,net:0};
+      const sa = seriesAgg[ser];
+      sa.veh++; sa.trips+=trp; sa.bill+=bill; sa.exp+=exp; sa.net+=net;
     }
+    // 🔧 series array banao (renderAllExpenses ke format me: pre-formatted ₹ strings)
+    const inr = n => '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
+    const netStr = n => n<0 ? '('+inr(n)+')' : inr(n);
+    k.series = Object.entries(seriesAgg)
+      .sort((a,b)=>a[0].localeCompare(b[0]))
+      .map(([name,s]) => [name, s.veh, s.trips, inr(s.bill), inr(s.exp), netStr(s.net)]);
+    // TOTAL row
+    k.series.push(['TOTAL', k.vehCount, k.trips, inr(k.billing), inr(k.expense), netStr(k.net)]);
     return k;
   }catch(e){
     console.warn('AE KPI fetch failed:', e.message);
@@ -3583,6 +3598,8 @@ async function loadAllExpensesDashboard(){
         allExpenseData.lossmaking = aeKpis.lossmaking;
         // 🔧 breakdown bhi master P&L se (raw sheets nahi) — sheet se exact match
         allExpenseData.actualExpenseTotals = aeKpis.breakdown;
+        // 🔧 Series-wise table bhi filter ke according
+        if(aeKpis.series && aeKpis.series.length) allExpenseData.series = aeKpis.series;
       } else {
         // Apps Script fail → CSV breakdown hi dikhao (fallback)
         allExpenseData.actualExpenseTotals = null;
