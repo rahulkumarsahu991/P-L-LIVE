@@ -628,6 +628,12 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwf2DqkF9g2YoDz
 let CURRENT_RANGE = null;     // {start:'YYYY-MM-DD', end:'YYYY-MM-DD'} ya null (= full data)
 let ALL_EXPENSES_DATE_RANGE = null;  // 🔧 Separate filter for All Expenses section only
 let CLEARED_TO_FULL = false;  // 🔧 Clear All dabaya gaya? (tab chip "Full data", warna sheet ka active period dikhe)
+/* 🔧 System health tracking — AI Insights ka "Problem" card isi se banta hai */
+window.SYS_ERRORS = [];
+function logSysError(where, msg){
+  window.SYS_ERRORS.unshift({where, msg:String(msg||'').slice(0,120), t:Date.now()});
+  if(window.SYS_ERRORS.length > 12) window.SYS_ERRORS.length = 12;
+}
 
 /* ====== EXPENSE DETAIL SHEETS (har expense ka alag tab) ======
    Har expense ke liye uska gid + columns (0-based) yahan add karo.
@@ -934,6 +940,7 @@ async function fetchLive(force=false){
   }catch(e){
     document.getElementById('liveStatus').textContent='Offline';
     document.getElementById('lastUpd').textContent='fetch failed';
+    logSysError('Data fetch', e.message);
   }finally{
     FETCHING=false;
     const lw2=document.getElementById('liveWheel'); if(lw2) lw2.style.display='none';  // 🔧 wheel hatao
@@ -2037,7 +2044,57 @@ function buildInsights(){
   const insTag = document.getElementById('insTag');
   if(insTag) insTag.textContent = 'auto · ' + todayKey;
 
+  /* 🔧 SYSTEM HEALTH / PROBLEM card — data load, fetch, sheet changes (nayi row / formula),
+     trips/KM status, errors — sab ek jagah. */
+  let healthCard;
+  try{
+    const issues = [];   // problems
+    const oks = [];      // theek hai
+    // 1) Data load
+    if(!DATA || DATA.length===0){ issues.push('❌ Vehicle data load nahi hua'); }
+    else { oks.push(`✅ Data: <b>${DATA.length}</b> vehicles load`); }
+    // 2) Live/fetch status
+    const ls = (document.getElementById('liveStatus')||{}).textContent || '';
+    if(ls==='Offline'){ issues.push('❌ Data fetch fail (Offline) — internet/sheet check'); }
+    // 3) Trips / KM (dispatch)
+    if(DISPATCH_DATA===null){ /* abhi load ho raha */ }
+    else if(Array.isArray(DISPATCH_DATA) && DISPATCH_DATA.length===0){ issues.push('⚠️ Trips/KM (dispatch) load nahi hua — retry ho raha'); }
+    else if(Array.isArray(DISPATCH_DATA)){ oks.push(`✅ Trips/KM: <b>${DISPATCH_DATA.length}</b> dispatch rows`); }
+    // 4) Nayi row / formula change — kal ke snapshot se compare
+    try{
+      const hist = JSON.parse(localStorage.getItem('insightsHistory')||'{}');
+      const pds = Object.keys(hist).filter(d=>d<todayKey).sort();
+      const pv = pds.length ? hist[pds[pds.length-1]] : null;
+      if(pv && !CURRENT_RANGE){
+        const dv = todaySnap.vehicles - pv.vehicles;
+        if(dv>0) issues.push(`🆕 <b>${dv}</b> nayi vehicle row add hui (sheet me) — kal ${pv.vehicles}, aaj ${todaySnap.vehicles}`);
+        else if(dv<0) issues.push(`⚠️ <b>${Math.abs(dv)}</b> vehicle row kam ho gayi (delete?) — kal ${pv.vehicles}, aaj ${todaySnap.vehicles}`);
+        // bade total change = sambhavit formula/data change
+        const bChg = pv.billing ? Math.abs((t.billing-pv.billing)/pv.billing*100) : 0;
+        const eChg = pv.expense ? Math.abs((t.expense-pv.expense)/pv.expense*100) : 0;
+        if(bChg>25) issues.push(`📊 Billing me bada change (<b>${bChg.toFixed(0)}%</b>) — sheet formula/data check karein`);
+        if(eChg>25) issues.push(`📊 Expense me bada change (<b>${eChg.toFixed(0)}%</b>) — sheet formula/data check karein`);
+      }
+    }catch(e){}
+    // 5) Recent fetch errors
+    (window.SYS_ERRORS||[]).slice(0,3).forEach(er=>{
+      issues.push(`⚠️ ${er.where}: ${er.msg}`);
+    });
+
+    const lastUpd = (document.getElementById('lastUpd')||{}).textContent || '';
+    if(issues.length===0){
+      healthCard = {tone:'good', title:'✓ System Health — Sab Theek',
+        body:`${oks.join(' · ')||'Data ready'}. ${lastUpd?('<br>'+lastUpd):''} Koi problem nahi mili.`};
+    } else {
+      healthCard = {tone:(issues.some(x=>x.startsWith('❌'))?'bad':'warn'), title:'⚠ System Health — Dhyaan Dein',
+        body:issues.map(x=>`• ${x}`).join('<br>') + (oks.length?`<br><span style="opacity:.7">${oks.join(' · ')}</span>`:'')};
+    }
+  }catch(e){
+    healthCard = {tone:'warn', title:'System Health', body:'Health check me dikkat: '+e.message};
+  }
+
   const cards=[
+    healthCard,
     ...(dayCard?[dayCard]:[]),
     {tone:opMargin>0?'good':'bad', title:'Operating Margin',
      body:`Fleet ka operating margin <b>${opMargin.toFixed(1)}%</b> hai. ${opMargin<10?'Yeh kafi kam hai — expense control par focus karein.':opMargin<20?'Theek hai, lekin behtar ho sakta hai.':'Achha margin hai.'}`},
@@ -2565,6 +2622,7 @@ function loadDispatch(cb){
       setTimeout(()=>loadDispatch(), 2500);  // callbacks queue me hain, dobara try
     } else {
       DISPATCH_DATA=[];  // 3 fail ke baad chhodo
+      logSysError('Dispatch (trips/KM)', err.message+' — 3 retry fail');
       DISPATCH_CALLBACKS.forEach(fn=>fn([]));
       DISPATCH_CALLBACKS=[];
     }
@@ -3887,6 +3945,7 @@ async function fetchExpenseSheetData(sheetName){
     return rows;
   }catch(e){
     console.error(`✗ Error fetching ${sheetName}:`, e.message);
+    logSysError('Sheet: '+sheetName, e.message);
     return MEM_CACHE[sheetName] || [];
   }
 }
