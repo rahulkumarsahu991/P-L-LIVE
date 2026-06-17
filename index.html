@@ -627,6 +627,7 @@ const REFRESH_MS = 15000;  // 15 seconds - slower refresh (was 8000ms)
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwf2DqkF9g2YoDzv0cgwiBSWZB6w-wHTSrQmapkrrFdfCD777oJiKDfqOBkd---an8YsA/exec";   // <-- yahan paste karo: https://script.google.com/macros/s/XXXX/exec
 let CURRENT_RANGE = null;     // {start:'YYYY-MM-DD', end:'YYYY-MM-DD'} ya null (= full data)
 let ALL_EXPENSES_DATE_RANGE = null;  // 🔧 Separate filter for All Expenses section only
+let CLEARED_TO_FULL = false;  // 🔧 Clear All dabaya gaya? (tab chip "Full data", warna sheet ka active period dikhe)
 
 /* ====== EXPENSE DETAIL SHEETS (har expense ka alag tab) ======
    Har expense ke liye uska gid + columns (0-based) yahan add karo.
@@ -812,12 +813,20 @@ function updateDataPeriod(matrix){
   window.SHEET_PERIOD_START = start ? parseSheetDate(start) : null;
   window.SHEET_PERIOD_END   = end   ? parseSheetDate(end)   : null;
 
-  /* Koi dashboard date filter active nahi (Clear All ke baad) → chip "Full data" rahe. */
+  /* Koi dashboard date filter active nahi: */
   if(!CURRENT_RANGE){
     window.DATA_PERIOD_START = window.SHEET_PERIOD_START;
     window.DATA_PERIOD_END   = window.SHEET_PERIOD_END;
-    el.textContent = '📅 Full data';
-    el.style.borderColor = 'var(--line)';
+    /* 🔧 Clear All dabaya ho → "Full data". Warna (load ke baad) sheet ka active
+       date-period chip pe dikhao taaki pata rahe konse period ka data hai. */
+    if(!CLEARED_TO_FULL && start && end){
+      el.textContent = '📅 '+start+'  →  '+end;
+      el.style.borderColor = 'var(--green)';
+      el.title = 'Sheet ka active date-period (jo data abhi dikh raha hai). Badalne ke liye click karo.';
+    } else {
+      el.textContent = '📅 Full data';
+      el.style.borderColor = 'var(--line)';
+    }
     return;
   }
   /* Dashboard filter active — chip pe range dikhao. Analysis window sheet ke active period se. */
@@ -2457,18 +2466,20 @@ window.KM_BY_VEH = window.KM_BY_VEH || {};
 let DISPATCH_LOADING = false;
 let DISPATCH_CALLBACKS = [];
 
+let DISPATCH_RETRIES = 0;
 function loadDispatch(cb){
-  if(DISPATCH_DATA){ cb(DISPATCH_DATA); return; }
-  DISPATCH_CALLBACKS.push(cb);
+  if(DISPATCH_DATA && DISPATCH_DATA.length){ cb(DISPATCH_DATA); return; }  // 🔧 sirf valid cache use karo
+  if(cb) DISPATCH_CALLBACKS.push(cb);
   if(DISPATCH_LOADING) return;
   DISPATCH_LOADING = true;
 
-  /* Fetch with 6-second timeout (dispatch sheet should be smaller) */
+  /* 🔧 12-second timeout (slow network ke liye behtar) */
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 6000);
+  const timeoutId = setTimeout(() => controller.abort(), 12000);
 
-  fetch(DISPATCH_URL, {signal: controller.signal}).then(r=>r.text()).then(csv=>{
+  fetch(DISPATCH_URL + '&t=' + Date.now(), {signal: controller.signal}).then(r=>r.text()).then(csv=>{
     clearTimeout(timeoutId);
+    if(csv.trim().startsWith('<')) throw new Error('Invalid (HTML) response');
     const lines = csv.trim().split('\n');
     const raw_headers = lines[0].split(',').map(h=>h.replace(/^"|"$/g,'').trim());
     // Smart column mapping — case-insensitive partial match
@@ -2538,15 +2549,25 @@ function loadDispatch(cb){
       window.KM_BY_VEH[v]=(window.KM_BY_VEH[v]||0)+(t.km||0);
     });
     DISPATCH_LOADING=false;
+    DISPATCH_RETRIES=0;
     DISPATCH_CALLBACKS.forEach(fn=>fn(DISPATCH_DATA));
     DISPATCH_CALLBACKS=[];
     /* Once KM is ready, re-render current view to show KM columns */
     if(typeof renderCurrent==='function') renderCurrent();
   }).catch((err)=>{
+    clearTimeout(timeoutId);
     console.warn('⚠️ Dispatch data load failed:', err.message);
-    DISPATCH_DATA=[];DISPATCH_LOADING=false;
-    DISPATCH_CALLBACKS.forEach(fn=>fn([]));
-    DISPATCH_CALLBACKS=[];
+    DISPATCH_LOADING=false;
+    /* 🔧 Empty cache MAT karo — retry karo (3 baar tak), warna trips kabhi nahi aayenge */
+    if(DISPATCH_RETRIES < 3){
+      DISPATCH_RETRIES++;
+      DISPATCH_DATA=null;  // retry allow
+      setTimeout(()=>loadDispatch(), 2500);  // callbacks queue me hain, dobara try
+    } else {
+      DISPATCH_DATA=[];  // 3 fail ke baad chhodo
+      DISPATCH_CALLBACKS.forEach(fn=>fn([]));
+      DISPATCH_CALLBACKS=[];
+    }
   });
 }
 
@@ -2798,6 +2819,7 @@ function applyDateFilter(){
 
   // 🔧 Global filter (All Expenses has its own dedicated filter — see applyAllExpFilter)
   CURRENT_RANGE = {start, end};
+  CLEARED_TO_FULL = false;  // 🔧 filter laga → chip range dikhayega
   DISPATCH_DATA = null;  // 🔧 Clear dispatch cache to re-fetch with new date range
   closeDateModal();      // 🔧 Modal turant band — UI block na ho
   document.getElementById('liveStatus').textContent='Applying dates...';
@@ -2811,6 +2833,7 @@ function applyDateFilter(){
 function clearDateRange(){
   // ✅ Reset all data variables (All Expenses has its own clear — see clearAllExpFilter)
   CURRENT_RANGE = null;
+  CLEARED_TO_FULL = true;  // 🔧 Clear All → chip "Full data" rahe (sheet ka period mat dikhao)
   DISPATCH_DATA = null;  // 🔧 Clear cache when filter cleared
   DATE_MODE = null;
   DATA_PERIOD_START = null;
@@ -4219,8 +4242,9 @@ async function bootDashboard(){
     document.getElementById('liveStatus').textContent='Snapshot';
     document.getElementById('lastUpd').textContent='from uploaded file';
   }
-  /* 🔧 SPEED: expense sheets background me prefetch — click par window INSTANT khulegi */
+  /* 🔧 SPEED: expense sheets + dispatch background me prefetch — trips/KM aur windows INSTANT */
   setTimeout(prefetchExpenseSheets, 2500);
+  setTimeout(()=>{ if(!DISPATCH_DATA) loadDispatch(); }, 1200);  // 🔧 dispatch jaldi prefetch
 }
 
 /* 🔧 Saari expense-detail sheets ko chupchaap pehle se load karke EXP_CACHE me rakho */
