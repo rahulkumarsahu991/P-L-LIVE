@@ -1153,7 +1153,7 @@ const SECTIONS = {
         <div class="chart-box"><canvas id="ovPie"></canvas></div></div>
     </div>
     <div class="card insights-card">
-      <h3>✦ AI Business Insights<span class="tag">auto-generated</span></h3>
+      <h3>✦ AI Business Insights<span class="tag" id="insTag">auto-generated</span></h3>
       <div id="insightsBox" class="insights-grid"></div>
     </div>`;
   },
@@ -1982,7 +1982,52 @@ function buildInsights(){
   const sb={}; DATA.forEach(r=>{sb[r.Series]=(sb[r.Series]||0)+r.NetEarnings;});
   const worstSeries=Object.entries(sb).sort((a,b)=>a[1]-b[1])[0];
 
+  /* 🔧 Day-by-day: aaj ka snapshot store karo + pichhle din se compare karo.
+     Sirf full-data (bina filter) snapshot store hota hai taaki comparison apples-to-apples ho. */
+  const todayKey = new Date().toISOString().slice(0,10);          // YYYY-MM-DD
+  const todaySnap = {date:todayKey, net:t.net, billing:t.billing, expense:t.expense,
+    loss, prof, idle, opMargin, emiShare, trips:t.trips, vehicles:DATA.length};
+  let dayCard = null;
+  try{
+    if(!CURRENT_RANGE){   // sirf full data par history rakho
+      const hist = JSON.parse(localStorage.getItem('insightsHistory')||'{}');
+      // aaj se pehle ka sabse recent din dhoondo
+      const prevDates = Object.keys(hist).filter(d=>d<todayKey).sort();
+      const prevKey = prevDates[prevDates.length-1];
+      const prev = prevKey ? hist[prevKey] : null;
+      hist[todayKey] = todaySnap;                                  // aaj ka save
+      // purani entries (30 din se zyada) hata do
+      Object.keys(hist).forEach(d=>{ if((new Date(todayKey)-new Date(d))/864e5 > 30) delete hist[d]; });
+      localStorage.setItem('insightsHistory', JSON.stringify(hist));
+
+      if(prev){
+        const dNet = t.net - prev.net;
+        const dLoss = loss - prev.loss;
+        const dMargin = opMargin - prev.opMargin;
+        const arrow = v => v>0?'▲':v<0?'▼':'■';
+        const sign = v => (v>0?'+':'');
+        const tone = (dNet>=0 && dLoss<=0) ? 'good' : (dNet<0 || dLoss>2) ? 'bad' : 'warn';
+        dayCard = {tone, title:`Aaj vs ${prevKey}`,
+          body:`Net earnings <b>${arrow(dNet)} ${sign(dNet)}Rs ${fmt(Math.abs(dNet))}</b>, `
+            +`loss-making vehicles <b>${arrow(dLoss)} ${sign(dLoss)}${dLoss}</b>, `
+            +`operating margin <b>${arrow(dMargin)} ${sign(dMargin)}${dMargin.toFixed(1)}%</b>. `
+            +`${tone==='good'?'Kal se behtar — accha chal raha hai.':tone==='bad'?'Kal se giravat — dhyaan dein.':'Halka badlav.'}`};
+      } else {
+        dayCard = {tone:'good', title:'Day-by-day Tracking ON',
+          body:`Aaj (<b>${todayKey}</b>) ka baseline save ho gaya. Kal se roz comparison dikhega — net, loss, margin ka day-over-day change.`};
+      }
+    } else {
+      dayCard = {tone:'warn', title:'Filter Active',
+        body:`Abhi date filter laga hai (<b>${CURRENT_RANGE.start} → ${CURRENT_RANGE.end}</b>), isliye ye insights sirf is period ke hain. Day-by-day comparison full-data view me dikhta hai.`};
+    }
+  }catch(e){ /* localStorage band ho to chhodo */ }
+
+  // header tag pe date
+  const insTag = document.getElementById('insTag');
+  if(insTag) insTag.textContent = 'auto · ' + todayKey;
+
   const cards=[
+    ...(dayCard?[dayCard]:[]),
     {tone:opMargin>0?'good':'bad', title:'Operating Margin',
      body:`Fleet ka operating margin <b>${opMargin.toFixed(1)}%</b> hai. ${opMargin<10?'Yeh kafi kam hai — expense control par focus karein.':opMargin<20?'Theek hai, lekin behtar ho sakta hai.':'Achha margin hai.'}`},
     {tone:emiShare>40?'bad':'warn', title:'EMI Burden',
@@ -4202,6 +4247,17 @@ setInterval(()=>{
     loadAllExpensesDashboard();
   }
 }, 180000);
+
+/* 🔧 AI Insights day-by-day: har ghante check karo — agar din badal gaya to fresh data
+   laao aur insights rebuild karo (taaki roz naya day-over-day comparison bane) */
+let INS_LAST_DAY = new Date().toISOString().slice(0,10);
+setInterval(()=>{
+  const today = new Date().toISOString().slice(0,10);
+  if(today !== INS_LAST_DAY){
+    INS_LAST_DAY = today;
+    if(!CURRENT_RANGE) fetchLive(true).then(()=>{ if(CURRENT==='overview') buildInsights(); }).catch(()=>{});
+  }
+}, 3600000);  // har 1 ghanta
 bootDashboard();
 </script>
 
