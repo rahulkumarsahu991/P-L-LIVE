@@ -1324,6 +1324,8 @@ const SECTIONS = {
         </div>
       </div>
     </div>
+    <!-- 🔧 Other Expense grid cards (UPI/Cash/RTO jaise) — har added expense ek card -->
+    <div id="otherExpCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:18px"></div>
     <div class="grid2">
       <div class="card"><h3>Expense Breakdown<span class="tag">by category</span></h3>
         <div class="chart-box"><canvas id="eDough"></canvas></div></div>
@@ -2734,7 +2736,32 @@ function resetFilters(){
 }
 
 /* Other Expense management - Transaction list */
-window.OTHER_EXPENSES = [];  // Array of {amount, date, time}
+window.OTHER_EXPENSES = [];  // Array of {id, amount, remark, date, time}
+
+/* 🔧 Apps Script se Other Expenses load karo (cross-login/device sync) */
+async function loadOtherExpenses(){
+  try{
+    if(APPS_SCRIPT_URL){
+      const res = await fetch(APPS_SCRIPT_URL + '?action=getOther&t=' + Date.now());
+      const data = await res.json();
+      if(Array.isArray(data)){
+        window.OTHER_EXPENSES = data;
+        localStorage.setItem('otherExpenses', JSON.stringify(data));  // local backup
+      }
+    }
+  }catch(e){
+    console.warn('Other Expenses server load fail, localStorage se:', e.message);
+    window.OTHER_EXPENSES = JSON.parse(localStorage.getItem('otherExpenses')||'[]');
+  }
+  updateOtherExpenseDisplay();
+}
+
+/* 🔧 Apps Script ko POST (text/plain taaki CORS preflight na ho) */
+function postOther(payload){
+  if(!APPS_SCRIPT_URL) return Promise.resolve();
+  return fetch(APPS_SCRIPT_URL, {method:'POST', body: JSON.stringify(payload)})
+    .catch(e=>console.warn('Other Expense save fail:', e.message));
+}
 
 function addOtherExpense(){
   const input = document.getElementById('otherExpInput');
@@ -2742,39 +2769,33 @@ function addOtherExpense(){
   if(!input || !remark) return;
 
   const val = parseFloat(input.value);
-  if(!val || val <= 0){
-    alert('Amount zaroori hai');
-    input.focus();
-    return;
-  }
+  if(!val || val <= 0){ alert('Amount zaroori hai'); input.focus(); return; }
 
   const remarkStr = remark.value.trim();
-  if(!remarkStr){
-    alert('Remark zaroori hai — kis liye paisa gya?');
-    remark.focus();
-    return;
-  }
+  if(!remarkStr){ alert('Remark zaroori hai — kis liye paisa gya?'); remark.focus(); return; }
 
-  // Create transaction
   const now = new Date();
-  const date = now.toLocaleDateString('en-IN');  // DD-MM-YYYY format
+  const date = now.toLocaleDateString('en-IN');
   const time = now.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
+  const id = 'oe_' + now.getTime() + '_' + Math.random().toString(36).slice(2,7);
+  const exp = {id, amount:val, remark:remarkStr, date, time};
 
-  window.OTHER_EXPENSES.push({amount:val, remark:remarkStr, date, time});
+  window.OTHER_EXPENSES.push(exp);
   localStorage.setItem('otherExpenses', JSON.stringify(window.OTHER_EXPENSES));
 
-  // Update display
-  input.value = '';
-  remark.value = '';
+  input.value = ''; remark.value = '';
   renderCurrent();
   updateOtherExpenseDisplay();
+  postOther({action:'addOther', ...exp});  // 🔧 server pe save (sab login me dikhe)
 }
 
 function removeOtherExpense(idx){
+  const exp = window.OTHER_EXPENSES[idx];
   window.OTHER_EXPENSES.splice(idx, 1);
   localStorage.setItem('otherExpenses', JSON.stringify(window.OTHER_EXPENSES));
   renderCurrent();
   updateOtherExpenseDisplay();
+  if(exp && exp.id) postOther({action:'deleteOther', id:exp.id});  // 🔧 server se bhi hatao
 }
 
 function updateOtherExpenseDisplay(){
@@ -2805,6 +2826,19 @@ function updateOtherExpenseDisplay(){
       <button onclick="removeOtherExpense(${idx})" style="background:var(--accent);color:#fff;border:none;border-radius:3px;padding:4px 8px;cursor:pointer;font-size:.75rem;font-weight:600;white-space:nowrap;flex-shrink:0">Remove</button>
     </div>
   `).join('');
+
+  // 🔧 Grid cards (UPI/Cash/RTO jaise) — har Other Expense ek card, remove tak rahega
+  const cardsBox = document.getElementById('otherExpCards');
+  if(cardsBox){
+    cardsBox.innerHTML = window.OTHER_EXPENSES.map((exp, idx) => `
+      <div class="card kpi-card" style="position:relative;border-left:4px solid var(--accent);padding:20px">
+        <button onclick="removeOtherExpense(${idx})" title="Remove" style="position:absolute;right:10px;top:10px;background:var(--panel2);color:var(--muted);border:1px solid var(--line);border-radius:6px;width:24px;height:24px;cursor:pointer;font-size:.85rem;line-height:1">✕</button>
+        <div class="kpi-label" style="text-transform:uppercase;letter-spacing:.05em">${exp.remark || 'Other'}</div>
+        <div class="kpi-value" style="font-size:1.6rem">Rs ${fmt(exp.amount)}</div>
+        <div class="kpi-sub" style="color:var(--muted)">${exp.date} · ${exp.time}</div>
+      </div>
+    `).join('');
+  }
 }
 
 function resetOtherExpense(){
@@ -4349,6 +4383,7 @@ async function bootDashboard(){
   /* Load Other Expenses from localStorage */
   window.OTHER_EXPENSES = JSON.parse(localStorage.getItem('otherExpenses'))||[];
   updateOtherExpenseDisplay();
+  loadOtherExpenses();  // 🔧 Apps Script se cross-login data laao (localStorage ke upar)
 
   renderCurrent();
   if(USE_LIVE){
