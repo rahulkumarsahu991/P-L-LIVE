@@ -4334,7 +4334,7 @@ function renderCurrent(){
   document.getElementById('content').innerHTML=SECTIONS[CURRENT]();
   document.getElementById('rowCount').textContent=DATA.length;
   if(CURRENT==='vehicles')fillVehicles('');
-  if(CURRENT==='expenses')updateOtherExpenseDisplay();  /* Re-populate Other Expense list after re-render */
+  if(CURRENT==='expenses'){ updateOtherExpenseDisplay(); loadOtherExpenses(); }  /* 🔧 section khulte hi server se fresh sync */
   if(CURRENT==='allexpenses'){
     loadAllExpensesDashboard();
   }
@@ -4442,6 +4442,12 @@ setInterval(()=>{
     if(!CURRENT_RANGE) fetchLive(true).then(()=>{ if(CURRENT==='overview') buildInsights(); }).catch(()=>{});
   }
 }, 3600000);  // har 1 ghanta
+
+/* 🔧 Other Expense auto-sync: har 30s server se laao taaki doosre device ka add/remove
+   bina manual refresh ke apne aap dikhe */
+setInterval(()=>{
+  if(CURRENT==='expenses' && typeof loadOtherExpenses==='function') loadOtherExpenses();
+}, 30000);
 bootDashboard();
 </script>
 
