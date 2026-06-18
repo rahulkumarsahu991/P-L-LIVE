@@ -4114,13 +4114,21 @@ async function showExpenseDetailWithVehicles(category, amount){
   showAllExpenseModal(category + ' - Vehicle Details', html);
 }
 
-// 🔧 Series-wise table search filter (TOTAL row hamesha dikhe)
+// 🔧 Series-wise table search — series naam YA vehicle number se (TOTAL hamesha dikhe)
 function filterSeriesTable(){
   const q = (document.getElementById('seriesSearch')?.value || '').toLowerCase().trim();
+  // vehicle number type kiya ho to uski series nikaalo
+  const vehSeries = new Set();
+  if(q){
+    (window.ALL_DATA||[]).forEach(r=>{
+      if(String(r.Vehicle||'').toLowerCase().includes(q)) vehSeries.add(String(r.Series||'').toLowerCase());
+    });
+  }
   document.querySelectorAll('#allExpensesTable tr.seriesRow').forEach(row => {
-    if(row.classList.contains('seriesTotal')){ row.style.display = ''; return; }
+    if(row.classList.contains('seriesTotal')){ row.style.display = ''; return; }  // TOTAL hamesha
     const s = row.getAttribute('data-series') || '';
-    row.style.display = s.includes(q) ? '' : 'none';
+    const show = !q || s.includes(q) || vehSeries.has(s);
+    row.style.display = show ? '' : 'none';
   });
 }
 
