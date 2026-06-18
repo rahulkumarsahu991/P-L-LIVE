@@ -1325,7 +1325,7 @@ const SECTIONS = {
       </div>
     </div>
     <!-- 🔧 Other Expense grid cards (UPI/Cash/RTO jaise) — har added expense ek card -->
-    <div id="otherExpCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:18px"></div>
+    <div id="otherExpCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,220px));gap:14px;margin-bottom:18px"></div>
     <div class="grid2">
       <div class="card"><h3>Expense Breakdown<span class="tag">by category</span></h3>
         <div class="chart-box"><canvas id="eDough"></canvas></div></div>
@@ -2831,11 +2831,11 @@ function updateOtherExpenseDisplay(){
   const cardsBox = document.getElementById('otherExpCards');
   if(cardsBox){
     cardsBox.innerHTML = window.OTHER_EXPENSES.map((exp, idx) => `
-      <div class="card kpi-card" style="position:relative;border-left:4px solid var(--accent);padding:20px">
-        <button onclick="removeOtherExpense(${idx})" title="Remove" style="position:absolute;right:10px;top:10px;background:var(--panel2);color:var(--muted);border:1px solid var(--line);border-radius:6px;width:24px;height:24px;cursor:pointer;font-size:.85rem;line-height:1">✕</button>
-        <div class="kpi-label" style="text-transform:uppercase;letter-spacing:.05em">${exp.remark || 'Other'}</div>
-        <div class="kpi-value" style="font-size:1.6rem">Rs ${fmt(exp.amount)}</div>
-        <div class="kpi-sub" style="color:var(--muted)">${exp.date} · ${exp.time}</div>
+      <div class="card kpi-card" style="position:relative;border-left:4px solid var(--accent);padding:14px 16px">
+        <button onclick="removeOtherExpense(${idx})" title="Remove" style="position:absolute;right:8px;top:8px;background:var(--panel2);color:var(--muted);border:1px solid var(--line);border-radius:5px;width:20px;height:20px;cursor:pointer;font-size:.7rem;line-height:1">✕</button>
+        <div class="kpi-label" style="text-transform:uppercase;letter-spacing:.05em;font-size:.7rem;padding-right:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${exp.remark || 'Other'}</div>
+        <div class="kpi-value" style="font-size:1.25rem;margin:4px 0">Rs ${fmt(exp.amount)}</div>
+        <div class="kpi-sub" style="color:var(--muted);font-size:.7rem">${exp.date} · ${exp.time}</div>
       </div>
     `).join('');
   }
