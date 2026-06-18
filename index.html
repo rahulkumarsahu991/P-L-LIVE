@@ -3786,8 +3786,9 @@ function renderAllExpenses(){
   document.getElementById('allExpensesPL').innerHTML = body + `<div style="display:flex;justify-content:space-between;padding:12px 0;margin-top:8px;border-top:2px solid var(--line);font-weight:700;font-size:.95rem"><span>${pl[pl.length-1][0]}</span><span class="${fv<0?'neg':'pos'}">${fv<0?'('+inr(-fv)+')':inr(fv)}</span></div>`;
 
   // Series table - CLICKABLE
+  const pn = s => {const neg=/^\(/.test(String(s));const n=parseFloat(String(s).replace(/[^0-9.]/g,''))||0;return neg?-n:n;};
   document.getElementById('allExpensesTable').innerHTML = d.series.map(r => {const isTotal=String(r[0]).toUpperCase()==='TOTAL';const netCls=isNeg(r[5])?'neg':'pos';
-    return `<tr class="seriesRow${isTotal?' seriesTotal':''}" data-series="${String(r[0]).toLowerCase()}" ${isTotal?'style="background:var(--panel2);font-weight:700"':'style="cursor:pointer;transition:.15s" onclick="showSeriesDetail(\''+r[0]+'\')"'} ><td style="text-align:left">${r[0]}</td><td class="num">${num(r[1])}</td><td class="num">${num(r[2])}</td><td class="num">${r[3]}</td><td class="num">${r[4]}</td><td class="num ${netCls}">${r[5]}</td></tr>`;}).join('');
+    return `<tr class="seriesRow${isTotal?' seriesTotal':''}" data-series="${String(r[0]).toLowerCase()}" data-veh="${+r[1]||0}" data-trips="${+r[2]||0}" data-bill="${pn(r[3])}" data-exp="${pn(r[4])}" data-net="${pn(r[5])}" ${isTotal?'style="background:var(--panel2);font-weight:700"':'style="cursor:pointer;transition:.15s" onclick="showSeriesDetail(\''+r[0]+'\')"'} ><td style="text-align:left">${r[0]}</td><td class="num">${num(r[1])}</td><td class="num">${num(r[2])}</td><td class="num">${r[3]}</td><td class="num">${r[4]}</td><td class="num ${netCls}">${r[5]}</td></tr>`;}).join('');
 
   document.getElementById('allExpensesStatus').innerHTML = `<span style="color:var(--green)">✓ Updated ${new Date().toLocaleTimeString('en-IN')}</span>`;
 }
@@ -4124,12 +4125,35 @@ function filterSeriesTable(){
       if(String(r.Vehicle||'').toLowerCase().includes(q)) vehSeries.add(String(r.Series||'').toLowerCase());
     });
   }
+  let totalRow = null;
+  let tVeh=0, tTrips=0, tBill=0, tExp=0, tNet=0;
   document.querySelectorAll('#allExpensesTable tr.seriesRow').forEach(row => {
-    if(row.classList.contains('seriesTotal')){ row.style.display = ''; return; }  // TOTAL hamesha
+    if(row.classList.contains('seriesTotal')){ totalRow = row; row.style.display = ''; return; }  // TOTAL hamesha
     const s = row.getAttribute('data-series') || '';
     const show = !q || s.includes(q) || vehSeries.has(s);
     row.style.display = show ? '' : 'none';
+    if(show){
+      tVeh   += parseFloat(row.getAttribute('data-veh'))||0;
+      tTrips += parseFloat(row.getAttribute('data-trips'))||0;
+      tBill  += parseFloat(row.getAttribute('data-bill'))||0;
+      tExp   += parseFloat(row.getAttribute('data-exp'))||0;
+      tNet   += parseFloat(row.getAttribute('data-net'))||0;
+    }
   });
+  // 🔧 TOTAL row = sirf visible rows ka total
+  if(totalRow){
+    const inr = n => '₹'+Math.round(Math.abs(n)).toLocaleString('en-IN');
+    const cells = totalRow.querySelectorAll('td');
+    if(cells.length>=6){
+      cells[0].textContent = q ? 'TOTAL (filtered)' : 'TOTAL';
+      cells[1].textContent = Math.round(tVeh).toLocaleString('en-IN');
+      cells[2].textContent = Math.round(tTrips).toLocaleString('en-IN');
+      cells[3].textContent = inr(tBill);
+      cells[4].textContent = inr(tExp);
+      cells[5].textContent = tNet<0 ? '('+inr(tNet)+')' : inr(tNet);
+      cells[5].className = 'num ' + (tNet<0?'neg':'pos');
+    }
+  }
 }
 
 // 🔧 Filter vehicles by search text
