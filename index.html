@@ -1486,8 +1486,10 @@ const SECTIONS = {
       <div class="card"><h3>Expense Breakdown</h3><div id="allExpensesBreakdown" style="padding:16px"></div></div>
       <div class="card"><h3>Profit & Loss</h3><div id="allExpensesPL" style="padding:16px"></div></div>
     </div>
-    <div class="card"><h3>Series-wise Performance</h3><div class="table-wrap"><table>
-      <thead><tr><th>Series</th><th>Veh</th><th>Trips</th><th>Billing</th><th>Total Exp</th><th>Net Earnings</th></tr></thead>
+    <div class="card"><h3>Series-wise Performance</h3>
+      <div style="padding:0 0 12px"><input type="text" id="seriesSearch" placeholder="Search series (e.g. AA, AX)…" style="width:100%;max-width:280px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--text);font-size:.85rem" onkeyup="filterSeriesTable()"></div>
+      <div class="table-wrap"><table>
+      <thead><tr><th style="text-align:left">Series</th><th class="num">Veh</th><th class="num">Trips</th><th class="num">Billing</th><th class="num">Total Exp</th><th class="num">Net Earnings</th></tr></thead>
       <tbody id="allExpensesTable"></tbody>
     </table></div></div>
     <div id="allExpensesStatus" style="text-align:center;color:var(--muted);padding:20px;font-size:.9rem">Loading All Expenses data...</div>
@@ -3785,7 +3787,7 @@ function renderAllExpenses(){
 
   // Series table - CLICKABLE
   document.getElementById('allExpensesTable').innerHTML = d.series.map(r => {const isTotal=String(r[0]).toUpperCase()==='TOTAL';const netCls=isNeg(r[5])?'neg':'pos';
-    return `<tr ${isTotal?'style="background:var(--panel2);font-weight:700"':'style="cursor:pointer;transition:.15s" onclick="showSeriesDetail(\''+r[0]+'\')"'} ><td>${r[0]}</td><td class="num">${num(r[1])}</td><td class="num">${num(r[2])}</td><td class="num">${r[3]}</td><td class="num">${r[4]}</td><td class="num ${netCls}">${r[5]}</td></tr>`;}).join('');
+    return `<tr class="seriesRow${isTotal?' seriesTotal':''}" data-series="${String(r[0]).toLowerCase()}" ${isTotal?'style="background:var(--panel2);font-weight:700"':'style="cursor:pointer;transition:.15s" onclick="showSeriesDetail(\''+r[0]+'\')"'} ><td style="text-align:left">${r[0]}</td><td class="num">${num(r[1])}</td><td class="num">${num(r[2])}</td><td class="num">${r[3]}</td><td class="num">${r[4]}</td><td class="num ${netCls}">${r[5]}</td></tr>`;}).join('');
 
   document.getElementById('allExpensesStatus').innerHTML = `<span style="color:var(--green)">✓ Updated ${new Date().toLocaleTimeString('en-IN')}</span>`;
 }
@@ -4110,6 +4112,16 @@ async function showExpenseDetailWithVehicles(category, amount){
   }
 
   showAllExpenseModal(category + ' - Vehicle Details', html);
+}
+
+// 🔧 Series-wise table search filter (TOTAL row hamesha dikhe)
+function filterSeriesTable(){
+  const q = (document.getElementById('seriesSearch')?.value || '').toLowerCase().trim();
+  document.querySelectorAll('#allExpensesTable tr.seriesRow').forEach(row => {
+    if(row.classList.contains('seriesTotal')){ row.style.display = ''; return; }
+    const s = row.getAttribute('data-series') || '';
+    row.style.display = s.includes(q) ? '' : 'none';
+  });
 }
 
 // 🔧 Filter vehicles by search text
