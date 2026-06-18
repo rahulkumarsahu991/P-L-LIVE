@@ -2777,7 +2777,10 @@ function addOtherExpense(){
   const now = new Date();
   const date = now.toLocaleDateString('en-IN');
   const time = now.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
-  const id = 'oe_' + now.getTime() + '_' + Math.random().toString(36).slice(2,7);
+  // 🔧 Readable date-based id: "OE 2026-06-18 05:16:34" (seconds = unique)
+  const pad = n => String(n).padStart(2,'0');
+  const id = `OE ${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} `
+    + `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
   const exp = {id, amount:val, remark:remarkStr, date, time};
 
   window.OTHER_EXPENSES.push(exp);
