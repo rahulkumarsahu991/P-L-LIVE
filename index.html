@@ -412,6 +412,32 @@ th.sortable .sort-arrow{display:inline-block;margin-left:4px;color:var(--accent)
 .ae-spinner{width:52px;height:52px;border-radius:50%;border:4px solid rgba(155,89,255,.25);border-top-color:#9b59ff;animation:aeSpin .8s linear infinite}
 @keyframes aeSpin{to{transform:rotate(360deg)}}
 .ae-wheel-spin{animation:aeSpin .9s linear infinite}
+
+/* ===== BADI SCREENS — Full HD TV / bade monitor (rem-based UI proportionally bada) ===== */
+@media (min-width:1600px){
+  html{font-size:17.5px}
+  .content{padding:36px}
+  .sidebar{width:268px}
+  .topbar{height:70px;padding:0 36px}
+  .kpi-row{grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px}
+  .insights-grid{grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+}
+@media (min-width:1920px){
+  html{font-size:19px}
+  .content{padding:46px;max-width:2200px;margin:0 auto;width:100%}
+  .sidebar{width:300px}
+  .topbar{height:76px;padding:0 46px}
+  .kpi-row{grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:24px}
+  .card{border-radius:16px;padding:24px}
+}
+@media (min-width:2560px){
+  html{font-size:23px}
+  .content{padding:64px;max-width:2700px}
+  .sidebar{width:350px}
+  .topbar{height:88px;padding:0 64px}
+  .kpi-row{grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:30px}
+  .card{border-radius:20px;padding:30px}
+}
 </style>
 </head>
 <body>
