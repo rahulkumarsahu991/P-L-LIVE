@@ -519,6 +519,9 @@ th.sortable .sort-arrow{display:inline-block;margin-left:4px;color:var(--accent)
     <div class="nav-item" data-sec="allexpenses">
       <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20M6 6h12v12H6z"/></svg>
       All Expenses</div>
+    <div class="nav-item" data-sec="estbilling">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 14l3-3 3 2 4-5"/><path d="M17 8h.01"/></svg>
+      Estimated Billing</div>
     <div class="sidebar-foot">
       Data source: P&amp;L Sheet<br>
       <span id="rowCount">0</span> vehicles loaded
@@ -1523,14 +1526,27 @@ const SECTIONS = {
       <div id="duStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;padding:16px">
         <div style="text-align:center;color:var(--muted);grid-column:1/-1;padding:14px">Loading…</div>
       </div>
-    </div>
+    </div>`;
+  },
 
-    <!-- 🔧 Estimated Billing (Dispatch W/Y cols) — jahan unloading wt / rate nahi hai wahan same-route se estimate -->
-    <div class="card" style="margin-top:16px">
-      <h3>Estimated Billing — Dispatch <span id="ebRangeLbl" style="font-weight:500;font-size:.75rem;color:var(--muted)"></span></h3>
-      <div id="ebStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;padding:14px 14px 0"></div>
-      <div style="padding:12px 14px"><input type="text" id="ebSearch" placeholder="Search vehicle / route…" style="width:100%;max-width:320px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--text);font-size:.85rem" onkeyup="filterEbTable()"></div>
-      <div class="table-wrap" style="max-height:60vh;overflow-y:auto"><table>
+  estbilling(){
+    const r = ALL_EXPENSES_DATE_RANGE;
+    return `
+    <div class="section-intro">Dispatch sheet se billing — jahan Unloading Wt / Rate bhara hai wahan actual, jahan nahi hai wahan same-route ke pichle trip se estimated. Actual value aate hi apne aap update ho jata hai.</div>
+    <!-- dedicated date filter (purple) -->
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px;padding:14px 18px;background:linear-gradient(135deg,rgba(155,89,255,.10),rgba(155,89,255,.03));border:1px solid #9b59ff;border-radius:12px">
+      <span style="font-weight:700;font-size:.8rem;color:#b98aff;letter-spacing:.06em;text-transform:uppercase">📅 Date Filter</span>
+      <input type="date" id="aeFrom2" value="${r?r.start:''}" style="background:var(--panel2);border:1px solid #9b59ff66;border-radius:8px;padding:6px 10px;color:var(--text);font-family:inherit;font-size:.8rem">
+      <span style="color:var(--muted)">→</span>
+      <input type="date" id="aeTo2" value="${r?r.end:''}" style="background:var(--panel2);border:1px solid #9b59ff66;border-radius:8px;padding:6px 10px;color:var(--text);font-family:inherit;font-size:.8rem">
+      <button onclick="applyEbFilter()" style="background:#9b59ff;color:#fff;border:none;border-radius:8px;padding:7px 16px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer">Apply</button>
+      <button onclick="clearEbFilter()" style="background:transparent;color:#b98aff;border:1px solid #9b59ff66;border-radius:8px;padding:7px 14px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer">Clear</button>
+    </div>
+    <div id="ebStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:20px"></div>
+    <div class="card">
+      <h3>Trip-wise Billing <span id="ebRangeLbl" style="font-weight:500;font-size:.75rem;color:var(--muted)"></span></h3>
+      <div style="padding:12px 0"><input type="text" id="ebSearch" placeholder="Search vehicle / route…" style="width:100%;max-width:320px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--text);font-size:.85rem" onkeyup="filterEbTable()"></div>
+      <div class="table-wrap" style="max-height:64vh;overflow-y:auto"><table>
         <thead><tr><th style="text-align:left">Vehicle</th><th style="text-align:left">Route</th><th class="num">Date</th><th class="num">Unload Wt (MT)</th><th class="num">Rate/T</th><th class="num">Billing</th><th style="text-align:left">Status</th></tr></thead>
         <tbody id="ebTable"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px">Loading dispatch…</td></tr></tbody>
       </table></div>
@@ -3428,7 +3444,8 @@ const TITLES={overview:['Overview','Fleet performance summary'],
   series:['Series Analysis','Performance grouped by series'],
   watchlist:['Watchlist','Vehicles jin par turant action chahiye'],
   analytics:['Analytics','Saare graphs ek jagah — visual analysis'],
-  allexpenses:['All Expenses','Complete expense data — live from Google Sheet']};
+  allexpenses:['All Expenses','Complete expense data — live from Google Sheet'],
+  estbilling:['Estimated Billing','Dispatch se actual + estimated billing']};
 /* Expense category slice click -> Expenses page us category par filter */
 function showExpenseCategory(label){
   const map={'Driver':'Driver A/C'};
@@ -3707,6 +3724,21 @@ function loadEstimatedBilling(){
   });
 }
 
+// 🔧 Estimated Billing ka apna date filter (ALL_EXPENSES_DATE_RANGE hi use karta hai)
+function applyEbFilter(){
+  const s=document.getElementById('aeFrom2')?.value, e=document.getElementById('aeTo2')?.value;
+  if(!s||!e){ alert('Dono dates daalo'); return; }
+  if(s>e){ alert('From date To se pehle ho'); return; }
+  ALL_EXPENSES_DATE_RANGE={start:s,end:e};
+  loadEstimatedBilling();
+}
+function clearEbFilter(){
+  ALL_EXPENSES_DATE_RANGE=null;
+  const f=document.getElementById('aeFrom2'), t=document.getElementById('aeTo2');
+  if(f)f.value=''; if(t)t.value='';
+  loadEstimatedBilling();
+}
+
 // 🔧 Estimated Billing table search
 function filterEbTable(){
   const q = (document.getElementById('ebSearch')?.value||'').toLowerCase().trim();
@@ -3787,7 +3819,6 @@ async function loadAllExpensesDashboard(){
       allExpenseData.actualExpenseTotals = null;   // breakdown CSV ke expense_breakdown se aayega
       renderAllExpenses();
       loadDieselUreaStats();   // 🔧 Diesel/Urea amount+qty section
-      loadEstimatedBilling();  // 🔧 Estimated billing (dispatch)
     } else {
       // ===== 2b) FILTER active: KPIs + breakdown DONO Apps Script (master P&L) se =====
       // master P&L hi sheet ka source hai → diesel/urea/sab exactly sheet ke according
@@ -3812,7 +3843,6 @@ async function loadAllExpensesDashboard(){
       }
       renderAllExpenses();
       loadDieselUreaStats();   // 🔧 Diesel/Urea amount+qty (date-filtered)
-      loadEstimatedBilling();  // 🔧 Estimated billing (date-filtered)
     }
   }catch(e){
     console.error('Error:', e);
@@ -4447,6 +4477,9 @@ function renderCurrent(){
   if(CURRENT==='expenses'){ updateOtherExpenseDisplay(); loadOtherExpenses(); }  /* 🔧 section khulte hi server se fresh sync */
   if(CURRENT==='allexpenses'){
     loadAllExpensesDashboard();
+  }
+  if(CURRENT==='estbilling'){
+    loadEstimatedBilling();   // 🔧 Estimated Billing tab
   }
   if(CURRENT==='overview'){
     buildInsights();   /* turant, bina delay */
