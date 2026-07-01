@@ -1545,7 +1545,14 @@ const SECTIONS = {
     <div id="ebStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:20px"></div>
     <div class="card">
       <h3>Trip-wise Billing <span id="ebRangeLbl" style="font-weight:500;font-size:.75rem;color:var(--muted)"></span></h3>
-      <div style="padding:12px 0"><input type="text" id="ebSearch" placeholder="Search vehicle / route…" style="width:100%;max-width:320px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--text);font-size:.85rem" onkeyup="filterEbTable()"></div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;padding:12px 0">
+        <input type="text" id="ebSearch" placeholder="Search vehicle / route…" style="flex:1;min-width:200px;max-width:320px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--text);font-size:.85rem" onkeyup="renderEbView()">
+        <select id="ebStatus" onchange="renderEbView()" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--text);font-size:.85rem;cursor:pointer">
+          <option value="all">All (Actual + EST)</option>
+          <option value="actual">Actual only</option>
+          <option value="est">Estimated only</option>
+        </select>
+      </div>
       <div class="table-wrap" style="max-height:64vh;overflow-y:auto"><table>
         <thead><tr><th style="text-align:left">Vehicle</th><th style="text-align:left">Route</th><th class="num">Date</th><th class="num">Unload Wt (MT)</th><th class="num">Rate/T</th><th class="num">Billing</th><th style="text-align:left">Status</th></tr></thead>
         <tbody id="ebTable"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px">Loading dispatch…</td></tr></tbody>
@@ -3679,9 +3686,8 @@ function loadEstimatedBilling(){
     const routeWt={}, routeRate={};
     sorted.forEach(t=>{ const k=routeKey(t); const w=nz(t.unloadWeight), r=nz(t.ratePerTonne); if(w>0) routeWt[k]=w; if(r>0) routeRate[k]=r; });
 
-    // 2) Har trip ke liye billing (actual ya estimated)
-    let tActual=0, tEst=0, nEst=0, nTot=0;
-    const list = rows.filter(t=>inRange(t.start)).map(t=>{
+    // 2) Har trip ke liye billing (actual ya estimated) — poori list store karo
+    window.EB_LIST = rows.filter(t=>inRange(t.start)).map(t=>{
       const k=routeKey(t);
       const aw=nz(t.unloadWeight), ar=nz(t.ratePerTonne), af=nz(t.freight);
       const hasW = aw>0, hasR = ar>0;
@@ -3689,39 +3695,57 @@ function loadEstimatedBilling(){
       const rate = hasR ? ar : (routeRate[k]||0);
       const isActual = hasW && hasR;
       const billing = isActual ? (af>0?af:aw*ar) : (wt*rate);
-      if(isActual) tActual+=billing; else { tEst+=billing; nEst++; }
-      nTot++;
-      const dateStr = t.start || '—';
-      return {veh:t.vehicle||'—', route:(t.from||'?')+' → '+(t.to||'?'), date:dateStr,
+      return {veh:t.vehicle||'—', route:(t.from||'?')+' → '+(t.to||'?'), date:t.start||'—',
         wt, rate, billing, isActual, wtEst:!hasW, rateEst:!hasR};
     }).sort((a,b)=>b.billing-a.billing);
-
-    const crore = n => {const a=Math.abs(n);if(a>=1e7)return '₹'+(n/1e7).toFixed(2)+' Cr';if(a>=1e5)return '₹'+(n/1e5).toFixed(2)+' L';return '₹'+Math.round(n).toLocaleString('en-IN');};
-    if(statsBox){
-      const cards=[
-        {lbl:'Total Billing (est+actual)', val:crore(tActual+tEst), col:'#5b9dff'},
-        {lbl:'Actual Billing', val:crore(tActual), col:'#3fcf8e'},
-        {lbl:'Estimated Billing', val:crore(tEst), col:'#f5b945'},
-        {lbl:'Estimated Trips', val:nEst+' / '+nTot, col:'#ff9800'}
-      ];
-      statsBox.innerHTML = cards.map(c=>`<div style="padding:16px;background:var(--panel);border:1px solid var(--line);border-left:4px solid ${c.col};border-radius:10px">
-        <div style="font-size:.72rem;color:var(--muted);margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">${c.lbl}</div>
-        <div style="font-size:1.4rem;font-weight:800">${c.val}</div></div>`).join('');
-    }
-
-    const inr = n => '₹'+Math.round(n).toLocaleString('en-IN');
-    const estBadge = `<span style="background:rgba(245,185,69,.18);color:#f5b945;border-radius:4px;padding:1px 6px;font-size:.68rem;font-weight:700">EST</span>`;
-    const actBadge = `<span style="background:rgba(63,207,142,.15);color:#3fcf8e;border-radius:4px;padding:1px 6px;font-size:.68rem;font-weight:700">Actual</span>`;
-    tbody.innerHTML = list.length ? list.map(r=>`<tr class="ebRow" data-k="${(r.veh+' '+r.route).toLowerCase()}">
-        <td style="text-align:left;font-weight:600">${r.veh}</td>
-        <td style="text-align:left;font-size:.82rem;color:var(--muted)">${r.route}</td>
-        <td class="num" style="font-size:.82rem">${r.date}</td>
-        <td class="num">${r.wt?r.wt.toFixed(2):'—'}${r.wtEst&&r.wt?' <span style="color:#f5b945;font-size:.7rem">~</span>':''}</td>
-        <td class="num">${r.rate?inr(r.rate):'—'}${r.rateEst&&r.rate?' <span style="color:#f5b945;font-size:.7rem">~</span>':''}</td>
-        <td class="num" style="font-weight:700">${r.billing?inr(r.billing):'—'}</td>
-        <td style="text-align:left">${r.isActual?actBadge:estBadge}</td>
-      </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px">Is range me koi trip nahi</td></tr>';
+    renderEbView();
   });
+}
+
+/* 🔧 Status dropdown + search apply karke stats cards + table dono render */
+function renderEbView(){
+  const tbody = document.getElementById('ebTable');
+  const statsBox = document.getElementById('ebStats');
+  if(!tbody) return;
+  const all = window.EB_LIST || [];
+  const status = (document.getElementById('ebStatus')?.value)||'all';
+  const q = (document.getElementById('ebSearch')?.value||'').toLowerCase().trim();
+
+  const list = all.filter(r=>{
+    if(status==='actual' && !r.isActual) return false;
+    if(status==='est' && r.isActual) return false;
+    if(q && !(r.veh+' '+r.route).toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  // stats — visible list se
+  let tActual=0, tEst=0, nEst=0;
+  list.forEach(r=>{ if(r.isActual) tActual+=r.billing; else { tEst+=r.billing; nEst++; } });
+  const crore = n => {const a=Math.abs(n);if(a>=1e7)return '₹'+(n/1e7).toFixed(2)+' Cr';if(a>=1e5)return '₹'+(n/1e5).toFixed(2)+' L';return '₹'+Math.round(n).toLocaleString('en-IN');};
+  if(statsBox){
+    const cards=[
+      {lbl:'Total Billing (est+actual)', val:crore(tActual+tEst), col:'#5b9dff'},
+      {lbl:'Actual Billing', val:crore(tActual), col:'#3fcf8e'},
+      {lbl:'Estimated Billing', val:crore(tEst), col:'#f5b945'},
+      {lbl:'Trips', val:nEst+' EST / '+list.length, col:'#ff9800'}
+    ];
+    statsBox.innerHTML = cards.map(c=>`<div style="padding:16px;background:var(--panel);border:1px solid var(--line);border-left:4px solid ${c.col};border-radius:10px">
+      <div style="font-size:.72rem;color:var(--muted);margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">${c.lbl}</div>
+      <div style="font-size:1.4rem;font-weight:800">${c.val}</div></div>`).join('');
+  }
+
+  const inr = n => '₹'+Math.round(n).toLocaleString('en-IN');
+  const estBadge = `<span style="background:rgba(245,185,69,.18);color:#f5b945;border-radius:4px;padding:1px 6px;font-size:.68rem;font-weight:700">EST</span>`;
+  const actBadge = `<span style="background:rgba(63,207,142,.15);color:#3fcf8e;border-radius:4px;padding:1px 6px;font-size:.68rem;font-weight:700">Actual</span>`;
+  tbody.innerHTML = list.length ? list.map(r=>`<tr>
+      <td style="text-align:left;font-weight:600">${r.veh}</td>
+      <td style="text-align:left;font-size:.82rem;color:var(--muted)">${r.route}</td>
+      <td class="num" style="font-size:.82rem">${r.date}</td>
+      <td class="num">${r.wt?r.wt.toFixed(2):'—'}${r.wtEst&&r.wt?' <span style="color:#f5b945;font-size:.7rem">~</span>':''}</td>
+      <td class="num">${r.rate?inr(r.rate):'—'}${r.rateEst&&r.rate?' <span style="color:#f5b945;font-size:.7rem">~</span>':''}</td>
+      <td class="num" style="font-weight:700">${r.billing?inr(r.billing):'—'}</td>
+      <td style="text-align:left">${r.isActual?actBadge:estBadge}</td>
+    </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px">Koi trip nahi</td></tr>';
 }
 
 // 🔧 Estimated Billing ka apna date filter (ALL_EXPENSES_DATE_RANGE hi use karta hai)
@@ -3737,15 +3761,6 @@ function clearEbFilter(){
   const f=document.getElementById('aeFrom2'), t=document.getElementById('aeTo2');
   if(f)f.value=''; if(t)t.value='';
   loadEstimatedBilling();
-}
-
-// 🔧 Estimated Billing table search
-function filterEbTable(){
-  const q = (document.getElementById('ebSearch')?.value||'').toLowerCase().trim();
-  document.querySelectorAll('#ebTable tr.ebRow').forEach(row=>{
-    const k = row.getAttribute('data-k')||'';
-    row.style.display = (!q || k.includes(q)) ? '' : 'none';
-  });
 }
 
 async function loadDieselUreaStats(){
