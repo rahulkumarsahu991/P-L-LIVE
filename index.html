@@ -4606,6 +4606,16 @@ setInterval(()=>{
 setInterval(()=>{
   if(CURRENT==='expenses' && typeof loadOtherExpenses==='function') loadOtherExpenses();
 }, 30000);
+
+/* 🔧 Estimated Billing auto-update: estbilling tab khula ho to har 2 min me fresh dispatch
+   laao (dispatch sheet me update ~5 min me CSV me aata hai) */
+setInterval(()=>{
+  if(CURRENT==='estbilling' && !DISPATCH_LOADING){
+    DISPATCH_DATA = null;           // cache clear → fresh fetch
+    DISPATCH_RETRIES = 0;
+    loadEstimatedBilling();
+  }
+}, 120000);
 bootDashboard();
 </script>
 
