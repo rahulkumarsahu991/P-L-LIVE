@@ -3666,38 +3666,51 @@ let DU_STATS_RAW = null;  // parsed rows cache
 
 /* 🔧 Estimated Billing — dispatch W(unload wt)/Y(rate) se; missing ho to same-route ke
    pichle trip se estimate; actual value ho to actual dikhaye. */
+/* 🔧 Reusable: dispatch rows se estimated+actual billing list banao (range ke andar) */
+function computeEB(rows, range){
+  const nz = v => { const n = parseFloat(String(v==null?'':v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; };
+  const inRange = (s) => { if(!range) return true; const d=parseSheetDate(s); if(!d) return false;
+    const rs=parseSheetDate(range.start), re=parseSheetDate(range.end); if(!rs||!re) return true; re.setHours(23,59,59,999); return d>=rs && d<=re; };
+  const routeKey = t => (String(t.from||'').toUpperCase().trim()+'→'+String(t.to||'').toUpperCase().trim());
+  const sorted = rows.slice().sort((a,b)=>{ const da=parseSheetDate(a.start), db=parseSheetDate(b.start); return (da?da:0)-(db?db:0); });
+  const routeWt={}, routeRate={};
+  sorted.forEach(t=>{ const k=routeKey(t); const w=nz(t.unloadWeight), r=nz(t.ratePerTonne); if(w>0) routeWt[k]=w; if(r>0) routeRate[k]=r; });
+  return rows.filter(t=>inRange(t.start)).map(t=>{
+    const k=routeKey(t);
+    const aw=nz(t.unloadWeight), ar=nz(t.ratePerTonne), af=nz(t.freight);
+    const hasW = aw>0, hasR = ar>0;
+    const wt = hasW ? aw : (routeWt[k]||0);
+    const rate = hasR ? ar : (routeRate[k]||0);
+    const isActual = hasW && hasR;
+    const billing = isActual ? (af>0?af:aw*ar) : (wt*rate);
+    return {veh:t.vehicle||'—', route:(t.from||'?')+' → '+(t.to||'?'), date:t.start||'—',
+      wt, rate, billing, isActual, wtEst:!hasW, rateEst:!hasR};
+  }).sort((a,b)=>b.billing-a.billing);
+}
+
+/* 🔧 All Expenses ke "Total Billing" card me dispatch-based estimated billing total dikhao */
+function updateBillingFromEB(){
+  loadDispatch(function(rows){
+    if(!rows || !rows.length) return;
+    const list = computeEB(rows, ALL_EXPENSES_DATE_RANGE);
+    const total = list.reduce((s,r)=>s+r.billing, 0);
+    const crore = n => {const a=Math.abs(n),s=n<0?'-':'';if(a>=1e7)return s+'₹'+(a/1e7).toFixed(2)+' Cr';if(a>=1e5)return s+'₹'+(a/1e5).toFixed(2)+' L';return s+'₹'+Math.round(a).toLocaleString('en-IN');};
+    const el = document.querySelector('#allExpensesKPI [data-kpi="Total Billing"]');
+    if(el) el.textContent = crore(total);
+    const sub = document.querySelector('#allExpensesKPI [data-kpisub="Total Billing"]');
+    if(sub) sub.textContent = 'dispatch se (est+actual)';
+  });
+}
+
 function loadEstimatedBilling(){
   const tbody = document.getElementById('ebTable');
-  const statsBox = document.getElementById('ebStats');
   const lbl = document.getElementById('ebRangeLbl');
   if(!tbody) return;
   const range = ALL_EXPENSES_DATE_RANGE;
   if(lbl) lbl.textContent = range ? `· ${range.start} → ${range.end}` : '· full data';
-
   loadDispatch(function(rows){
     if(!rows || !rows.length){ tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px">Dispatch data nahi mila</td></tr>'; return; }
-    const nz = v => { const n = parseFloat(String(v==null?'':v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; };
-    const inRange = (s) => { if(!range) return true; const d=parseSheetDate(s); if(!d) return false;
-      const rs=parseSheetDate(range.start), re=parseSheetDate(range.end); if(!rs||!re) return true; re.setHours(23,59,59,999); return d>=rs && d<=re; };
-    const routeKey = t => (String(t.from||'').toUpperCase().trim()+'→'+String(t.to||'').toUpperCase().trim());
-
-    // 1) Har route ka "last known" unloading wt & rate (recent trip jiska data bhara hai)
-    const sorted = rows.slice().sort((a,b)=>{ const da=parseSheetDate(a.start), db=parseSheetDate(b.start); return (da?da:0)-(db?db:0); });
-    const routeWt={}, routeRate={};
-    sorted.forEach(t=>{ const k=routeKey(t); const w=nz(t.unloadWeight), r=nz(t.ratePerTonne); if(w>0) routeWt[k]=w; if(r>0) routeRate[k]=r; });
-
-    // 2) Har trip ke liye billing (actual ya estimated) — poori list store karo
-    window.EB_LIST = rows.filter(t=>inRange(t.start)).map(t=>{
-      const k=routeKey(t);
-      const aw=nz(t.unloadWeight), ar=nz(t.ratePerTonne), af=nz(t.freight);
-      const hasW = aw>0, hasR = ar>0;
-      const wt = hasW ? aw : (routeWt[k]||0);
-      const rate = hasR ? ar : (routeRate[k]||0);
-      const isActual = hasW && hasR;
-      const billing = isActual ? (af>0?af:aw*ar) : (wt*rate);
-      return {veh:t.vehicle||'—', route:(t.from||'?')+' → '+(t.to||'?'), date:t.start||'—',
-        wt, rate, billing, isActual, wtEst:!hasW, rateEst:!hasR};
-    }).sort((a,b)=>b.billing-a.billing);
+    window.EB_LIST = computeEB(rows, range);
     renderEbView();
   });
 }
@@ -3933,7 +3946,10 @@ function renderAllExpenses(){
     {lbl:'Loss-making Vehicles',val:num(d.lossmaking),cls:'neg',sub:`${Math.round(d.lossmaking*100/(d.profitable+d.lossmaking))}% of fleet`},
     {lbl:'Total EMI Burden',val:crore(d.kpis.emi),cls:'a',sub:`monthly obligations`}
   ];
-  document.getElementById('allExpensesKPI').innerHTML = kpis.map(k => `<div class="kpi-card ${k.cls==='neg'?'':k.cls==='pos'?'g':k.cls==='a'?'a':k.cls==='b'?'b':''}" style="padding:24px;background:var(--panel);border:1px solid var(--line);border-radius:14px"><div class="kpi-label" style="font-size:.78rem;margin-bottom:12px">${k.lbl}</div><div class="kpi-value ${k.cls}" style="font-size:1.8rem;margin-bottom:8px">${k.val}</div><div class="kpi-sub" style="font-size:.82rem">${k.sub}</div></div>`).join('');
+  document.getElementById('allExpensesKPI').innerHTML = kpis.map(k => `<div class="kpi-card ${k.cls==='neg'?'':k.cls==='pos'?'g':k.cls==='a'?'a':k.cls==='b'?'b':''}" style="padding:24px;background:var(--panel);border:1px solid var(--line);border-radius:14px"><div class="kpi-label" style="font-size:.78rem;margin-bottom:12px">${k.lbl}</div><div class="kpi-value ${k.cls}" data-kpi="${k.lbl}" style="font-size:1.8rem;margin-bottom:8px">${k.val}</div><div class="kpi-sub" style="font-size:.82rem" data-kpisub="${k.lbl}">${k.sub}</div></div>`).join('');
+
+  // 🔧 Total Billing card me Estimated Billing (dispatch) ka total dikhao
+  updateBillingFromEB();
 
   // Expense breakdown - SAME STYLE AS KPI CARDS (colored left border, clean minimal)
   // 🔧 Use actual calculated totals instead of sheet values
