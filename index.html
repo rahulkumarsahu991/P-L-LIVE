@@ -3688,17 +3688,52 @@ function computeEB(rows, range){
   }).sort((a,b)=>b.billing-a.billing);
 }
 
-/* 🔧 All Expenses ke "Total Billing" card me dispatch-based estimated billing total dikhao */
+/* 🔧 All Expenses cards ko dispatch-based billing ke according recompute karo:
+   Total Billing, Operating Profit, Net Earnings, Total Trips, Profitable/Loss vehicles */
 function updateBillingFromEB(){
   loadDispatch(function(rows){
-    if(!rows || !rows.length) return;
+    if(!rows || !rows.length || !allExpenseData) return;
     const list = computeEB(rows, ALL_EXPENSES_DATE_RANGE);
-    const total = list.reduce((s,r)=>s+r.billing, 0);
+    const newBilling = list.reduce((s,r)=>s+r.billing, 0);
+    const trips = list.length;
+
+    const K = allExpenseData.kpis || {};
+    const expense = K.expense || 0;
+    const deductions = (K.op_profit||0) - (K.net||0);   // EMI + Paper (billing se independent)
+    const newOp  = newBilling - expense;
+    const newNet = newOp - deductions;
+
+    // per-vehicle dispatch billing → profitable/loss recompute
+    const ebByVeh = {};
+    list.forEach(r=>{ const v=(r.veh||'').toUpperCase(); ebByVeh[v]=(ebByVeh[v]||0)+r.billing; });
+    let prof=0, loss=0, counted=0;
+    const src = (typeof ALL_DATA!=='undefined' && ALL_DATA.length) ? ALL_DATA : (DATA||[]);
+    src.forEach(veh=>{
+      const v=(veh.Vehicle||'').toUpperCase();
+      const fixedCost = (veh.Billing||0) - (veh.NetEarnings||0);   // = expense+emi+paper us vehicle ka
+      const vb = ebByVeh[v];
+      if(vb===undefined) return;               // dispatch me is vehicle ka trip nahi (is range me)
+      const vNet = vb - fixedCost;
+      if(vNet>0) prof++; else if(vNet<0) loss++;
+      counted++;
+    });
+
     const crore = n => {const a=Math.abs(n),s=n<0?'-':'';if(a>=1e7)return s+'₹'+(a/1e7).toFixed(2)+' Cr';if(a>=1e5)return s+'₹'+(a/1e5).toFixed(2)+' L';return s+'₹'+Math.round(a).toLocaleString('en-IN');};
-    const el = document.querySelector('#allExpensesKPI [data-kpi="Total Billing"]');
-    if(el) el.textContent = crore(total);
-    const sub = document.querySelector('#allExpensesKPI [data-kpisub="Total Billing"]');
-    if(sub) sub.textContent = 'dispatch se (est+actual)';
+    const num = n => Math.round(n).toLocaleString('en-IN');
+    const setK = (lbl, val, sub) => {
+      const el = document.querySelector(`#allExpensesKPI [data-kpi="${lbl}"]`);
+      if(el){ el.textContent = val;
+        el.classList.remove('neg','pos'); if(typeof val==='string' && val.startsWith('-')) el.classList.add('neg'); }
+      if(sub){ const s = document.querySelector(`#allExpensesKPI [data-kpisub="${lbl}"]`); if(s) s.textContent = sub; }
+    };
+    setK('Total Billing', crore(newBilling), 'dispatch se (est+actual)');
+    setK('Operating Profit', crore(newOp), 'billing minus expense');
+    setK('Net Earnings', crore(newNet), 'after EMI & paper');
+    setK('Total Trips', num(trips), 'dispatch trips');
+    if(counted>0){
+      setK('Profitable Vehicles', num(prof), `${Math.round(prof*100/counted)}% of ${counted}`);
+      setK('Loss-making Vehicles', num(loss), `${Math.round(loss*100/counted)}% of ${counted}`);
+    }
   });
 }
 
