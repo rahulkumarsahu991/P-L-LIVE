@@ -2595,17 +2595,10 @@ function loadDispatch(cb){
   fetch(DISPATCH_URL + '&t=' + Date.now(), {signal: controller.signal}).then(r=>r.text()).then(csv=>{
     clearTimeout(timeoutId);
     if(isBadCsv(csv)) throw new Error('Invalid/placeholder response');
-    const lines = csv.trim().split('\n');
-    const raw_headers = lines[0].split(',').map(h=>h.replace(/^"|"$/g,'').trim());
-    // Smart column mapping — case-insensitive partial match
-    function findCol(keywords){
-      return raw_headers.findIndex(h=>keywords.some(k=>h.toLowerCase().includes(k.toLowerCase())));
-    }
-    // Column indices from actual sheet (hardcoded for reliability):
-    // 0:S.NO, 1:Vehicle No., 2:Trip Number, 3:Driver, 4:DriverID, 5:Enter By,
-    // 6:Phone, 7:From Location, 8:To Location, 9:Item, 10:Trip Name,
-    // 11:Start KM, 12:End KM, 13:Total KM, 14:Trip Start Date, 15:Trip Start Time,
-    // 16:Trip End Date, 17:Trip End Time, 18:LR Number ...
+    // 🔧 Papa.parse — quoted fields ke andar ke newlines/commas ko sahi handle karta hai
+    // (manual split('\n') se rows toot jaati thi kyunki location/item me newline hote hain)
+    const parsed = Papa.parse(csv, {header:false, skipEmptyLines:true}).data;
+    const dataRows = parsed.slice(1);   // header hata do
     const iVeh  = 1;   // Vehicle No (B)
     const iTripNo = 2; // Trip Number (C)
     const iDriver = 3; // Driver (D)
@@ -2620,37 +2613,27 @@ function loadDispatch(cb){
     const iUnloadWeight = 22; // Unloading Weight MT (W)
     const iRatePerTonne = 24; // Rate Per Tonne (Y)
     const iFreight = 25; // Freight Amount (Z)
-    DISPATCH_DATA = lines.slice(1).map(line=>{
-      // CSV parse respecting quoted fields
-      const cols=[]; let cur='',inQ=false;
-      for(let i=0;i<line.length;i++){
-        if(line[i]==='"'){inQ=!inQ;}
-        else if(line[i]===','&&!inQ){cols.push(cur.trim());cur='';}
-        else cur+=line[i];
-      }
-      cols.push(cur.trim());
-      const startRaw = iSt>=0?(cols[iSt]||''):'';
-      const endRaw   = iEn>=0?(cols[iEn]||''):'';
-      const kmRaw    = iKm>=0?(cols[iKm]||''):'';
-      const km       = parseFloat(String(kmRaw).replace(/[^0-9.\-]/g,''))||0;
-      // Compute days
+    DISPATCH_DATA = dataRows.map(cols=>{
+      const g = i => (i>=0 && cols[i]!=null) ? String(cols[i]).trim() : '';
+      const endRaw   = g(iEn);
+      const km       = parseFloat(g(iKm).replace(/[^0-9.\-]/g,''))||0;
       let days = null;
       if(startRaw && endRaw){
         const d1=parseSheetDate(startRaw), d2=parseSheetDate(endRaw);
         if(d1&&d2&&!isNaN(d1)&&!isNaN(d2)) days=Math.max(1,Math.round((d2-d1)/(1000*60*60*24)));
       }
       return {
-        vehicle   : iVeh>=0?(cols[iVeh]||'').toUpperCase().trim() : '',
-        tripno    : iTripNo>=0?(cols[iTripNo]||'').trim() : '—',
-        driver    : iDriver>=0?(cols[iDriver]||'').trim() : '—',
-        item      : iItem>=0?(cols[iItem]||'').trim() : '—',
-        startkm   : iStartKm>=0?(cols[iStartKm]||'').trim() : '—',
-        endkm     : iEndKm>=0?(cols[iEndKm]||'').trim() : '—',
-        unloadWeight : iUnloadWeight>=0?(cols[iUnloadWeight]||'').trim() : '—',
-        ratePerTonne : iRatePerTonne>=0?(cols[iRatePerTonne]||'').trim() : '—',
-        freight   : iFreight>=0?(cols[iFreight]||'').trim() : '—',
-        from      : iFrom>=0?(cols[iFrom]||'').trim() : '—',
-        to        : iTo>=0?(cols[iTo]||'').trim() : '—',
+        vehicle   : g(iVeh).toUpperCase(),
+        tripno    : g(iTripNo)||'—',
+        driver    : g(iDriver)||'—',
+        item      : g(iItem)||'—',
+        startkm   : g(iStartKm)||'—',
+        endkm     : g(iEndKm)||'—',
+        unloadWeight : g(iUnloadWeight),
+        ratePerTonne : g(iRatePerTonne),
+        freight   : g(iFreight),
+        from      : g(iFrom)||'—',
+        to        : g(iTo)||'—',
         start     : startRaw,
         end       : endRaw,
         days      : days,
@@ -3678,12 +3661,19 @@ function computeEB(rows, range){
     const k=routeKey(t);
     const aw=nz(t.unloadWeight), ar=nz(t.ratePerTonne), af=nz(t.freight);
     const hasW = aw>0, hasR = ar>0;
-    const wt = hasW ? aw : (routeWt[k]||0);
-    const rate = hasR ? ar : (routeRate[k]||0);
-    const isActual = hasW && hasR;
-    const billing = isActual ? (af>0?af:aw*ar) : (wt*rate);
+    let billing, isActual, wt, rate, wtEst, rateEst;
+    if(af>0){
+      // 🔧 Freight (Z) bhara hai → ACTUAL billing (chahe W/Y ho ya na ho)
+      billing=af; isActual=true; wt=aw; rate=ar; wtEst=false; rateEst=false;
+    } else if(hasW && hasR){
+      billing=aw*ar; isActual=true; wt=aw; rate=ar; wtEst=false; rateEst=false;
+    } else {
+      // dono/koi bhara nahi → same-route se estimate
+      wt = hasW?aw:(routeWt[k]||0); rate = hasR?ar:(routeRate[k]||0);
+      billing = wt*rate; isActual=false; wtEst=!hasW; rateEst=!hasR;
+    }
     return {veh:t.vehicle||'—', route:(t.from||'?')+' → '+(t.to||'?'), date:t.start||'—',
-      wt, rate, billing, isActual, wtEst:!hasW, rateEst:!hasR};
+      wt, rate, billing, isActual, wtEst, rateEst};
   }).sort((a,b)=>b.billing-a.billing);
 }
 
