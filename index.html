@@ -3678,12 +3678,18 @@ function computeEB(rows, range){
     const k=routeKey(t);
     const aw=nz(t.unloadWeight), ar=nz(t.ratePerTonne), af=nz(t.freight);
     const hasW = aw>0, hasR = ar>0;
-    const wt = hasW ? aw : (routeWt[k]||0);
-    const rate = hasR ? ar : (routeRate[k]||0);
-    const isActual = hasW && hasR;
-    const billing = isActual ? (af>0?af:aw*ar) : (wt*rate);
+    let billing, isActual, wt, rate, wtEst, rateEst;
+    if(af>0){
+      // 🔧 Freight (Z) bhara hai → ACTUAL billing (chahe W/Y ho ya na ho)
+      billing=af; isActual=true; wt=aw; rate=ar; wtEst=false; rateEst=false;
+    } else if(hasW && hasR){
+      billing=aw*ar; isActual=true; wt=aw; rate=ar; wtEst=false; rateEst=false;
+    } else {
+      wt = hasW?aw:(routeWt[k]||0); rate = hasR?ar:(routeRate[k]||0);
+      billing = wt*rate; isActual=false; wtEst=!hasW; rateEst=!hasR;
+    }
     return {veh:t.vehicle||'—', route:(t.from||'?')+' → '+(t.to||'?'), date:t.start||'—',
-      wt, rate, billing, isActual, wtEst:!hasW, rateEst:!hasR};
+      wt, rate, billing, isActual, wtEst, rateEst};
   }).sort((a,b)=>b.billing-a.billing);
 }
 
