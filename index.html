@@ -4577,18 +4577,22 @@ function renderCurrent(){
       const sub=document.getElementById('benchKmSub');
       if(!val) return;
       const wanted = new Set(DATA.map(r=>(r.Vehicle||'').toUpperCase()));
-      // 🔧 Filter by date range if CURRENT_RANGE is set
-      let filtered = rows;
+      // 🔧 Filter by active date window: dashboard filter (CURRENT_RANGE) ya sheet ka
+      //    active period (SHEET_PERIOD — jo chip me dikh raha hai). Dono se lo/hi nikaalo.
+      let lo=null, hi=null;
       if(CURRENT_RANGE){
+        const rs=parseSheetDate(CURRENT_RANGE.start), re=parseSheetDate(CURRENT_RANGE.end);
+        if(rs&&re){ re.setHours(23,59,59,999); lo=rs.getTime(); hi=re.getTime(); }
+      } else if(window.SHEET_PERIOD_START && window.SHEET_PERIOD_END){
+        const re=new Date(window.SHEET_PERIOD_END.getTime()); re.setHours(23,59,59,999);
+        lo=window.SHEET_PERIOD_START.getTime(); hi=re.getTime();
+      }
+      let filtered = rows;
+      if(lo!=null && hi!=null){
         filtered = rows.filter(t=>{
           if(!t.start) return false;
-          const tripDate = parseSheetDate(t.start);
-          if(!tripDate) return false;
-          const rangeStart = parseSheetDate(CURRENT_RANGE.start);
-          const rangeEnd = parseSheetDate(CURRENT_RANGE.end);
-          if(!rangeStart || !rangeEnd) return true;  // Invalid range, show all
-          rangeEnd.setHours(23,59,59,999);  // Include whole end day
-          return tripDate >= rangeStart && tripDate <= rangeEnd;
+          const d=parseSheetDate(t.start); if(!d) return false;
+          const x=d.getTime(); return x>=lo && x<=hi;
         });
       }
       const total = filtered.filter(t=>wanted.has((t.vehicle||'').toUpperCase()))
