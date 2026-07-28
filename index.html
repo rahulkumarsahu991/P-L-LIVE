@@ -992,9 +992,11 @@ function totals(){
   });
   /* Jab koi filter active nahi hai (poora fleet), to sheet ke apne authoritative
      totals use karo taaki dashboard ka headline sheet ke saath bilkul match kare.
-     Filter laga ho to computed (subset) totals hi sahi hain. */
+     Filter (series/status/date) laga ho to computed (subset) totals hi sahi hain —
+     taaki benchmarks + top cards dono filtered data ke according consistent rahein. */
   const noFilter = (typeof SERIES_FILTER==='undefined' || SERIES_FILTER==='all')
-                && (typeof STATUS_FILTER==='undefined' || STATUS_FILTER==='all');
+                && (typeof STATUS_FILTER==='undefined' || STATUS_FILTER==='all')
+                && !CURRENT_RANGE;
   if(noFilter && SHEET_TOTALS){
     if(SHEET_TOTALS.billing!==undefined) t.billing = SHEET_TOTALS.billing;
     if(SHEET_TOTALS.expense!==undefined) t.expense = SHEET_TOTALS.expense;
