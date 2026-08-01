@@ -3751,12 +3751,12 @@ function loadEstimatedBilling(){
   const range = ALL_EXPENSES_DATE_RANGE;
   if(lbl) lbl.textContent = range ? `· ${range.start} → ${range.end}` : '· full data';
 
-  // 🔧 Actual Billing = Overview ka Total Billing (P&L) — isi range ke liye laao
+  // 🔧 Actual Billing = P&L billing isi section ke filter (range) ke according.
+  //    Filter laga ho to Apps Script se P&L billing (Overview se exact match).
+  //    Filter na ho (full data) to null → dispatch freight actual fallback (poora data).
   window.EB_PL_BILLING = null;
   if(range && APPS_SCRIPT_URL){
     fetchAEKpis(range).then(k=>{ window.EB_PL_BILLING = k ? k.billing : null; renderEbView(); }).catch(()=>{});
-  } else if(SHEET_TOTALS && SHEET_TOTALS.billing!==undefined){
-    window.EB_PL_BILLING = SHEET_TOTALS.billing;   // full data → sheet ka authoritative billing
   }
 
   loadDispatch(function(rows){
