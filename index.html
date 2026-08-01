@@ -3750,6 +3750,15 @@ function loadEstimatedBilling(){
   if(!tbody) return;
   const range = ALL_EXPENSES_DATE_RANGE;
   if(lbl) lbl.textContent = range ? `· ${range.start} → ${range.end}` : '· full data';
+
+  // 🔧 Actual Billing = Overview ka Total Billing (P&L) — isi range ke liye laao
+  window.EB_PL_BILLING = null;
+  if(range && APPS_SCRIPT_URL){
+    fetchAEKpis(range).then(k=>{ window.EB_PL_BILLING = k ? k.billing : null; renderEbView(); }).catch(()=>{});
+  } else if(SHEET_TOTALS && SHEET_TOTALS.billing!==undefined){
+    window.EB_PL_BILLING = SHEET_TOTALS.billing;   // full data → sheet ka authoritative billing
+  }
+
   loadDispatch(function(rows){
     if(!rows || !rows.length){ tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px">Dispatch data nahi mila</td></tr>'; return; }
     window.EB_LIST = computeEB(rows, range);
@@ -3774,14 +3783,20 @@ function renderEbView(){
   });
 
   // stats — visible list se
-  let tActual=0, tEst=0, nEst=0;
-  list.forEach(r=>{ if(r.isActual) tActual+=r.billing; else { tEst+=r.billing; nEst++; } });
+  let tActualDisp=0, tEst=0, nEst=0;
+  list.forEach(r=>{ if(r.isActual) tActualDisp+=r.billing; else { tEst+=r.billing; nEst++; } });
+  // 🔧 Actual Billing = Overview Total Billing (P&L). Full range dikhe (search se na ghate);
+  //    P&L na mile to dispatch actual fallback.
+  const noSearch = !q;
+  const plBilling = (window.EB_PL_BILLING!=null && noSearch) ? window.EB_PL_BILLING : tActualDisp;
+  const actualPart = (status==='est') ? 0 : plBilling;
+  const estPart    = (status==='actual') ? 0 : tEst;
   const crore = n => {const a=Math.abs(n);if(a>=1e7)return '₹'+(n/1e7).toFixed(2)+' Cr';if(a>=1e5)return '₹'+(n/1e5).toFixed(2)+' L';return '₹'+Math.round(n).toLocaleString('en-IN');};
   if(statsBox){
     const cards=[
-      {lbl:'Total Billing (est+actual)', val:crore(tActual+tEst), col:'#5b9dff'},
-      {lbl:'Actual Billing', val:crore(tActual), col:'#3fcf8e'},
-      {lbl:'Estimated Billing', val:crore(tEst), col:'#f5b945'},
+      {lbl:'Total Billing (est+actual)', val:crore(actualPart+estPart), col:'#5b9dff'},
+      {lbl:'Actual Billing', val:crore(actualPart), col:'#3fcf8e'},
+      {lbl:'Estimated Billing', val:crore(estPart), col:'#f5b945'},
       {lbl:'Trips', val:nEst+' EST / '+list.length, col:'#ff9800'}
     ];
     statsBox.innerHTML = cards.map(c=>`<div style="padding:16px;background:var(--panel);border:1px solid var(--line);border-left:4px solid ${c.col};border-radius:10px">
