@@ -3908,22 +3908,11 @@ function loadEstimatedBilling(){
 
   if(lbl) lbl.textContent = `· ${range.start} → ${range.end}`;
 
-  // 🔧 Actual Billing = P&L billing (Overview se exact match), isi section ke filter ka.
-  //    Ek hi baar fetch (range badalne par) — auto-refresh par dobara nahi (warna
-  //    Apps Script sheet dates badalne se value har minute fluctuate karti thi).
-  const rangeKey = range ? (range.start+'_'+range.end) : 'full';
-  if(range && APPS_SCRIPT_URL && window.EB_PL_KEY !== rangeKey){
-    window.EB_PL_KEY = rangeKey;
-    window.EB_PL_BILLING = null;
-    window.EB_PL_LOADING = true;   // 🔧 P&L aa raha hai — cards pe "Calculating…" dikhega
-    fetchAEKpis(range).then(k=>{
-      window.EB_PL_BILLING = k ? k.billing : null;
-      window.EB_PL_LOADING = false;
-      renderEbView();              // P&L aate hi accurate value
-    }).catch(()=>{ window.EB_PL_LOADING = false; renderEbView(); });
-  } else if(!range){
-    window.EB_PL_KEY = 'full'; window.EB_PL_BILLING = null; window.EB_PL_LOADING = false;
-  }
+  // 🔧 Actual Billing = dispatch freight (client-side, Google Sheet ko touch nahi karta).
+  //    Ab Overview ka billing bhi dispatch freight se hi banta hai → dono barabar.
+  //    Apps Script (fetchAEKpis) HATA diya — wahi sheet me filter apply karta tha.
+  window.EB_PL_BILLING = null;
+  window.EB_PL_LOADING = false;
 
   loadDispatch(function(rows){
     if(!rows || !rows.length){ tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px">Dispatch data nahi mila</td></tr>'; return; }
