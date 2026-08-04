@@ -2985,13 +2985,18 @@ function applyDateFilter(){
     alert('Pehle koi option chuno (Last N / Month / Custom)'); return;
   }
 
-  // 🔧 CLIENT-SIDE filter — Google Sheet ko touch nahi karta (browser me hi P&L recompute)
+  if(!APPS_SCRIPT_URL){
+    closeDateModal();
+    alert('Date filter chalane ke liye Apps Script Web App URL zaroori hai.');
+    return;
+  }
+  // 🔧 Apps Script se date-filtered P&L (sheet ke apne formula se — exact accurate)
   CURRENT_RANGE = {start, end};
   CLEARED_TO_FULL = false;
+  DISPATCH_DATA = null;
   closeDateModal();
   document.getElementById('liveStatus').textContent = 'Applying dates…';
-  const lw=document.getElementById('liveWheel'); if(lw) lw.style.display='inline-block';
-  applyClientSideDateFilter().catch(e=>{ console.warn('client filter fail', e); });
+  fetchLive(true).then(()=>{ if(CURRENT==='overview') buildInsights(); }).catch(()=>{});
 }
 
 /* 🔧 Client-side date filter apply: raw sheets se P&L recompute → DATA set → render */
@@ -3048,7 +3053,10 @@ function clearDateRange(){
   closeDateModal();
   document.getElementById('dataPeriod').textContent = '📅 Full data';
 
-  // 🔧 (Client-side: ab Apps Script/sheet ko touch nahi karte — sirf published full CSV padhte hain)
+  // ✅ Apps Script ko CLEAR bhejo — sheet ki dates hata kar full data par le aao
+  if(APPS_SCRIPT_URL){
+    fetch(APPS_SCRIPT_URL+'?start=&end=&t='+Date.now()).catch(()=>{});
+  }
 
   // 🔧 INSTANT: full-data snapshot cached ho to turant wahi dikhao (zero wait)
   if(FULL_DATA_SNAPSHOT && FULL_DATA_SNAPSHOT.length){
