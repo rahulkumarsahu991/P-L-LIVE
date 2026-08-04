@@ -656,6 +656,7 @@ const REFRESH_MS = 15000;  // 15 seconds - slower refresh (was 8000ms)
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwf2DqkF9g2YoDzv0cgwiBSWZB6w-wHTSrQmapkrrFdfCD777oJiKDfqOBkd---an8YsA/exec";   // <-- yahan paste karo: https://script.google.com/macros/s/XXXX/exec
 let CURRENT_RANGE = null;     // {start:'YYYY-MM-DD', end:'YYYY-MM-DD'} ya null (= full data)
 let ALL_EXPENSES_DATE_RANGE = null;  // 🔧 Separate filter for All Expenses section only
+let EST_BILLING_RANGE = null;        // 🔧 Estimated Billing section ka apna independent filter
 let CLEARED_TO_FULL = false;  // 🔧 Clear All dabaya gaya? (tab chip "Full data", warna sheet ka active period dikhe)
 /* 🔧 System health tracking — AI Insights ka "Problem" card isi se banta hai */
 window.SYS_ERRORS = [];
@@ -1531,7 +1532,7 @@ const SECTIONS = {
   },
 
   estbilling(){
-    const r = ALL_EXPENSES_DATE_RANGE;
+    const r = EST_BILLING_RANGE;
     return `
     <div class="section-intro">Dispatch sheet se billing — jahan Unloading Wt / Rate bhara hai wahan actual, jahan nahi hai wahan same-route ke pichle trip se estimated. Actual value aate hi apne aap update ho jata hai.</div>
     <!-- dedicated date filter (purple) -->
@@ -3749,7 +3750,7 @@ function loadEstimatedBilling(){
   const lbl = document.getElementById('ebRangeLbl');
   const statsBox = document.getElementById('ebStats');
   if(!tbody) return;
-  const range = ALL_EXPENSES_DATE_RANGE;
+  const range = EST_BILLING_RANGE;
 
   // 🔧 Koi date filter nahi → data mat dikhao, sirf message
   if(!range){
@@ -3841,16 +3842,16 @@ function renderEbView(){
     </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px">Koi trip nahi</td></tr>';
 }
 
-// 🔧 Estimated Billing ka apna date filter (ALL_EXPENSES_DATE_RANGE hi use karta hai)
+// 🔧 Estimated Billing ka apna INDEPENDENT date filter (sirf isi section ko affect karta hai)
 function applyEbFilter(){
   const s=document.getElementById('aeFrom2')?.value, e=document.getElementById('aeTo2')?.value;
   if(!s||!e){ alert('Dono dates daalo'); return; }
   if(s>e){ alert('From date To se pehle ho'); return; }
-  ALL_EXPENSES_DATE_RANGE={start:s,end:e};
+  EST_BILLING_RANGE={start:s,end:e};
   loadEstimatedBilling();
 }
 function clearEbFilter(){
-  ALL_EXPENSES_DATE_RANGE=null;
+  EST_BILLING_RANGE=null;
   const f=document.getElementById('aeFrom2'), t=document.getElementById('aeTo2');
   if(f)f.value=''; if(t)t.value='';
   loadEstimatedBilling();
