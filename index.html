@@ -902,13 +902,16 @@ async function fetchLive(force=false){
     } else {
       fetchUrl = SHEET_CSV_URL+'&t='+Date.now();
     }
-    /* Fetch with 8-second timeout (fail fast if slow) */
+    /* 🔧 Timeout: Apps Script (date filter) sheet recompute karta hai — slow hota hai,
+       isliye 35s. Published full-data CSV fast hai — 15s. */
+    const isAppsScript = CURRENT_RANGE && APPS_SCRIPT_URL;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), isAppsScript ? 35000 : 15000);
     const res = await fetch(fetchUrl, {signal: controller.signal});
     clearTimeout(timeoutId);
 
     const txt = await res.text();
+    if(isBadCsv(txt)) throw new Error('placeholder/loading');
     /* Fast parsing - skip empty lines for speed */
     const matrix = Papa.parse(txt,{header:false,skipEmptyLines:true}).data;
     if(!matrix.length) throw new Error('empty');
@@ -962,13 +965,27 @@ async function fetchLive(force=false){
       document.getElementById('liveStatus').textContent='No data rows';
       document.getElementById('lastUpd').textContent='header mila, data khali';
     }
+    window.FL_RETRIES = 0;   // success → retry counter reset
   }catch(e){
-    document.getElementById('liveStatus').textContent='Offline';
-    document.getElementById('lastUpd').textContent='fetch failed';
+    const aborted = (e && e.name==='AbortError');
     logSysError('Data fetch', e.message);
+    /* 🔧 Fail par auto-retry (3 baar tak, 2.5s baad) — user ko baar-baar refresh na karna pade */
+    if((window.FL_RETRIES||0) < 3){
+      window.FL_RETRIES = (window.FL_RETRIES||0)+1;
+      window.FL_RETRYING = true;
+      document.getElementById('liveStatus').textContent = aborted ? 'Slow… retrying' : 'Retrying…';
+      document.getElementById('lastUpd').textContent = 'sheet recompute ho rahi hai, ruko…';
+      setTimeout(()=>{ window.FL_RETRYING=false; fetchLive(true); }, 2500);
+    } else {
+      window.FL_RETRIES = 0;
+      document.getElementById('liveStatus').textContent = 'Offline';
+      document.getElementById('lastUpd').textContent = 'fetch failed — dobara Refresh dabao';
+    }
   }finally{
     FETCHING=false;
-    const lw2=document.getElementById('liveWheel'); if(lw2) lw2.style.display='none';  // 🔧 wheel hatao
+    if(!window.FL_RETRYING){
+      const lw2=document.getElementById('liveWheel'); if(lw2) lw2.style.display='none';
+    }
   }
 }
 
