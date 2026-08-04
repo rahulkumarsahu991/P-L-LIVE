@@ -3747,9 +3747,20 @@ function updateBillingFromEB(){
 function loadEstimatedBilling(){
   const tbody = document.getElementById('ebTable');
   const lbl = document.getElementById('ebRangeLbl');
+  const statsBox = document.getElementById('ebStats');
   if(!tbody) return;
   const range = ALL_EXPENSES_DATE_RANGE;
-  if(lbl) lbl.textContent = range ? `· ${range.start} → ${range.end}` : '· full data';
+
+  // 🔧 Koi date filter nahi → data mat dikhao, sirf message
+  if(!range){
+    if(lbl) lbl.textContent = '';
+    if(statsBox) statsBox.innerHTML = '';
+    window.EB_LIST = [];
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:40px;font-size:.95rem">📅 Please apply a date filter to see billing data</td></tr>`;
+    return;
+  }
+
+  if(lbl) lbl.textContent = `· ${range.start} → ${range.end}`;
 
   // 🔧 Actual Billing = P&L billing (Overview se exact match), isi section ke filter ka.
   //    Ek hi baar fetch (range badalne par) — auto-refresh par dobara nahi (warna
