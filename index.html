@@ -3751,13 +3751,10 @@ function loadEstimatedBilling(){
   const range = ALL_EXPENSES_DATE_RANGE;
   if(lbl) lbl.textContent = range ? `· ${range.start} → ${range.end}` : '· full data';
 
-  // 🔧 Actual Billing = P&L billing isi section ke filter (range) ke according.
-  //    Filter laga ho to Apps Script se P&L billing (Overview se exact match).
-  //    Filter na ho (full data) to null → dispatch freight actual fallback (poora data).
+  // 🔧 Actual Billing = dispatch freight (STABLE + section ke filter ke according).
+  //    Apps Script P&L fetch nahi (wo sheet ki dates badalta hai → value har minute
+  //    fluctuate karti thi). Dispatch CSV stable hai, ~Overview ke barabar.
   window.EB_PL_BILLING = null;
-  if(range && APPS_SCRIPT_URL){
-    fetchAEKpis(range).then(k=>{ window.EB_PL_BILLING = k ? k.billing : null; renderEbView(); }).catch(()=>{});
-  }
 
   loadDispatch(function(rows){
     if(!rows || !rows.length){ tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px">Dispatch data nahi mila</td></tr>'; return; }
