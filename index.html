@@ -2983,22 +2983,37 @@ function applyDateFilter(){
     alert('Pehle koi option chuno (Last N / Month / Custom)'); return;
   }
 
-  if(!APPS_SCRIPT_URL){
-    closeDateModal();
-    alert('Date filter chalane ke liye Apps Script Web App URL set karna zaroori hai.\n\nHTML me line dhoondo:\n  const APPS_SCRIPT_URL = "";\naur usme apna deploy kiya hua /exec URL paste karo. Tab ye filter live kaam karega.');
-    return;
-  }
-
-  // 🔧 Global filter (All Expenses has its own dedicated filter — see applyAllExpFilter)
+  // 🔧 CLIENT-SIDE filter — Google Sheet ko touch nahi karta (browser me hi P&L recompute)
   CURRENT_RANGE = {start, end};
-  CLEARED_TO_FULL = false;  // 🔧 filter laga → chip range dikhayega
-  DISPATCH_DATA = null;  // 🔧 Clear dispatch cache to re-fetch with new date range
-  closeDateModal();      // 🔧 Modal turant band — UI block na ho
-  document.getElementById('liveStatus').textContent='Applying dates...';
-  fetchLive(true).then(()=>{   // 🔧 force=true: auto-refresh chal raha ho to bhi skip nahi hoga
-    // 🔧 Force refresh Total KM after filter applied
-    if(CURRENT==='overview') buildInsights();
-  }).catch(()=>{});
+  CLEARED_TO_FULL = false;
+  closeDateModal();
+  document.getElementById('liveStatus').textContent = 'Applying dates…';
+  const lw=document.getElementById('liveWheel'); if(lw) lw.style.display='inline-block';
+  applyClientSideDateFilter().catch(e=>{ console.warn('client filter fail', e); });
+}
+
+/* 🔧 Client-side date filter apply: raw sheets se P&L recompute → DATA set → render */
+async function applyClientSideDateFilter(){
+  try{
+    const rows = await computeClientSidePL(CURRENT_RANGE);
+    if(rows && rows.length){
+      BYSERIES_CACHE = null;
+      ALL_DATA = rows;
+      applyGlobalFilter();
+      DATA_READY = true;
+      // chip pe range dikhao
+      const el = document.getElementById('dataPeriod');
+      if(el){ el.textContent='📅 '+CURRENT_RANGE.start+'  →  '+CURRENT_RANGE.end; el.style.borderColor='var(--green)'; }
+      window.DATA_PERIOD_START = parseSheetDate(CURRENT_RANGE.start);
+      window.DATA_PERIOD_END   = parseSheetDate(CURRENT_RANGE.end);
+      document.getElementById('liveStatus').textContent = 'Live';
+      document.getElementById('lastUpd').textContent = 'Updated '+new Date().toLocaleTimeString()+' · '+CURRENT_RANGE.start+' → '+CURRENT_RANGE.end;
+      renderCurrent();
+      if(CURRENT==='overview') buildInsights();
+    }
+  }finally{
+    const lw2=document.getElementById('liveWheel'); if(lw2) lw2.style.display='none';
+  }
 }
 
 /* Date range hatao + SAARI FILTERS RESET + WINDOW PERIOD CLEAR -> wapas pura data */
@@ -3031,11 +3046,7 @@ function clearDateRange(){
   closeDateModal();
   document.getElementById('dataPeriod').textContent = '📅 Full data';
 
-  // ✅ Send CLEAR command to Apps Script to remove date filters from sheet (background)
-  if(APPS_SCRIPT_URL){
-    fetch(APPS_SCRIPT_URL+'?start=&end=&t='+Date.now())
-      .catch(()=>{});  // Silent fail, will use published CSV
-  }
+  // 🔧 (Client-side: ab Apps Script/sheet ko touch nahi karte — sirf published full CSV padhte hain)
 
   // 🔧 INSTANT: full-data snapshot cached ho to turant wahi dikhao (zero wait)
   if(FULL_DATA_SNAPSHOT && FULL_DATA_SNAPSHOT.length){
@@ -3683,6 +3694,122 @@ const ALL_EXPENSE_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTFfJ5J
 // 🔧 Diesel & Urea Amount/Quantity sheet — cols: B(1)=date, D(3)=diesel qty, F(5)=diesel amt, J(9)=urea qty, L(11)=urea amt
 const DU_STATS_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTEGkh6DYzwBTrTWMjhER3MKxnChBo9pSYU1wnJrgXCGLworNsdplTb2BZ9ZD5loi4f7LFKOQGBg9Xx/pub?gid=1823283556&single=true&output=csv';
 let DU_STATS_RAW = null;  // parsed rows cache
+
+/* ============ CLIENT-SIDE P&L (Google Sheet ko touch kiye bina date filter) ============ */
+
+/* Ek expense sheet (cfg) se date-range me per-vehicle amount ka sum (full vehicle key) */
+async function sumExpenseByVehicle(cfg, lo, hi){
+  const sources = cfg.sources || [cfg];
+  const out = {};
+  for(const src of sources){
+    let matrix = EXP_CACHE[src.gid];
+    if(!matrix){
+      try{
+        const res = await fetch(EXP_PUB_PREFIX+src.gid+EXP_PUB_SUFFIX+'&t='+Date.now());
+        const txt = await res.text();
+        if(isBadCsv(txt)) continue;
+        matrix = Papa.parse(txt,{header:false,skipEmptyLines:false}).data;
+        if(matrix && matrix.length>=2) EXP_CACHE[src.gid] = matrix;
+      }catch(e){ continue; }
+    }
+    if(!matrix) continue;
+    for(let i=1;i<matrix.length;i++){
+      const row = matrix[i]; if(!row || !row.length) continue;
+      if(src.excludeCol>=0 && src.excludeVal && row[src.excludeCol]!=null
+        && String(row[src.excludeCol]).toLowerCase().includes(src.excludeVal)) continue;
+      const d = parseSheetDate(row[src.dateCol]); if(!d) continue;
+      const x = d.getTime(); if(x<lo || x>hi) continue;
+      let amt = num(row[src.amountCol]);
+      if(src.amountColAlt!==undefined){ const alt=num(row[src.amountColAlt]); amt=(amt>0&&alt>0)?Math.min(amt,alt):(amt||alt); }
+      if(src.skipZero && amt<=0) continue;
+      const v = String(row[src.vehCol]||'').toUpperCase().trim(); if(!v) continue;
+      out[v] = (out[v]||0) + Math.max(0, amt);
+    }
+  }
+  return out;
+}
+
+/* EMI monthMatrix se date-range me per-vehicle EMI (month overlap) */
+async function sumEmiByVehicle(cfg, lo, hi){
+  const out = {};
+  let matrix = EXP_CACHE[cfg.gid];
+  if(!matrix){
+    try{
+      const res = await fetch(EXP_PUB_PREFIX+cfg.gid+EXP_PUB_SUFFIX+'&t='+Date.now());
+      const txt = await res.text();
+      if(isBadCsv(txt)) return out;
+      matrix = Papa.parse(txt,{header:false,skipEmptyLines:false}).data;
+      if(matrix && matrix.length>=2) EXP_CACHE[cfg.gid] = matrix;
+    }catch(e){ return out; }
+  }
+  if(!matrix) return out;
+  const header = matrix[0]||[];
+  for(let i=1;i<matrix.length;i++){
+    const row = matrix[i]; if(!row) continue;
+    const cellRaw = String(row[cfg.vehCol]||'').toUpperCase().trim(); if(!cellRaw) continue;
+    const v = cellRaw.split(/\s+/)[0];   // "CG08AX6111 BODY" → CG08AX6111
+    for(let c=cfg.firstMonthCol;c<header.length;c++){
+      const md = parseMonthLabel(header[c]); if(!md) continue;
+      const amt = num(row[c]); if(amt<=0) continue;
+      // month [1st, last] range se overlap kare to count
+      const mStart = md.getTime();
+      const mEnd = new Date(md.getFullYear(), md.getMonth()+1, 0, 23,59,59,999).getTime();
+      if(mEnd < lo || mStart > hi) continue;
+      out[v] = (out[v]||0) + amt;
+    }
+  }
+  return out;
+}
+
+/* Poora client-side P&L: dispatch (billing) + expense sheets + EMI, date-range par per vehicle */
+async function computeClientSidePL(range){
+  const rs = parseSheetDate(range.start), re = parseSheetDate(range.end);
+  if(!rs || !re) return null;
+  re.setHours(23,59,59,999);
+  const lo = rs.getTime(), hi = re.getTime();
+
+  // 1) Billing + trips — dispatch (freight Z)
+  const bill = {}, trips = {};
+  await new Promise(resolve => loadDispatch(rows=>{
+    (rows||[]).forEach(t=>{
+      const d = parseSheetDate(t.start); if(!d) return;
+      const x = d.getTime(); if(x<lo || x>hi) return;
+      const v = (t.vehicle||'').toUpperCase().trim(); if(!v) return;
+      bill[v]  = (bill[v]||0) + (parseFloat(String(t.freight).replace(/[^0-9.\-]/g,''))||0);
+      trips[v] = (trips[v]||0) + 1;
+    });
+    resolve();
+  }));
+
+  // 2) Expenses per category (EXPENSE_SHEETS config ka vehCol = full vehicle)
+  const catMap = {Diesel:'Diesel', Urea:'Urea', Fastag:'Fastag', 'Driver A/C':'DriverAC',
+    Cash:'Cash', UPI:'UPI', Tyre:'Tyre', RTO:'RTO', Paper:'Paper'};
+  const expByVeh = {};
+  for(const [key,field] of Object.entries(catMap)){
+    const cfg = EXPENSE_SHEETS[key]; if(!cfg) continue;
+    const sums = await sumExpenseByVehicle(cfg, lo, hi);
+    for(const [v,amt] of Object.entries(sums)){ (expByVeh[v] = expByVeh[v]||{})[field] = amt; }
+  }
+  // 3) EMI
+  const emiByVeh = EXPENSE_SHEETS['EMI'] ? await sumEmiByVehicle(EXPENSE_SHEETS['EMI'], lo, hi) : {};
+
+  // 4) Master vehicle list (Series) se rows banao
+  const master = (typeof FULL_DATA_SNAPSHOT!=='undefined' && FULL_DATA_SNAPSHOT && FULL_DATA_SNAPSHOT.length)
+    ? FULL_DATA_SNAPSHOT : (ALL_DATA||[]);
+  return master.map(m=>{
+    const v = (m.Vehicle||'').toUpperCase().trim();
+    const e = expByVeh[v] || {};
+    const Diesel=e.Diesel||0, Urea=e.Urea||0, Fastag=e.Fastag||0, DriverAC=e.DriverAC||0,
+      Cash=e.Cash||0, UPI=e.UPI||0, Tyre=e.Tyre||0, RTO=e.RTO||0, Paper=e.Paper||0;
+    const Billing=bill[v]||0, Trips=trips[v]||0, EMI=emiByVeh[v]||0;
+    const TotalExpense = Diesel+Urea+Fastag+DriverAC+Cash+UPI+Tyre+RTO;   // Paper/EMI alag
+    const OperatingProfit = Billing - TotalExpense;
+    const NetEarnings = OperatingProfit - EMI - Paper;
+    return {Vehicle:m.Vehicle, Series:m.Series, Trips, Billing, DieselQty:0,
+      Diesel, Urea, Fastag, DriverAC, Cash, UPI, Tyre, RTO, Paper,
+      TotalExpense, OperatingProfit, EMI, NetEarnings, KPI:0};
+  });
+}
 
 /* 🔧 Estimated Billing — dispatch W(unload wt)/Y(rate) se; missing ho to same-route ke
    pichle trip se estimate; actual value ho to actual dikhaye. */
