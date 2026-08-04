@@ -2638,6 +2638,7 @@ function loadDispatch(cb){
     const iKm   = 13;  // Total KM (N)
     const iSt   = 14;  // Trip Start Date (O)
     const iEn   = 16;  // Trip End Date (Q)
+    const iLoadWeight = 21;   // Loading Weight MT (V)
     const iUnloadWeight = 22; // Unloading Weight MT (W)
     const iRatePerTonne = 24; // Rate Per Tonne (Y)
     const iFreight = 25; // Freight Amount (Z)
@@ -2667,6 +2668,7 @@ function loadDispatch(cb){
         item      : iItem>=0?(cols[iItem]||'').trim() : '—',
         startkm   : iStartKm>=0?(cols[iStartKm]||'').trim() : '—',
         endkm     : iEndKm>=0?(cols[iEndKm]||'').trim() : '—',
+        loadWeight   : iLoadWeight>=0?(cols[iLoadWeight]||'').trim() : '',
         unloadWeight : iUnloadWeight>=0?(cols[iUnloadWeight]||'').trim() : '—',
         ratePerTonne : iRatePerTonne>=0?(cols[iRatePerTonne]||'').trim() : '—',
         freight   : iFreight>=0?(cols[iFreight]||'').trim() : '—',
@@ -3819,23 +3821,30 @@ function computeEB(rows, range){
   const inRange = (s) => { if(!range) return true; const d=parseSheetDate(s); if(!d) return false;
     const rs=parseSheetDate(range.start), re=parseSheetDate(range.end); if(!rs||!re) return true; re.setHours(23,59,59,999); return d>=rs && d<=re; };
   const routeKey = t => (String(t.from||'').toUpperCase().trim()+'→'+String(t.to||'').toUpperCase().trim());
+  // route ka last known rate — jab trip me rate na ho to fallback
   const sorted = rows.slice().sort((a,b)=>{ const da=parseSheetDate(a.start), db=parseSheetDate(b.start); return (da?da:0)-(db?db:0); });
-  const routeWt={}, routeRate={};
-  sorted.forEach(t=>{ const k=routeKey(t); const w=nz(t.unloadWeight), r=nz(t.ratePerTonne); if(w>0) routeWt[k]=w; if(r>0) routeRate[k]=r; });
+  const routeRate={};
+  sorted.forEach(t=>{ const k=routeKey(t); const r=nz(t.ratePerTonne); if(r>0) routeRate[k]=r; });
   return rows.filter(t=>inRange(t.start)).map(t=>{
     const k=routeKey(t);
-    const aw=nz(t.unloadWeight), ar=nz(t.ratePerTonne), af=nz(t.freight);
-    const hasW = aw>0, hasR = ar>0;
-    let billing, isActual, wt, rate, wtEst, rateEst;
+    const aw=nz(t.unloadWeight), lw=nz(t.loadWeight), ar=nz(t.ratePerTonne), af=nz(t.freight);
+    const rate = ar>0 ? ar : (routeRate[k]||0);   // trip ka rate, warna route ka
+    let billing, isActual, wt, wtEst, rateEst;
+    /* 🔧 LOGIC:
+       1) Freight (Z) bhara → ACTUAL = freight
+       2) Unloading Wt (W) hai → ACTUAL = unloading × rate
+       3) Unloading nahi, Loading Wt (V) hai → ESTIMATED = loading × rate
+       4) kuch nahi → 0 */
     if(af>0){
-      // 🔧 Freight (Z) bhara hai → ACTUAL billing (chahe W/Y ho ya na ho)
-      billing=af; isActual=true; wt=aw; rate=ar; wtEst=false; rateEst=false;
-    } else if(hasW && hasR){
-      billing=aw*ar; isActual=true; wt=aw; rate=ar; wtEst=false; rateEst=false;
+      billing=af; isActual=true; wt=aw; wtEst=false;
+    } else if(aw>0){
+      billing=aw*rate; isActual=true; wt=aw; wtEst=false;   // unloading = actual
+    } else if(lw>0){
+      billing=lw*rate; isActual=false; wt=lw; wtEst=true;   // loading se estimate
     } else {
-      wt = hasW?aw:(routeWt[k]||0); rate = hasR?ar:(routeRate[k]||0);
-      billing = wt*rate; isActual=false; wtEst=!hasW; rateEst=!hasR;
+      billing=0; isActual=false; wt=0; wtEst=true;
     }
+    rateEst = !(ar>0);
     return {veh:t.vehicle||'—', route:(t.from||'?')+' → '+(t.to||'?'), date:t.start||'—',
       wt, rate, billing, isActual, wtEst, rateEst};
   }).sort((a,b)=>b.billing-a.billing);
