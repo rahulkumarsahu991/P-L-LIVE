@@ -3757,9 +3757,15 @@ function loadEstimatedBilling(){
   const rangeKey = range ? (range.start+'_'+range.end) : 'full';
   if(range && APPS_SCRIPT_URL && window.EB_PL_KEY !== rangeKey){
     window.EB_PL_KEY = rangeKey;
-    fetchAEKpis(range).then(k=>{ window.EB_PL_BILLING = k ? k.billing : null; renderEbView(); }).catch(()=>{});
+    window.EB_PL_BILLING = null;
+    window.EB_PL_LOADING = true;   // 🔧 P&L aa raha hai — cards pe "Calculating…" dikhega
+    fetchAEKpis(range).then(k=>{
+      window.EB_PL_BILLING = k ? k.billing : null;
+      window.EB_PL_LOADING = false;
+      renderEbView();              // P&L aate hi accurate value
+    }).catch(()=>{ window.EB_PL_LOADING = false; renderEbView(); });
   } else if(!range){
-    window.EB_PL_KEY = 'full'; window.EB_PL_BILLING = null;   // full data → dispatch actual
+    window.EB_PL_KEY = 'full'; window.EB_PL_BILLING = null; window.EB_PL_LOADING = false;
   }
 
   loadDispatch(function(rows){
@@ -3796,10 +3802,12 @@ function renderEbView(){
   const estPart    = (status==='actual') ? 0 : tEst;
   // 🔧 Overview jaisa full-number format (₹6,67,16,382) — Cr/L nahi
   const money = n => '₹'+Math.round(n).toLocaleString('en-IN');
+  const loadingPL = window.EB_PL_LOADING && status!=='est' && noSearch;   // Actual/Total abhi P&L ka wait
+  const calc = '<span style="color:var(--muted);font-size:.9rem">Calculating…</span>';
   if(statsBox){
     const cards=[
-      {lbl:'Total Billing (est+actual)', val:money(actualPart+estPart), col:'#5b9dff'},
-      {lbl:'Actual Billing', val:money(actualPart), col:'#3fcf8e'},
+      {lbl:'Total Billing (est+actual)', val:loadingPL?calc:money(actualPart+estPart), col:'#5b9dff'},
+      {lbl:'Actual Billing', val:loadingPL?calc:money(actualPart), col:'#3fcf8e'},
       {lbl:'Estimated Billing', val:money(estPart), col:'#f5b945'},
       {lbl:'Trips', val:nEst+' EST / '+list.length, col:'#ff9800'}
     ];
