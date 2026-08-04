@@ -3918,11 +3918,19 @@ function loadEstimatedBilling(){
 
   if(lbl) lbl.textContent = `· ${range.start} → ${range.end}`;
 
-  // 🔧 Actual Billing = dispatch freight (client-side, Google Sheet ko touch nahi karta).
-  //    Ab Overview ka billing bhi dispatch freight se hi banta hai → dono barabar.
-  //    Apps Script (fetchAEKpis) HATA diya — wahi sheet me filter apply karta tha.
-  window.EB_PL_BILLING = null;
-  window.EB_PL_LOADING = false;
+  // 🔧 Actual Billing = P&L billing (Overview se exact match), isi range ke liye.
+  //    Ek hi baar fetch (range badalne par), "Calculating…" dikhta hai jab tak aata nahi.
+  const rangeKey = range.start+'_'+range.end;
+  if(APPS_SCRIPT_URL && window.EB_PL_KEY !== rangeKey){
+    window.EB_PL_KEY = rangeKey;
+    window.EB_PL_BILLING = null;
+    window.EB_PL_LOADING = true;
+    fetchAEKpis(range).then(k=>{
+      window.EB_PL_BILLING = k ? k.billing : null;
+      window.EB_PL_LOADING = false;
+      renderEbView();
+    }).catch(()=>{ window.EB_PL_LOADING=false; renderEbView(); });
+  }
 
   loadDispatch(function(rows){
     if(!rows || !rows.length){ tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px">Dispatch data nahi mila</td></tr>'; return; }
