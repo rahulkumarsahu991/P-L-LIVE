@@ -2706,6 +2706,10 @@ const ensureDispatch = loadDispatch;
 function parseSheetDate(s){
   if(!s) return null;
   s = s.toString().trim();
+  // 🔧 YYYY-MM-DD (date input value) — LOCAL date banao (native Date isko UTC maanta hai,
+  //    jisse timezone shift hoti thi aur boundary din ke trips filter se chhut jaate the)
+  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(iso){ return new Date(+iso[1], +iso[2]-1, +iso[3]); }
   // DD-MM-YYYY or DD/MM/YYYY
   const m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})$/);
   if(m){
