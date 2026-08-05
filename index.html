@@ -1712,9 +1712,13 @@ function buildCharts(sec){
         datasets:[{data:sorted.map(x=>x.v),backgroundColor:sorted.map(x=>x.c),borderRadius:6}]},
       options:{indexAxis:'y',maintainAspectRatio:false,
         scales:{
-          x:{...grid,ticks:{callback:v=>v+'%'},max:Math.ceil((Math.max(...bilPct)||1)*1.15)},
+          x:{...grid,ticks:{callback:v=>v+'%'},max:Math.ceil((Math.max(...bilPct)||1)*1.25)},
           y:{...nogrid}},
         plugins:{legend:{display:false},
+          // 🔧 har bar par % hamesha dikhao (bina hover)
+          datalabels:{display:true, anchor:'end', align:'right', clamp:true,
+            color:'#e8ecf2', font:{weight:'700', size:11},
+            formatter:v=>(typeof v==='number'?v.toFixed(1)+'%':v)},
           tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.x.toFixed(1)}% of total billing`}}}
       }});
   }
