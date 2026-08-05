@@ -3379,7 +3379,12 @@ function maximizeChart(btn){
             return `${p.vehicle} · Exp Rs ${fmt(p.x)} · Bill Rs ${fmt(p.y)}`;
           }
           const lbl=ctx.label||ctx.dataset.label||'';
-          const v=ctx.parsed?.y!=null ? ctx.parsed.y : (ctx.parsed?.x!=null ? ctx.parsed.x : ctx.parsed);
+          // 🔧 horizontal bar (indexAxis:'y') me value X-axis par hoti hai (Y = category index)
+          const horiz = cfg.options?.indexAxis === 'y';
+          const v = horiz ? ctx.parsed?.x
+                          : (ctx.parsed?.y!=null ? ctx.parsed.y : (ctx.parsed?.x!=null ? ctx.parsed.x : ctx.parsed));
+          // eBilPct % chart → "48.3% of total billing"
+          if(srcCanvasId==='eBilPct'){ return ` ${(+v).toFixed(1)}% of total billing`; }
           const num = (typeof v==='number') ? v.toLocaleString('en-IN') : v;
           let pctStr='';
           if(cfg.type==='doughnut'||cfg.type==='pie'){
