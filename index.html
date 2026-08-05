@@ -3391,6 +3391,19 @@ function maximizeChart(btn){
     if(cfg.options.plugins){
       cfg.options.plugins.datalabels = {display:false};
     }
+    /* 🔧 Expense % of Billing (eBilPct) maximize → har bar par % dikhao (bina hover) */
+    if(srcCanvasId==='eBilPct' && cfg.type==='bar' && cfg.options.plugins){
+      cfg.options.plugins.datalabels = {
+        display:true, anchor:'end', align:'right', clamp:true,
+        color:'#e8ecf2', font:{weight:'700', size:13},
+        formatter:(v)=> (typeof v==='number' ? v.toFixed(1)+'%' : v)
+      };
+      // bar right edge se aage % ke liye thodi extra jagah
+      if(cfg.options.scales && cfg.options.scales.x){
+        const mx = cfg.options.scales.x.max;
+        if(mx) cfg.options.scales.x.max = mx * 1.12;
+      }
+    }
     /* legend ka generateLabels function JSON me kho jaata hai — wapas legendWithPct attach karo
        taaki maximize me bhi "Diesel 59.0%" jaisа legend dikhe */
     if(cfg.type==='doughnut' || cfg.type==='pie'){
