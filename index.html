@@ -1026,6 +1026,11 @@ function totals(){
   const otherTotal = (window.OTHER_EXPENSES||[]).reduce((s,e)=>s+e.amount,0);
   t.expense += otherTotal;
   t.net -= otherTotal;
+  /* 🔧 Paper & RTO (alag sheet se) — Total Expense me add karo, Operating Profit/Net bhi adjust */
+  const prTotal = window.PAPER_RTO_TOTAL || 0;
+  t.expense += prTotal;
+  t.oprofit -= prTotal;
+  t.net -= prTotal;
   return t;
 }
 let BYSERIES_CACHE=null;  // Cache for bySeries result
@@ -4057,7 +4062,6 @@ let PAPER_RTO_RAW = null;
 async function loadPaperRto(){
   const valEl = document.getElementById('paperRtoVal');
   const subEl = document.getElementById('paperRtoSub');
-  if(!valEl) return;
   try{
     if(!PAPER_RTO_RAW){
       const res = await fetch(PAPER_RTO_CSV + '&t=' + Date.now());
@@ -4083,8 +4087,17 @@ async function loadPaperRto(){
       }
       total += num(r[4]);   // PAYMENT
     }
-    valEl.textContent = fmtL(total);
+    if(valEl) valEl.textContent = fmtL(total);
     if(subEl) subEl.textContent = 'Paper + RTO (sheet se)';
+    // 🔧 Total Expense (Overview) me add karne ke liye global set + re-render (agar badla)
+    const changed = (window.PAPER_RTO_TOTAL||0) !== total;
+    window.PAPER_RTO_TOTAL = total;
+    if(changed && !window.PR_RENDERING){
+      window.PR_RENDERING = true;
+      if(CURRENT==='overview'){ renderCurrent(); buildInsights(); }
+      else if(CURRENT==='expenses'){ renderCurrent(); }
+      window.PR_RENDERING = false;
+    }
   }catch(e){
     if(subEl) subEl.textContent = 'load nahi hua';
   }
@@ -4844,6 +4857,7 @@ function renderCurrent(){
   }
   if(CURRENT==='overview'){
     buildInsights();   /* turant, bina delay */
+    loadPaperRto();    /* 🔧 Paper&RTO total laao → Total Expense me judega */
     /* Total KM card update */
     const fillKm = (rows) => {
       const card=document.getElementById('benchKmCard');
