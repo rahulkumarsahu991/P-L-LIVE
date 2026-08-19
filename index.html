@@ -1345,9 +1345,9 @@ const SECTIONS = {
       <div class="card kpi-card"><div class="kpi-label">UPI</div>
         <div class="kpi-value">${fmtL(t.upi)}</div>
         <div class="kpi-sub">${t.billing>0?((t.upi/t.billing)*100).toFixed(1)+'% this view':''} | ${fleetTotal.billing>0?((fleetTotal.upi/fleetTotal.billing)*100).toFixed(1)+'% fleet':''}</div></div>
-      <div class="card kpi-card"><div class="kpi-label">RTO</div>
-        <div class="kpi-value">${fmtL(t.rto)}</div>
-        <div class="kpi-sub">${t.billing>0?((t.rto/t.billing)*100).toFixed(1)+'% this view':''} | ${fleetTotal.billing>0?((fleetTotal.rto/fleetTotal.billing)*100).toFixed(1)+'% fleet':''}</div></div>
+      <div class="card kpi-card"><div class="kpi-label">Paper &amp; RTO</div>
+        <div class="kpi-value" id="paperRtoVal">…</div>
+        <div class="kpi-sub" id="paperRtoSub">loading…</div></div>
       <div class="card kpi-card" style="background:var(--panel2);border:1px solid var(--accent);padding:24px;grid-column:span 2">
         <div class="kpi-label" style="margin-bottom:14px;font-size:.8rem">Other Expense</div>
         <div style="display:flex;gap:8px;margin-bottom:10px">
@@ -4051,6 +4051,45 @@ function clearEbFilter(){
   loadEstimatedBilling();
 }
 
+/* 🔧 Paper & RTO card — alag sheet (PAYMENT col4, FULL VCH col6, DATE col0), date-filter aware */
+const PAPER_RTO_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTuWUx4PznfXXYMkwgYn2zYBdgikf2t7YXL-wPfl7SEC_rewjRnnOA57zO4bHcjAaXp9WFHmayqBvny/pub?gid=527569661&single=true&output=csv';
+let PAPER_RTO_RAW = null;
+async function loadPaperRto(){
+  const valEl = document.getElementById('paperRtoVal');
+  const subEl = document.getElementById('paperRtoSub');
+  if(!valEl) return;
+  try{
+    if(!PAPER_RTO_RAW){
+      const res = await fetch(PAPER_RTO_CSV + '&t=' + Date.now());
+      const txt = await res.text();
+      if(isBadCsv(txt)) throw new Error('loading');
+      PAPER_RTO_RAW = Papa.parse(txt, {header:false, skipEmptyLines:true}).data;
+    }
+    // date filter (Overview jaisa) — CURRENT_RANGE ya sheet active period
+    let lo=null, hi=null;
+    if(CURRENT_RANGE){
+      const rs=parseSheetDate(CURRENT_RANGE.start), re=parseSheetDate(CURRENT_RANGE.end);
+      if(rs&&re){ re.setHours(23,59,59,999); lo=rs.getTime(); hi=re.getTime(); }
+    } else if(window.SHEET_PERIOD_START && window.SHEET_PERIOD_END){
+      const re=new Date(window.SHEET_PERIOD_END.getTime()); re.setHours(23,59,59,999);
+      lo=window.SHEET_PERIOD_START.getTime(); hi=re.getTime();
+    }
+    let total=0;
+    for(let i=1;i<PAPER_RTO_RAW.length;i++){
+      const r=PAPER_RTO_RAW[i]; if(!r || r.length<5) continue;
+      if(lo!=null && hi!=null){
+        const d=parseSheetDate(r[0]); if(!d) continue;
+        const x=d.getTime(); if(x<lo||x>hi) continue;
+      }
+      total += num(r[4]);   // PAYMENT
+    }
+    valEl.textContent = fmtL(total);
+    if(subEl) subEl.textContent = 'Paper + RTO (sheet se)';
+  }catch(e){
+    if(subEl) subEl.textContent = 'load nahi hua';
+  }
+}
+
 async function loadDieselUreaStats(){
   const box = document.getElementById('duStats');
   if(!box) return;
@@ -4796,7 +4835,7 @@ function renderCurrent(){
   document.getElementById('content').innerHTML=SECTIONS[CURRENT]();
   document.getElementById('rowCount').textContent=DATA.length;
   if(CURRENT==='vehicles')fillVehicles('');
-  if(CURRENT==='expenses'){ updateOtherExpenseDisplay(); loadOtherExpenses(); }  /* 🔧 section khulte hi server se fresh sync */
+  if(CURRENT==='expenses'){ updateOtherExpenseDisplay(); loadOtherExpenses(); loadPaperRto(); }  /* 🔧 section khulte hi server se fresh sync */
   if(CURRENT==='allexpenses'){
     loadAllExpensesDashboard();
   }
