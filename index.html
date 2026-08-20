@@ -693,10 +693,8 @@ const EXPENSE_SHEETS = {
   'EMI':        { gid:'2108749699', type:'monthMatrix', vehCol:0, firstMonthCol:1 },
   'RTO':        { gid:'2098250408', dateCol:1, amountCol:3,  vehCol:5,  remarkCol:0,  noteCols:[2,4] },
   /* Paper = 2 sheets (Paper sheet + RTO/tax sheet) */
-  'Paper':      { sources:[
-    { gid:'1097945924', dateCol:0, amountCol:4, vehCol:6, remarkCol:2, noteCols:[3,5], label:'Paper' },
-    { gid:'2098250408', dateCol:1, amountCol:3, vehCol:5, remarkCol:0, noteCols:[2,4], label:'RTO/Tax' }
-  ]}
+  /* Paper = sirf Paper sheet (RTO/Tax ab alag 'Paper & RTO' card me hai) */
+  'Paper':      { gid:'1097945924', dateCol:0, amountCol:4, vehCol:6, remarkCol:2, noteCols:[3,5] }
 };
 const EXP_CACHE = {};   // gid -> parsed matrix (cache)
 
