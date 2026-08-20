@@ -4078,7 +4078,10 @@ async function loadPaperRto(){
     }
     let total=0;
     for(let i=1;i<PAPER_RTO_RAW.length;i++){
-      const r=PAPER_RTO_RAW[i]; if(!r || r.length<5) continue;
+      const r=PAPER_RTO_RAW[i]; if(!r || r.length<7) continue;
+      // 🔧 sirf woh rows jinme G col (FULL VCH NO., index 6) bhara hai
+      const fullVeh = String(r[6]||'').trim();
+      if(!fullVeh) continue;
       if(lo!=null && hi!=null){
         const d=parseSheetDate(r[0]); if(!d) continue;
         const x=d.getTime(); if(x<lo||x>hi) continue;
