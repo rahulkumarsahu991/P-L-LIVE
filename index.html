@@ -2089,45 +2089,42 @@ function buildInsights(){
   const sb={}; DATA.forEach(r=>{sb[r.Series]=(sb[r.Series]||0)+r.NetEarnings;});
   const worstSeries=Object.entries(sb).sort((a,b)=>a[1]-b[1])[0];
 
-  /* 🔧 Day-by-day: aaj ka snapshot store karo + pichhle din se compare karo.
-     Sirf full-data (bina filter) snapshot store hota hai taaki comparison apples-to-apples ho. */
-  const todayKey = new Date().toISOString().slice(0,10);          // YYYY-MM-DD
-  const todaySnap = {date:todayKey, net:t.net, billing:t.billing, expense:t.expense,
-    loss, prof, idle, opMargin, emiShare, trips:t.trips, vehicles:DATA.length};
+  /* 🔧 Refresh-based change: har data refresh par pichhle state se comparison update.
+     Sirf full-data (bina filter) par taaki apples-to-apples ho. */
+  const curSnap = {net:t.net, billing:t.billing, expense:t.expense, loss, opMargin, trips:t.trips};
   let dayCard = null;
   try{
-    if(!CURRENT_RANGE){   // sirf full data par history rakho
-      const hist = JSON.parse(localStorage.getItem('insightsHistory')||'{}');
-      // aaj se pehle ka sabse recent din dhoondo
-      const prevDates = Object.keys(hist).filter(d=>d<todayKey).sort();
-      const prevKey = prevDates[prevDates.length-1];
-      const prev = prevKey ? hist[prevKey] : null;
-      hist[todayKey] = todaySnap;                                  // aaj ka save
-      // purani entries (30 din se zyada) hata do
-      Object.keys(hist).forEach(d=>{ if((new Date(todayKey)-new Date(d))/864e5 > 30) delete hist[d]; });
-      localStorage.setItem('insightsHistory', JSON.stringify(hist));
-
-      if(prev){
-        const dNet = t.net - prev.net;
-        const dLoss = loss - prev.loss;
-        const dMargin = opMargin - prev.opMargin;
-        const arrow = v => v>0?'▲':v<0?'▼':'■';
-        const sign = v => (v>0?'+':'');
-        const tone = (dNet>=0 && dLoss<=0) ? 'good' : (dNet<0 || dLoss>2) ? 'bad' : 'warn';
-        dayCard = {tone, title:`Aaj vs ${prevKey}`,
-          body:`Net earnings <b>${arrow(dNet)} ${sign(dNet)}Rs ${fmt(Math.abs(dNet))}</b>, `
-            +`loss-making vehicles <b>${arrow(dLoss)} ${sign(dLoss)}${dLoss}</b>, `
-            +`operating margin <b>${arrow(dMargin)} ${sign(dMargin)}${dMargin.toFixed(1)}%</b>. `
-            +`${tone==='good'?'Kal se behtar — accha chal raha hai.':tone==='bad'?'Kal se giravat — dhyaan dein.':'Halka badlav.'}`};
+    if(!CURRENT_RANGE){
+      const prev = JSON.parse(localStorage.getItem('insPrevSnap')||'null');
+      let lastDelta = JSON.parse(localStorage.getItem('insLastDelta')||'null');
+      if(!prev){
+        localStorage.setItem('insPrevSnap', JSON.stringify(curSnap));
+      } else if(Math.round(prev.net)!==Math.round(curSnap.net) || Math.round(prev.billing)!==Math.round(curSnap.billing)){
+        // data badla → naya delta compute karo aur snapshot update karo
+        lastDelta = {dNet:curSnap.net-prev.net, dLoss:curSnap.loss-prev.loss,
+          dMargin:curSnap.opMargin-prev.opMargin, dBill:curSnap.billing-prev.billing,
+          at:new Date().toLocaleString('en-IN')};
+        localStorage.setItem('insLastDelta', JSON.stringify(lastDelta));
+        localStorage.setItem('insPrevSnap', JSON.stringify(curSnap));
+      }
+      if(lastDelta){
+        const a = v => v>0?'▲':v<0?'▼':'■';
+        const s = v => (v>0?'+':'');
+        const tone = (lastDelta.dNet>=0 && lastDelta.dLoss<=0) ? 'good' : (lastDelta.dNet<0 || lastDelta.dLoss>2) ? 'bad' : 'warn';
+        dayCard = {tone, title:'Pichle refresh se change',
+          body:`Billing <b>${a(lastDelta.dBill)} ${s(lastDelta.dBill)}Rs ${fmt(Math.abs(lastDelta.dBill||0))}</b>, `
+            +`net <b>${a(lastDelta.dNet)} ${s(lastDelta.dNet)}Rs ${fmt(Math.abs(lastDelta.dNet))}</b>, `
+            +`loss vehicles <b>${a(lastDelta.dLoss)} ${s(lastDelta.dLoss)}${lastDelta.dLoss}</b>. `
+            +`<span style="opacity:.7">${lastDelta.at||''}</span>`};
       } else {
-        dayCard = {tone:'good', title:'Day-by-day Tracking ON',
-          body:`Aaj (<b>${todayKey}</b>) ka baseline save ho gaya. Kal se roz comparison dikhega — net, loss, margin ka day-over-day change.`};
+        dayCard = {tone:'good', title:'Tracking ON',
+          body:`Baseline save ho gaya. Jab bhi data refresh hoga (Refresh Now / auto), yahan change dikhega.`};
       }
     } else {
       dayCard = {tone:'warn', title:'Filter Active',
-        body:`Abhi date filter laga hai (<b>${CURRENT_RANGE.start} → ${CURRENT_RANGE.end}</b>), isliye ye insights sirf is period ke hain. Day-by-day comparison full-data view me dikhta hai.`};
+        body:`Abhi date filter laga hai (<b>${CURRENT_RANGE.start} → ${CURRENT_RANGE.end}</b>) — ye insights is period ke hain. Refresh-change full-data view me dikhta hai.`};
     }
-  }catch(e){ /* localStorage band ho to chhodo */ }
+  }catch(e){ }
 
   // header tag pe date
   const insTag = document.getElementById('insTag');
@@ -2182,28 +2179,38 @@ function buildInsights(){
     healthCard = {tone:'warn', title:'System Health', body:'Health check me dikkat: '+e.message};
   }
 
-  /* 🔧 Weight anomaly alert — koi trip me loading/unloading wt > 100 MT (data entry galti) */
-  let weightCard = null;
+  /* 🔧 Anomaly alerts — weight >100 MT ya KM >1500 (sambhavit data-entry galti) */
+  let weightCard = null, kmCard = null;
   try{
     const nzw = v => { const n=parseFloat(String(v==null?'':v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; };
-    const bad = [];
+    const badW = [], badKm = [];
     (DISPATCH_DATA||[]).forEach(t=>{
-      const lw=nzw(t.loadWeight), uw=nzw(t.unloadWeight);
+      const lw=nzw(t.loadWeight), uw=nzw(t.unloadWeight), km=nzw(t.km);
       if(lw>100 || uw>100){
-        bad.push(`<b>${t.vehicle||'—'}</b> (${t.start||''}) — ${lw>100?'Load '+lw:''}${lw>100&&uw>100?', ':''}${uw>100?'Unload '+uw:''} MT`);
+        badW.push(`<b>${t.vehicle||'—'}</b> (${t.start||''}) — ${lw>100?'Load '+lw:''}${lw>100&&uw>100?', ':''}${uw>100?'Unload '+uw:''} MT`);
+      }
+      if(km>1500){
+        badKm.push(`<b>${t.vehicle||'—'}</b> (${t.start||''}) — ${Math.round(km)} km`);
       }
     });
-    if(bad.length){
+    if(badW.length){
       weightCard = {tone:'bad', title:'⚠ Weight Alert (>100 MT)',
-        body:`<b>${bad.length}</b> trip me loading/unloading weight 100 MT se zyada hai — sambhavit data-entry galti, turant check karein:<br>`
-          + bad.slice(0,6).map(x=>'• '+x).join('<br>')
-          + (bad.length>6?`<br><span style="opacity:.7">…aur ${bad.length-6}</span>`:'')};
+        body:`<b>${badW.length}</b> trip me loading/unloading weight 100 MT se zyada hai — sambhavit data-entry galti, turant check karein:<br>`
+          + badW.slice(0,6).map(x=>'• '+x).join('<br>')
+          + (badW.length>6?`<br><span style="opacity:.7">…aur ${badW.length-6}</span>`:'')};
+    }
+    if(badKm.length){
+      kmCard = {tone:'bad', title:'⚠ KM Alert (>1500 km)',
+        body:`<b>${badKm.length}</b> trip me KM 1500 se zyada hai — sambhavit data-entry galti, turant check karein:<br>`
+          + badKm.slice(0,6).map(x=>'• '+x).join('<br>')
+          + (badKm.length>6?`<br><span style="opacity:.7">…aur ${badKm.length-6}</span>`:'')};
     }
   }catch(e){}
 
   const cards=[
     healthCard,
     ...(weightCard?[weightCard]:[]),
+    ...(kmCard?[kmCard]:[]),
     ...(dayCard?[dayCard]:[]),
     {tone:opMargin>0?'good':'bad', title:'Operating Margin',
      body:`Fleet ka operating margin <b>${opMargin.toFixed(1)}%</b> hai. ${opMargin<10?'Yeh kafi kam hai — expense control par focus karein.':opMargin<20?'Theek hai, lekin behtar ho sakta hai.':'Achha margin hai.'}`},
