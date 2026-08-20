@@ -1024,14 +1024,8 @@ function totals(){
   const otherTotal = (window.OTHER_EXPENSES||[]).reduce((s,e)=>s+e.amount,0);
   t.expense += otherTotal;
   t.net -= otherTotal;
-  /* 🔧 Paper & RTO (alag sheet se): P&L ka purana RTO HATAO, uski jagah nayi sheet ka
-     Paper&RTO DAALO (warna RTO double count hota hai). delta = naya - purana RTO. */
-  const prTotal = window.PAPER_RTO_TOTAL || 0;
-  const oldRto = t.rto || 0;
-  const delta = prTotal - oldRto;
-  t.expense += delta;
-  t.oprofit -= delta;
-  t.net -= delta;
+  /* 🔧 Paper & RTO ko Total Expense me add NAHI karna (user ne mana kiya) — sirf apne
+     card me alag dikhta hai. */
   return t;
 }
 let BYSERIES_CACHE=null;  // Cache for bySeries result
