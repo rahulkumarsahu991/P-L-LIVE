@@ -3951,6 +3951,7 @@ function loadEstimatedBilling(){
   window.EB_PL_LOADING = false;
 
   loadDispatch(function(rows){
+    const ld=document.getElementById('aeLoading'); if(ld) ld.style.display='none';  // 🔧 wheel hatao
     if(!rows || !rows.length){ tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px">Dispatch data nahi mila</td></tr>'; return; }
     window.EB_LIST = computeEB(rows, range);
     renderEbView();
@@ -4048,6 +4049,7 @@ function applyEbFilter(){
   EST_BILLING_RANGE={start:s,end:e};
   // 🔧 Fresh dispatch laao — sheet me naya unloading wt/rate/freight bhara ho to reflect ho
   DISPATCH_DATA=null; DISPATCH_RETRIES=0;
+  const ld=document.getElementById('aeLoading'); if(ld) ld.style.display='flex';  // 🔧 loading wheel
   loadEstimatedBilling();
 }
 function clearEbFilter(){
