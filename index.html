@@ -2182,8 +2182,28 @@ function buildInsights(){
     healthCard = {tone:'warn', title:'System Health', body:'Health check me dikkat: '+e.message};
   }
 
+  /* 🔧 Weight anomaly alert — koi trip me loading/unloading wt > 100 MT (data entry galti) */
+  let weightCard = null;
+  try{
+    const nzw = v => { const n=parseFloat(String(v==null?'':v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; };
+    const bad = [];
+    (DISPATCH_DATA||[]).forEach(t=>{
+      const lw=nzw(t.loadWeight), uw=nzw(t.unloadWeight);
+      if(lw>100 || uw>100){
+        bad.push(`<b>${t.vehicle||'—'}</b> (${t.start||''}) — ${lw>100?'Load '+lw:''}${lw>100&&uw>100?', ':''}${uw>100?'Unload '+uw:''} MT`);
+      }
+    });
+    if(bad.length){
+      weightCard = {tone:'bad', title:'⚠ Weight Alert (>100 MT)',
+        body:`<b>${bad.length}</b> trip me loading/unloading weight 100 MT se zyada hai — sambhavit data-entry galti, turant check karein:<br>`
+          + bad.slice(0,6).map(x=>'• '+x).join('<br>')
+          + (bad.length>6?`<br><span style="opacity:.7">…aur ${bad.length-6}</span>`:'')};
+    }
+  }catch(e){}
+
   const cards=[
     healthCard,
+    ...(weightCard?[weightCard]:[]),
     ...(dayCard?[dayCard]:[]),
     {tone:opMargin>0?'good':'bad', title:'Operating Margin',
      body:`Fleet ka operating margin <b>${opMargin.toFixed(1)}%</b> hai. ${opMargin<10?'Yeh kafi kam hai — expense control par focus karein.':opMargin<20?'Theek hai, lekin behtar ho sakta hai.':'Achha margin hai.'}`},
