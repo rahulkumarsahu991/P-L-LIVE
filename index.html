@@ -2091,7 +2091,7 @@ function buildInsights(){
 
   /* 🔧 Refresh-based change: har data refresh par pichhle state se comparison update.
      Sirf full-data (bina filter) par taaki apples-to-apples ho. */
-  const curSnap = {net:t.net, billing:t.billing, expense:t.expense, loss, opMargin, trips:t.trips};
+  const curSnap = {net:t.net, billing:t.billing, expense:t.expense, loss, opMargin, trips:t.trips, vehicles:DATA.length};
   let dayCard = null;
   try{
     if(!CURRENT_RANGE){
@@ -2128,7 +2128,7 @@ function buildInsights(){
 
   // header tag pe date
   const insTag = document.getElementById('insTag');
-  if(insTag) insTag.textContent = 'auto · ' + todayKey;
+  if(insTag) insTag.textContent = 'auto · ' + new Date().toISOString().slice(0,10);
 
   /* 🔧 SYSTEM HEALTH / PROBLEM card — data load, fetch, sheet changes (nayi row / formula),
      trips/KM status, errors — sab ek jagah. */
@@ -2146,16 +2146,15 @@ function buildInsights(){
     if(DISPATCH_DATA===null){ /* abhi load ho raha */ }
     else if(Array.isArray(DISPATCH_DATA) && DISPATCH_DATA.length===0){ issues.push('⚠️ Trips/KM (dispatch) load nahi hua — retry ho raha'); }
     else if(Array.isArray(DISPATCH_DATA)){ oks.push(`✅ Trips/KM: <b>${DISPATCH_DATA.length}</b> dispatch rows`); }
-    // 4) Nayi row / formula change — kal ke snapshot se compare
+    // 4) Nayi row / formula change — pichhle refresh ke snapshot se compare
     try{
-      const hist = JSON.parse(localStorage.getItem('insightsHistory')||'{}');
-      const pds = Object.keys(hist).filter(d=>d<todayKey).sort();
-      const pv = pds.length ? hist[pds[pds.length-1]] : null;
+      const pv = JSON.parse(localStorage.getItem('insPrevSnap')||'null');
       if(pv && !CURRENT_RANGE){
-        const dv = todaySnap.vehicles - pv.vehicles;
-        if(dv>0) issues.push(`🆕 <b>${dv}</b> nayi vehicle row add hui (sheet me) — kal ${pv.vehicles}, aaj ${todaySnap.vehicles}`);
-        else if(dv<0) issues.push(`⚠️ <b>${Math.abs(dv)}</b> vehicle row kam ho gayi (delete?) — kal ${pv.vehicles}, aaj ${todaySnap.vehicles}`);
-        // bade total change = sambhavit formula/data change
+        if(pv.vehicles!=null){
+          const dv = DATA.length - pv.vehicles;
+          if(dv>0) issues.push(`🆕 <b>${dv}</b> nayi vehicle row add hui — pehle ${pv.vehicles}, ab ${DATA.length}`);
+          else if(dv<0) issues.push(`⚠️ <b>${Math.abs(dv)}</b> vehicle row kam ho gayi (delete?) — pehle ${pv.vehicles}, ab ${DATA.length}`);
+        }
         const bChg = pv.billing ? Math.abs((t.billing-pv.billing)/pv.billing*100) : 0;
         const eChg = pv.expense ? Math.abs((t.expense-pv.expense)/pv.expense*100) : 0;
         if(bChg>25) issues.push(`📊 Billing me bada change (<b>${bChg.toFixed(0)}%</b>) — sheet formula/data check karein`);
