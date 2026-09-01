@@ -687,11 +687,14 @@ const EXPENSE_SHEETS = {
   /* UPI: remarkCol:-1 → sirf vehicle column (E/4) se exact match; "TA D01315" jaisi
      khaali-vehicle rows (jinka col4 blank hai) remark text se match hokar nahi aayengi */
   'UPI':        { gid:'33245272',   dateCol:0, amountCol:5, amountColAlt:6, vehCol:4,  remarkCol:-1, noteCols:[1,3], excludeCol:2, excludeVal:'receipt' },
-  'Tyre':       { gid:'1031783248', dateCol:0, amountCol:4,  vehCol:5,  remarkCol:1,  noteCols:[2,3] },
+  /* Tyre detail sheet ab inventory ban gayi hai (amount column nahi) — detail window band,
+     card ka Tyre amount P&L se sahi aata hai. Naya Tyre-expense sheet mile to yahan gid daalein. */
+  // 'Tyre':    { gid:'1031783248', ... },   // purani sheet ab tyre-inventory hai
   /* firstMonthCol:1 + non-month header auto-skip (collectExpEntries) → "EMI" base column
      khud skip ho jata hai aur April समेत saare month columns pakde jate hain, chahe layout shift ho */
   'EMI':        { gid:'2108749699', type:'monthMatrix', vehCol:0, firstMonthCol:1 },
-  'RTO':        { gid:'2098250408', dateCol:1, amountCol:3,  vehCol:5,  remarkCol:0,  noteCols:[2,4] },
+  /* RTO/TAX sheet: DATE(0), VEHICAL NUMBER(1), TAX(2), AMOUNT(3), Full Vehicle(5) */
+  'RTO':        { gid:'2098250408', dateCol:0, amountCol:3,  vehCol:5,  remarkCol:2,  noteCols:[1,2] },
   /* Paper = 2 sheets (Paper sheet + RTO/tax sheet) */
   /* Paper = sirf Paper sheet (RTO/Tax ab alag 'Paper & RTO' card me hai) */
   'Paper':      { gid:'1097945924', dateCol:0, amountCol:4, vehCol:6, remarkCol:2, noteCols:[3,5] }
