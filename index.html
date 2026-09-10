@@ -4241,13 +4241,22 @@ async function loadDieselUreaStats(){
   }
 }
 
-async function loadAllExpensesDashboard(){
+async function loadAllExpensesDashboard(bgOnly){
   if(AE_LOADING) return;
+  // 🔧 SPEED: agar cached grid hai aur koi filter nahi → PEHLE turant render karo,
+  //    phir fresh data background me laao (spinner ke bina). Tab instant khulega.
+  if(!ALL_EXPENSES_DATE_RANGE && allExpenseData && !bgOnly){
+    renderAllExpenses();
+    loadDieselUreaStats();
+    loadAllExpensesDashboard(true);   // background refresh — no spinner
+    return;
+  }
   AE_LOADING = true;
+  const showUi = !bgOnly;   // background refresh me spinner/wheel mat dikhao
   const aeLoad = document.getElementById('aeLoading');
-  if(aeLoad) aeLoad.style.display = 'flex';   // 🔧 spinner dikhao
+  if(showUi && aeLoad) aeLoad.style.display = 'flex';   // 🔧 spinner dikhao
   const aeWheel = document.getElementById('aeWheel');
-  if(aeWheel) aeWheel.style.display = 'inline-block';   // 🔧 truck-wheel ghoomega
+  if(showUi && aeWheel) aeWheel.style.display = 'inline-block';   // 🔧 truck-wheel ghoomega
   try{
     // 🔧 Independent filter (purple bar) — NOT global CURRENT_RANGE
     const activeRange = ALL_EXPENSES_DATE_RANGE;
@@ -4295,7 +4304,8 @@ async function loadAllExpensesDashboard(){
     }
   }catch(e){
     console.error('Error:', e);
-    document.getElementById('allExpensesStatus').innerHTML = `<span style="color:var(--accent)">⚠ Error loading data: ${e.message}</span>`;
+    // background refresh fail ho to on-screen data ko error se mat badlo
+    if(showUi) document.getElementById('allExpensesStatus').innerHTML = `<span style="color:var(--accent)">⚠ Error loading data: ${e.message}</span>`;
   }finally{
     AE_LOADING = false;
     if(aeLoad) aeLoad.style.display = 'none';   // 🔧 spinner hatao
@@ -5019,6 +5029,26 @@ async function bootDashboard(){
   /* 🔧 SPEED: expense sheets + dispatch background me prefetch — trips/KM aur windows INSTANT */
   setTimeout(prefetchExpenseSheets, 2500);
   setTimeout(()=>{ if(!DISPATCH_DATA) loadDispatch(); }, 1200);  // 🔧 dispatch jaldi prefetch
+  // 🔧 SPEED: All Expenses base grid ko background me pehle se laao → pehli baar bhi instant
+  setTimeout(primeAllExpensesGrid, 1800);
+}
+
+/* All Expenses ka base CSV grid chupchaap prefetch karo (koi UI nahi) */
+async function primeAllExpensesGrid(){
+  if(allExpenseData || ALL_EXPENSES_DATE_RANGE) return;
+  try{
+    const res = await fetch(ALL_EXPENSE_CSV + '&t=' + Date.now());
+    if(!res.ok) return;
+    const txt = await res.text();
+    if(isBadCsv(txt)) return;
+    const G = Papa.parse(txt,{header:false,skipEmptyLines:false}).data;
+    if(G && G.length >= 5){
+      allExpenseData = parseAllExpenseGrid(G);
+      allExpenseData.actualExpenseTotals = null;
+      // agar user isi waqt tab par hai to turant paint kar do
+      if(CURRENT==='allexpenses' && !ALL_EXPENSES_DATE_RANGE){ renderAllExpenses(); loadDieselUreaStats(); }
+    }
+  }catch(e){ /* silent */ }
 }
 
 /* 🔧 Saari expense-detail sheets ko chupchaap pehle se load karke EXP_CACHE me rakho */
