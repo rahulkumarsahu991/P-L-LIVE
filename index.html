@@ -1777,17 +1777,23 @@ function buildCharts(sec){
         const labels = Object.keys(byMon).sort();
         const data = labels.map(k=>byMon[k]);
         if(charts.anFreightMonth) charts.anFreightMonth.destroy();
+        const isMob = window.innerWidth < 600;
+        // mobile par compact (₹6.67Cr) taaki thin bar par label na chipke; desktop par full number
+        const compact = v => { if(v<=0) return '₹0'; const a=Math.abs(v);
+          if(a>=1e7) return '₹'+(v/1e7).toFixed(2)+'Cr'; if(a>=1e5) return '₹'+(v/1e5).toFixed(1)+'L';
+          return '₹'+Math.round(v).toLocaleString('en-IN'); };
         charts.anFreightMonth = new Chart(fmEl, {type:'bar',
           data:{labels, datasets:[{data, backgroundColor:'#2f6fed', borderRadius:8,
             hoverBackgroundColor:'#5b9dff', maxBarThickness:70}]},
           options:{maintainAspectRatio:false,
-            layout:{padding:{top:26}},
+            layout:{padding:{top:24}},
             scales:{
-              x:{grid:{display:false},ticks:{color:'#9fb0c8',font:{weight:'600'}}},
-              y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7d8ba3',callback:v=>'₹'+(v>=1e7?(v/1e7).toFixed(1)+'Cr':v>=1e5?(v/1e5).toFixed(0)+'L':v)}}},
+              x:{grid:{display:false},ticks:{color:'#9fb0c8',font:{weight:'600',size:isMob?9:11},maxRotation:isMob?55:45,minRotation:isMob?55:0}},
+              y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7d8ba3',font:{size:isMob?9:11},callback:v=>'₹'+(v>=1e7?(v/1e7).toFixed(1)+'Cr':v>=1e5?(v/1e5).toFixed(0)+'L':v)}}},
             plugins:{legend:{display:false},
-              datalabels:{display:true,anchor:'end',align:'top',color:'#8fb4ff',font:{weight:'700',size:11},
-                formatter:v=>v>0?'₹'+Math.round(v).toLocaleString('en-IN'):'₹0'},
+              datalabels:{display:true,anchor:'end',align:'top',offset:2,rotation:isMob?-90:0,
+                color:'#8fb4ff',font:{weight:'700',size:isMob?9:11},
+                formatter:v=> isMob ? compact(v) : (v>0?'₹'+Math.round(v).toLocaleString('en-IN'):'₹0')},
               tooltip:{callbacks:{label:ctx=>' ₹'+Math.round(ctx.parsed.y).toLocaleString('en-IN')+' freight'}}}
           }});
       };
