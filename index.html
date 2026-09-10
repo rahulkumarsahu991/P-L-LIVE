@@ -2185,8 +2185,8 @@ function buildInsights(){
       if(lw>100 || uw>100){
         badW.push(`<b>${t.vehicle||'—'}</b> (${t.start||''}) — ${lw>100?'Load '+lw:''}${lw>100&&uw>100?', ':''}${uw>100?'Unload '+uw:''} MT`);
       }
-      if(km>1500){
-        badKm.push(`<b>${t.vehicle||'—'}</b> (${t.start||''}) — ${Math.round(km)} km`);
+      if(km>1500 || km<0){
+        badKm.push(`<b>${t.vehicle||'—'}</b> (${t.start||''}) — ${Math.round(km)} km${km<0?' (minus!)':''}`);
       }
     });
     if(badW.length){
@@ -2196,8 +2196,8 @@ function buildInsights(){
           + (badW.length>6?`<br><span style="opacity:.7">…aur ${badW.length-6}</span>`:'')};
     }
     if(badKm.length){
-      kmCard = {tone:'bad', title:'⚠ KM Alert (>1500 km)',
-        body:`<b>${badKm.length}</b> trip me KM 1500 se zyada hai — sambhavit data-entry galti, turant check karein:<br>`
+      kmCard = {tone:'bad', title:'⚠ KM Alert (>1500 ya minus)',
+        body:`<b>${badKm.length}</b> trip me KM 1500 se zyada ya minus (-) me hai — sambhavit data-entry galti, turant check karein:<br>`
           + badKm.slice(0,6).map(x=>'• '+x).join('<br>')
           + (badKm.length>6?`<br><span style="opacity:.7">…aur ${badKm.length-6}</span>`:'')};
     }
