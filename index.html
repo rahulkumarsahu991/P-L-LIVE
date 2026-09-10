@@ -3481,6 +3481,19 @@ function maximizeChart(btn){
     if(cfg.options.plugins){
       cfg.options.plugins.datalabels = {display:false};
     }
+    /* 🔧 Freight by Month (anFreightMonth) maximize → har bar par PURA number dikhao */
+    if(srcCanvasId==='anFreightMonth' && cfg.type==='bar' && cfg.options.plugins){
+      cfg.options.plugins.datalabels = {
+        display:true, anchor:'end', align:'top', offset:4, clamp:true, rotation:0,
+        color:'#8fb4ff', font:{weight:'700', size:13},
+        formatter:(v)=> (v>0 ? '₹'+Math.round(v).toLocaleString('en-IN') : '₹0')
+      };
+      /* top labels ke liye thoda headroom */
+      if(cfg.options.scales && cfg.options.scales.y){
+        const mx = cfg.options.scales.y.max;
+        if(mx) cfg.options.scales.y.max = mx * 1.12;
+      }
+    }
     /* 🔧 Expense % of Billing (eBilPct) maximize → har bar par % dikhao (bina hover) */
     if(srcCanvasId==='eBilPct' && cfg.type==='bar' && cfg.options.plugins){
       cfg.options.plugins.datalabels = {
