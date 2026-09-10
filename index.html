@@ -2189,17 +2189,25 @@ function buildInsights(){
         badKm.push(`<b>${t.vehicle||'—'}</b> (${t.start||''}) — ${Math.round(km)} km${km<0?' (minus!)':''}`);
       }
     });
+    // "…aur N" ko clickable banao — click par baaki list khul jaye
+    const expandable = (arr, id) => {
+      let h = arr.slice(0,6).map(x=>'• '+x).join('<br>');
+      if(arr.length>6){
+        h += `<br><span id="${id}_more" style="display:none">${arr.slice(6).map(x=>'• '+x).join('<br>')}</span>`
+          + `<br><span id="${id}_lnk" onclick="var m=document.getElementById('${id}_more');m.style.display='block';this.style.display='none'" `
+          + `style="cursor:pointer;color:var(--accent);text-decoration:underline;font-weight:700">…aur ${arr.length-6} (dekho)</span>`;
+      }
+      return h;
+    };
     if(badW.length){
       weightCard = {tone:'bad', title:'⚠ Weight Alert (>100 MT)',
         body:`<b>${badW.length}</b> trip me loading/unloading weight 100 MT se zyada hai — sambhavit data-entry galti, turant check karein:<br>`
-          + badW.slice(0,6).map(x=>'• '+x).join('<br>')
-          + (badW.length>6?`<br><span style="opacity:.7">…aur ${badW.length-6}</span>`:'')};
+          + expandable(badW, 'wAlert')};
     }
     if(badKm.length){
       kmCard = {tone:'bad', title:'⚠ KM Alert (>1500 ya minus)',
         body:`<b>${badKm.length}</b> trip me KM 1500 se zyada ya minus (-) me hai — sambhavit data-entry galti, turant check karein:<br>`
-          + badKm.slice(0,6).map(x=>'• '+x).join('<br>')
-          + (badKm.length>6?`<br><span style="opacity:.7">…aur ${badKm.length-6}</span>`:'')};
+          + expandable(badKm, 'kmAlert')};
     }
   }catch(e){}
 
