@@ -101,8 +101,9 @@ body{background:var(--bg);color:var(--text);font-family:'Manrope',sans-serif;hei
   .card{padding:16px;margin-bottom:16px;border-radius:12px}
   .card h3{font-size:.95rem;margin-bottom:14px;gap:8px;font-weight:700}
   .grid2,.grid3{grid-template-columns:1fr;gap:12px}
-  .chart-box{height:240px}
-  .table-wrap{max-height:none;overflow-x:auto}
+  .chart-box{height:280px}
+  .chart-box.tall{height:300px} .chart-box.xtall{height:320px}
+  .table-wrap{max-height:none;overflow-x:auto;-webkit-overflow-scrolling:touch}
   .table-wrap table{min-width:100%;font-size:.85rem}
   .table-wrap th,.table-wrap td{padding:8px 10px}
   .search{width:100%;margin-top:10px;padding:10px;font-size:1rem}
@@ -128,7 +129,8 @@ body{background:var(--bg);color:var(--text);font-family:'Manrope',sans-serif;hei
   .kpi-sub{font-size:.75rem}
   .card{padding:14px;margin-bottom:14px}
   .card h3{font-size:1rem;margin-bottom:12px;font-weight:700}
-  .chart-box{height:220px}
+  .chart-box{height:270px}
+  .chart-box.tall{height:290px} .chart-box.xtall{height:310px}
   input, button{min-height:44px;padding:10px 14px;font-size:1rem}
   .drawer{width:calc(100vw - 16px);padding:16px}
   .filterfleet{padding:12px 14px;gap:10px}
@@ -149,7 +151,8 @@ body{background:var(--bg);color:var(--text);font-family:'Manrope',sans-serif;hei
   .kpi-sub{font-size:.7rem;margin-top:5px}
   .card{padding:12px;margin-bottom:12px}
   .card h3{font-size:.95rem;margin-bottom:10px;font-weight:700}
-  .chart-box{height:200px}
+  .chart-box{height:260px}
+  .chart-box.tall{height:280px} .chart-box.xtall{height:300px}
   input, button{min-height:44px;padding:10px 12px;font-size:.95rem;font-weight:600}
   .drawer{width:calc(100vw - 12px);padding:14px;max-height:calc(100vh - 60px)}
   .drawer h2{font-size:1.15rem;font-weight:800}
@@ -171,7 +174,8 @@ body{background:var(--bg);color:var(--text);font-family:'Manrope',sans-serif;hei
   .kpi-value{font-size:1.15rem;font-weight:800}
   .card{padding:11px;margin-bottom:11px}
   .card h3{font-size:.9rem;margin-bottom:9px;font-weight:700}
-  .chart-box{height:180px}
+  .chart-box{height:240px}
+  .chart-box.tall{height:260px} .chart-box.xtall{height:280px}
   input, button{min-height:42px;padding:9px 11px;font-size:.9rem;font-weight:600}
   table{font-size:.85rem}
 }
@@ -182,6 +186,8 @@ body{background:var(--bg);color:var(--text);font-family:'Manrope',sans-serif;hei
   background:var(--panel2);padding:3px 9px;border-radius:20px;white-space:nowrap}
 .chart-box{position:relative;height:300px}
 .chart-box.sm{height:240px}
+.chart-box.tall{height:360px}
+.chart-box.xtall{height:420px}
 
 /* MINIMIZE / MAXIMIZE CHART BUTTONS */
 .chart-controls{display:flex;gap:6px;flex-shrink:0}
@@ -1279,7 +1285,7 @@ const SECTIONS = {
         <tbody>${rowsB}</tbody></table></div>
     </div>
     <div class="card"><h3>Net Earnings Distribution<span class="tag">all vehicles</span></h3>
-      <div class="chart-box" style="height:420px"><canvas id="pHist"></canvas></div></div>`;
+      <div class="chart-box xtall"><canvas id="pHist"></canvas></div></div>`;
   },
 
   expenses(){
@@ -1480,7 +1486,7 @@ const SECTIONS = {
       <div style="position:absolute;right:24px;top:50%;transform:translateY(-50%);font-size:120px;opacity:.05;pointer-events:none;user-select:none">🚚</div>
       <div style="position:absolute;left:-10px;bottom:-20px;font-size:90px;opacity:.04;pointer-events:none">₹</div>
       <h3 style="position:relative;z-index:1">Freight Amount by Month <span class="tag" style="background:rgba(91,157,255,.15);color:#5b9dff">live · dispatch</span></h3>
-      <div class="chart-box" style="height:340px;position:relative;z-index:1"><canvas id="anFreightMonth"></canvas></div>
+      <div class="chart-box tall" style="position:relative;z-index:1"><canvas id="anFreightMonth"></canvas></div>
     </div>
     <div class="grid2">
       <div class="card"><h3>Billing, Expense &amp; Profit by Series<span class="tag" id="anBarTag">top 12</span></h3>
@@ -1504,9 +1510,9 @@ const SECTIONS = {
       <div class="chart-box"><canvas id="anTrend"></canvas></div></div>
     <div class="grid2">
       <div class="card"><h3>Productivity Quadrant<span class="tag">Trips × Rev/Trip</span></h3>
-        <div class="chart-box" style="height:380px"><canvas id="anQuad"></canvas></div></div>
+        <div class="chart-box tall"><canvas id="anQuad"></canvas></div></div>
       <div class="card"><h3>Revenue vs Expense<span class="tag">each dot = one truck</span></h3>
-        <div class="chart-box" style="height:380px"><canvas id="anRevExp"></canvas></div></div>
+        <div class="chart-box tall"><canvas id="anRevExp"></canvas></div></div>
     </div>`;
   },
 
@@ -1604,6 +1610,10 @@ function buildCharts(sec){
   Chart.defaults.color=C.muted;
   Chart.defaults.plugins.legend.labels.color='#e8ecf2';
   Chart.defaults.font.family="'Spline Sans Mono',monospace";
+  /* 🔧 Mobile par chhota font taaki labels/values fit ho */
+  Chart.defaults.font.size = window.innerWidth<600 ? 10 : (window.innerWidth<900 ? 11 : 12);
+  Chart.defaults.maintainAspectRatio = false;
+  Chart.defaults.resizeDelay = 120;   // smooth resize (orientation change etc.)
   /* animation off — charts turant dikhein (late/fade-in na ho) */
   Chart.defaults.animation=false;
   /* register datalabels plugin (CDN se loaded), off by default for non-pie charts */
