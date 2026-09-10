@@ -1475,6 +1475,13 @@ const SECTIONS = {
   analytics(){
     return `
     <div class="section-intro">Saare graphs ek jagah. Filter (Overview wala) yahaan bhi lagta hai — jo series/status chuna hoga, graphs usi data ke honge.</div>
+    <!-- 🔧 Live Freight by Month (dispatch se) — watermark bg, stylish -->
+    <div class="card" style="position:relative;overflow:hidden;margin-bottom:16px;background:linear-gradient(135deg,#0f1524,#141b2e)">
+      <div style="position:absolute;right:24px;top:50%;transform:translateY(-50%);font-size:120px;opacity:.05;pointer-events:none;user-select:none">🚚</div>
+      <div style="position:absolute;left:-10px;bottom:-20px;font-size:90px;opacity:.04;pointer-events:none">₹</div>
+      <h3 style="position:relative;z-index:1">Freight Amount by Month <span class="tag" style="background:rgba(91,157,255,.15);color:#5b9dff">live · dispatch</span></h3>
+      <div class="chart-box" style="height:340px;position:relative;z-index:1"><canvas id="anFreightMonth"></canvas></div>
+    </div>
     <div class="grid2">
       <div class="card"><h3>Billing, Expense &amp; Profit by Series<span class="tag" id="anBarTag">top 12</span></h3>
         <div class="chart-box"><canvas id="anBar"></canvas></div></div>
@@ -1745,6 +1752,39 @@ function buildCharts(sec){
   if(sec==='analytics'){
     const s=bySeries();
     const top12=s.slice(0,12);
+
+    // 🔧 Live Freight by Month — dispatch se freight (Z) month-wise
+    const fmEl = document.getElementById('anFreightMonth');
+    if(fmEl){
+      const drawFreightMonth = (rows)=>{
+        const byMon = {};
+        (rows||[]).forEach(t=>{
+          const d=parseSheetDate(t.start); if(!d) return;
+          const k = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+          const fr = parseFloat(String(t.freight).replace(/[^0-9.\-]/g,''))||0;
+          byMon[k] = (byMon[k]||0) + fr;
+        });
+        const labels = Object.keys(byMon).sort();
+        const data = labels.map(k=>byMon[k]);
+        if(charts.anFreightMonth) charts.anFreightMonth.destroy();
+        charts.anFreightMonth = new Chart(fmEl, {type:'bar',
+          data:{labels, datasets:[{data, backgroundColor:'#2f6fed', borderRadius:8,
+            hoverBackgroundColor:'#5b9dff', maxBarThickness:70}]},
+          options:{maintainAspectRatio:false,
+            layout:{padding:{top:26}},
+            scales:{
+              x:{grid:{display:false},ticks:{color:'#9fb0c8',font:{weight:'600'}}},
+              y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7d8ba3',callback:v=>'₹'+(v>=1e7?(v/1e7).toFixed(1)+'Cr':v>=1e5?(v/1e5).toFixed(0)+'L':v)}}},
+            plugins:{legend:{display:false},
+              datalabels:{display:true,anchor:'end',align:'top',color:'#8fb4ff',font:{weight:'700',size:11},
+                formatter:v=>v>0?'₹'+Math.round(v).toLocaleString('en-IN'):'₹0'},
+              tooltip:{callbacks:{label:ctx=>' ₹'+Math.round(ctx.parsed.y).toLocaleString('en-IN')+' freight'}}}
+          }});
+      };
+      if(DISPATCH_DATA && DISPATCH_DATA.length) drawFreightMonth(DISPATCH_DATA);
+      else loadDispatch(drawFreightMonth);
+    }
+
     const clickOpts=(arr)=>({
       onClick:(evt,els)=>{ if(els.length) showSeriesVehicles(arr[els[0].index].series); },
       onHover:(evt,els)=>{evt.native.target.style.cursor=els.length?'pointer':'default';}
