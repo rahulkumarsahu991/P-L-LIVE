@@ -3057,59 +3057,47 @@ async function applyClientSideDateFilter(){
   }
 }
 
-/* Date range hatao + SAARI FILTERS RESET + WINDOW PERIOD CLEAR -> wapas pura data */
+/* Clear All → poore data ka date range (sabse pehla din → aakhri din) select karo */
 function clearDateRange(){
-  // ✅ Reset all data variables (All Expenses has its own clear — see clearAllExpFilter)
-  CURRENT_RANGE = null;
-  CLEARED_TO_FULL = true;  // 🔧 Clear All → chip "Full data" rahe (sheet ka period mat dikhao)
-  DISPATCH_DATA = null;  // 🔧 Clear cache when filter cleared
+  // ✅ Reset filters/UI
   DATE_MODE = null;
-  DATA_PERIOD_START = null;
-  DATA_PERIOD_END = null;
   SERIES_FILTER = 'all';
   STATUS_FILTER = 'all';
-
-  // ✅ Clear form inputs (always reset UI)
   document.getElementById('dmDays').value = '5';
   const now = new Date();
-  const monthStr = String(now.getFullYear()) + '-' + String(now.getMonth()+1).padStart(2,'0');
-  document.getElementById('dmMonthVal').value = monthStr;
+  document.getElementById('dmMonthVal').value = String(now.getFullYear())+'-'+String(now.getMonth()+1).padStart(2,'0');
   document.getElementById('dmFrom').value = '';
   document.getElementById('dmTo').value = '';
-
-  // ✅ Remove selected state from all options
-  ['LastN','Month','Custom'].forEach(opt => {
-    const el = document.getElementById('dm'+opt);
-    if(el) el.classList.remove('selected');
-  });
-
-  // ✅ Close modal and reset display
+  ['LastN','Month','Custom'].forEach(opt => { const el=document.getElementById('dm'+opt); if(el) el.classList.remove('selected'); });
   closeDateModal();
-  document.getElementById('dataPeriod').textContent = '📅 Full data';
+  document.getElementById('liveStatus').textContent = 'Selecting full range…';
+  const lw=document.getElementById('liveWheel'); if(lw) lw.style.display='inline-block';
 
-  // ✅ Apps Script ko CLEAR bhejo — sheet ki dates hata kar full data par le aao
-  if(APPS_SCRIPT_URL){
-    fetch(APPS_SCRIPT_URL+'?start=&end=&t='+Date.now()).catch(()=>{});
-  }
-
-  // 🔧 INSTANT: full-data snapshot cached ho to turant wahi dikhao (zero wait)
-  if(FULL_DATA_SNAPSHOT && FULL_DATA_SNAPSHOT.length){
-    BYSERIES_CACHE=null;
-    ALL_DATA = FULL_DATA_SNAPSHOT;
-    applyGlobalFilter();
-    renderCurrent();
-    if(CURRENT==='overview') buildInsights();
-    document.getElementById('liveStatus').textContent = 'Live';
-  } else {
-    applyGlobalFilter();
-    renderCurrent();
-    if(CURRENT==='overview') buildInsights();
-    document.getElementById('liveStatus').textContent = 'Loading full unfiltered data...';
-  }
-
-  // ✅ Background me fresh full data bhi le aao (thoda ruk ke — Apps Script sheet clear kar le,
-  //    warna stale filtered CSV instant-restore kiye hue full data ko overwrite kar dega)
-  setTimeout(()=>fetchLive(true).catch(()=>{}), 2000);
+  // 🔧 Dispatch se sabse pehli aur aakhri date nikaalo → wahi range apply
+  loadDispatch(function(rows){
+    let min=null, max=null;
+    (rows||[]).forEach(t=>{ const d=parseSheetDate(t.start); if(!d)return; if(!min||d<min)min=d; if(!max||d>max)max=d; });
+    const iso = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    if(min && max){
+      const start=iso(min), end=iso(max);
+      document.getElementById('dmFrom').value = start;
+      document.getElementById('dmTo').value = end;
+      CURRENT_RANGE = {start, end};
+      CLEARED_TO_FULL = false;
+      DISPATCH_DATA = null;
+      document.getElementById('dataPeriod').textContent = '📅 '+start+'  →  '+end;
+      document.getElementById('dataPeriod').style.borderColor = 'var(--green)';
+      fetchLive(true).then(()=>{ if(CURRENT==='overview') buildInsights(); }).catch(()=>{});
+    } else {
+      // fallback: dispatch nahi mila to purana full-data behaviour
+      CURRENT_RANGE = null; CLEARED_TO_FULL = true;
+      if(APPS_SCRIPT_URL) fetch(APPS_SCRIPT_URL+'?start=&end=&t='+Date.now()).catch(()=>{});
+      document.getElementById('dataPeriod').textContent = '📅 Full data';
+      if(FULL_DATA_SNAPSHOT&&FULL_DATA_SNAPSHOT.length){ BYSERIES_CACHE=null; ALL_DATA=FULL_DATA_SNAPSHOT; }
+      applyGlobalFilter(); renderCurrent(); if(CURRENT==='overview') buildInsights();
+      const lw2=document.getElementById('liveWheel'); if(lw2) lw2.style.display='none';
+    }
+  });
 }
 
 /* ===== EXPENSE DATE-WISE BREAKDOWN ===== */
