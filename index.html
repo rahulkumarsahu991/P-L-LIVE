@@ -1484,21 +1484,15 @@ const SECTIONS = {
     <!-- 🔧 Live Freight by Month (dispatch se) — watermark bg, stylish -->
     <style>
       .fm-inner{width:100%;height:100%;}
+      /* mobile: horizontal bar chart ke liye zyada height do taaki har month saaf dikhe */
       @media (max-width:600px){
-        .fm-outer{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
-          scrollbar-width:thin;scrollbar-color:rgba(91,157,255,.4) transparent;}
-        .fm-outer::-webkit-scrollbar{height:5px;}
-        .fm-outer::-webkit-scrollbar-thumb{background:rgba(91,157,255,.4);border-radius:3px;}
-        .fm-inner{min-width:640px;}
-        .fm-hint{display:block;}
+        .chart-box.fm-outer{height:440px!important;}
       }
-      .fm-hint{display:none;font-size:.72rem;color:var(--muted);text-align:right;margin:-4px 2px 4px;position:relative;z-index:1}
     </style>
     <div class="card" style="position:relative;overflow:hidden;margin-bottom:16px;background:linear-gradient(135deg,#0f1524,#141b2e)">
       <div style="position:absolute;right:24px;top:50%;transform:translateY(-50%);font-size:120px;opacity:.05;pointer-events:none;user-select:none">🚚</div>
       <div style="position:absolute;left:-10px;bottom:-20px;font-size:90px;opacity:.04;pointer-events:none">₹</div>
       <h3 style="position:relative;z-index:1">Freight Amount by Month <span class="tag" style="background:rgba(91,157,255,.15);color:#5b9dff">live · dispatch</span></h3>
-      <div class="fm-hint">← scroll →</div>
       <div class="chart-box tall fm-outer" style="position:relative;z-index:1"><div class="fm-inner"><canvas id="anFreightMonth"></canvas></div></div>
     </div>
     <div class="grid2">
@@ -1806,24 +1800,32 @@ function buildCharts(sec){
         const compact = v => { if(v<=0) return '₹0'; const a=Math.abs(v);
           if(a>=1e7) return '₹'+(v/1e7).toFixed(2)+'Cr'; if(a>=1e5) return '₹'+(v/1e5).toFixed(1)+'L';
           return '₹'+Math.round(v).toLocaleString('en-IN'); };
+        const valAxis = {grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7d8ba3',font:{size:isMob?9:11},maxTicksLimit:isMob?5:8,callback:v=>'₹'+(v>=1e7?(v/1e7).toFixed(1)+'Cr':v>=1e5?(v/1e5).toFixed(0)+'L':v)}};
+        const catAxis = {grid:{display:false},ticks:{color:'#9fb0c8',font:{weight:'600',size:isMob?11:11},maxRotation:0,minRotation:0,autoSkip:false}};
         charts.anFreightMonth = new Chart(fmEl, {type:'bar',
           data:{labels:shortLabels, datasets:[
-            {label:'Actual Freight', data, backgroundColor:'#2f6fed', borderRadius:{topLeft:6,topRight:6},
-              hoverBackgroundColor:'#5b9dff', maxBarThickness:isMob?26:48},
-            {label:'Actual + Estimated', data:dataEB, backgroundColor:'#e5484d', borderRadius:{topLeft:6,topRight:6},
-              hoverBackgroundColor:'#ff6b6f', maxBarThickness:isMob?26:48}
+            {label:'Actual Freight', data, backgroundColor:'#2f6fed', borderRadius:6,
+              hoverBackgroundColor:'#5b9dff', maxBarThickness:isMob?14:48},
+            {label:'Actual + Estimated', data:dataEB, backgroundColor:'#e5484d', borderRadius:6,
+              hoverBackgroundColor:'#ff6b6f', maxBarThickness:isMob?14:48}
           ]},
           options:{maintainAspectRatio:false, responsive:true,
-            layout:{padding:{top:isMob?52:44}},
-            categoryPercentage:0.7, barPercentage:0.92,
-            scales:{
-              x:{grid:{display:false},ticks:{color:'#9fb0c8',font:{weight:'600',size:isMob?10:11},maxRotation:0,minRotation:0,autoSkip:false}},
-              y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7d8ba3',font:{size:isMob?9:11},maxTicksLimit:isMob?6:8,callback:v=>'₹'+(v>=1e7?(v/1e7).toFixed(1)+'Cr':v>=1e5?(v/1e5).toFixed(0)+'L':v)}}},
+            // 📱 mobile → horizontal bars (indexAxis 'y'), 💻 desktop → vertical bars
+            indexAxis: isMob ? 'y' : 'x',
+            layout:{padding: isMob ? {right:56,left:2} : {top:44}},
+            categoryPercentage:0.72, barPercentage:0.9,
+            scales: isMob
+              ? { x: valAxis, y: catAxis }
+              : { x: catAxis, y: valAxis },
             plugins:{legend:{display:true,position:'top',align:'end',labels:{color:'#9fb0c8',boxWidth:11,boxHeight:11,padding:isMob?10:14,font:{size:isMob?10:11,weight:'600'},usePointStyle:true,pointStyle:'rectRounded'}},
-              datalabels:{display:ctx=> ctx.dataset.data[ctx.dataIndex]>0, anchor:'end',align:'top',offset:3,rotation:-90,clamp:true,
-                color:ctx=> ctx.datasetIndex===1 ? '#ff9a9c' : '#8fb4ff',font:{weight:'700',size:isMob?9:10},
-                formatter:v=> compact(v)},
-              tooltip:{mode:'index',intersect:false,callbacks:{label:ctx=>' '+ctx.dataset.label+': ₹'+Math.round(ctx.parsed.y).toLocaleString('en-IN')}}}
+              datalabels: isMob
+                ? {display:ctx=> ctx.dataset.data[ctx.dataIndex]>0, anchor:'end',align:'right',offset:4,clamp:true,
+                    color:ctx=> ctx.datasetIndex===1 ? '#ff9a9c' : '#8fb4ff',font:{weight:'700',size:9},
+                    formatter:v=> compact(v)}
+                : {display:ctx=> ctx.dataset.data[ctx.dataIndex]>0, anchor:'end',align:'top',offset:3,rotation:-90,clamp:true,
+                    color:ctx=> ctx.datasetIndex===1 ? '#ff9a9c' : '#8fb4ff',font:{weight:'700',size:10},
+                    formatter:v=> compact(v)},
+              tooltip:{mode:'index',intersect:false,callbacks:{label:ctx=>' '+ctx.dataset.label+': ₹'+Math.round((isMob?ctx.parsed.x:ctx.parsed.y)).toLocaleString('en-IN')}}}
           }});
       };
       if(DISPATCH_DATA && DISPATCH_DATA.length) drawFreightMonth(DISPATCH_DATA);
@@ -3512,16 +3514,15 @@ function maximizeChart(btn){
     }
     /* 🔧 Freight by Month (anFreightMonth) maximize → har bar par PURA number dikhao */
     if(srcCanvasId==='anFreightMonth' && cfg.type==='bar' && cfg.options.plugins){
+      const horiz = cfg.options.indexAxis === 'y';   // mobile me horizontal bars
       cfg.options.plugins.datalabels = {
-        display:true, anchor:'end', align:'top', offset:4, clamp:true, rotation:-90,
+        display:true, anchor:'end', align: horiz?'right':'top', offset:4, clamp:true, rotation: horiz?0:-90,
         color:(ctx)=> ctx.datasetIndex===1 ? '#ff9a9c' : '#8fb4ff', font:{weight:'700', size:12},
         formatter:(v)=> (v>0 ? '₹'+Math.round(v).toLocaleString('en-IN') : '₹0')
       };
-      /* top labels ke liye thoda headroom */
-      if(cfg.options.scales && cfg.options.scales.y){
-        const mx = cfg.options.scales.y.max;
-        if(mx) cfg.options.scales.y.max = mx * 1.12;
-      }
+      /* labels ke liye thoda headroom (value axis pe) */
+      const va = horiz ? cfg.options.scales?.x : cfg.options.scales?.y;
+      if(va && va.max) va.max = va.max * 1.12;
     }
     /* 🔧 Expense % of Billing (eBilPct) maximize → har bar par % dikhao (bina hover) */
     if(srcCanvasId==='eBilPct' && cfg.type==='bar' && cfg.options.plugins){
