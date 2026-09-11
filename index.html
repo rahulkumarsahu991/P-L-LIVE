@@ -1798,14 +1798,14 @@ function buildCharts(sec){
               hoverBackgroundColor:'#ff6b6f', maxBarThickness:48}
           ]},
           options:{maintainAspectRatio:false,
-            layout:{padding:{top:24}},
+            layout:{padding:{top:44}},
             scales:{
               x:{grid:{display:false},ticks:{color:'#9fb0c8',font:{weight:'600',size:isMob?9:11},maxRotation:isMob?55:45,minRotation:isMob?55:0}},
               y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7d8ba3',font:{size:isMob?9:11},callback:v=>'₹'+(v>=1e7?(v/1e7).toFixed(1)+'Cr':v>=1e5?(v/1e5).toFixed(0)+'L':v)}}},
             plugins:{legend:{display:true,position:'top',align:'end',labels:{color:'#9fb0c8',boxWidth:12,boxHeight:12,font:{size:isMob?9:11,weight:'600'},usePointStyle:true,pointStyle:'rectRounded'}},
-              datalabels:{display:true,anchor:'end',align:'top',offset:2,rotation:isMob?-90:0,
-                color:ctx=> ctx.datasetIndex===1 ? '#ff9a9c' : '#8fb4ff',font:{weight:'700',size:isMob?8:11},
-                formatter:v=> isMob ? compact(v) : (v>0?'₹'+Math.round(v).toLocaleString('en-IN'):'₹0')},
+              datalabels:{display:true,anchor:'end',align:'top',offset:3,rotation:-90,
+                color:ctx=> ctx.datasetIndex===1 ? '#ff9a9c' : '#8fb4ff',font:{weight:'700',size:isMob?8:10},
+                formatter:v=> compact(v)},
               tooltip:{callbacks:{label:ctx=>' '+ctx.dataset.label+': ₹'+Math.round(ctx.parsed.y).toLocaleString('en-IN')}}}
           }});
       };
@@ -3496,8 +3496,8 @@ function maximizeChart(btn){
     /* 🔧 Freight by Month (anFreightMonth) maximize → har bar par PURA number dikhao */
     if(srcCanvasId==='anFreightMonth' && cfg.type==='bar' && cfg.options.plugins){
       cfg.options.plugins.datalabels = {
-        display:true, anchor:'end', align:'top', offset:4, clamp:true, rotation:0,
-        color:'#8fb4ff', font:{weight:'700', size:13},
+        display:true, anchor:'end', align:'top', offset:4, clamp:true, rotation:-90,
+        color:(ctx)=> ctx.datasetIndex===1 ? '#ff9a9c' : '#8fb4ff', font:{weight:'700', size:12},
         formatter:(v)=> (v>0 ? '₹'+Math.round(v).toLocaleString('en-IN') : '₹0')
       };
       /* top labels ke liye thoda headroom */
