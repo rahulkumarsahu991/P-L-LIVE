@@ -1767,15 +1767,23 @@ function buildCharts(sec){
     const fmEl = document.getElementById('anFreightMonth');
     if(fmEl){
       const drawFreightMonth = (rows)=>{
-        const byMon = {};
+        const byMon = {};      // blue = actual freight (Z)
         (rows||[]).forEach(t=>{
           const d=parseSheetDate(t.start); if(!d) return;
           const k = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
           const fr = parseFloat(String(t.freight).replace(/[^0-9.\-]/g,''))||0;
           byMon[k] = (byMon[k]||0) + fr;
         });
-        const labels = Object.keys(byMon).sort();
-        const data = labels.map(k=>byMon[k]);
+        // red = actual + estimated (EB logic: freight hai to actual, warna wt×rate)
+        const byMonEB = {};
+        computeEB(rows||[], null).forEach(r=>{
+          const d=parseSheetDate(r.date); if(!d) return;
+          const k = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+          byMonEB[k] = (byMonEB[k]||0) + (r.billing||0);
+        });
+        const labels = Array.from(new Set([...Object.keys(byMon),...Object.keys(byMonEB)])).sort();
+        const data   = labels.map(k=>byMon[k]||0);
+        const dataEB = labels.map(k=>byMonEB[k]||0);
         if(charts.anFreightMonth) charts.anFreightMonth.destroy();
         const isMob = window.innerWidth < 600;
         // mobile par compact (₹6.67Cr) taaki thin bar par label na chipke; desktop par full number
@@ -1783,18 +1791,22 @@ function buildCharts(sec){
           if(a>=1e7) return '₹'+(v/1e7).toFixed(2)+'Cr'; if(a>=1e5) return '₹'+(v/1e5).toFixed(1)+'L';
           return '₹'+Math.round(v).toLocaleString('en-IN'); };
         charts.anFreightMonth = new Chart(fmEl, {type:'bar',
-          data:{labels, datasets:[{data, backgroundColor:'#2f6fed', borderRadius:8,
-            hoverBackgroundColor:'#5b9dff', maxBarThickness:70}]},
+          data:{labels, datasets:[
+            {label:'Actual Freight', data, backgroundColor:'#2f6fed', borderRadius:8,
+              hoverBackgroundColor:'#5b9dff', maxBarThickness:48},
+            {label:'Actual + Estimated', data:dataEB, backgroundColor:'#e5484d', borderRadius:8,
+              hoverBackgroundColor:'#ff6b6f', maxBarThickness:48}
+          ]},
           options:{maintainAspectRatio:false,
             layout:{padding:{top:24}},
             scales:{
               x:{grid:{display:false},ticks:{color:'#9fb0c8',font:{weight:'600',size:isMob?9:11},maxRotation:isMob?55:45,minRotation:isMob?55:0}},
               y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7d8ba3',font:{size:isMob?9:11},callback:v=>'₹'+(v>=1e7?(v/1e7).toFixed(1)+'Cr':v>=1e5?(v/1e5).toFixed(0)+'L':v)}}},
-            plugins:{legend:{display:false},
+            plugins:{legend:{display:true,position:'top',align:'end',labels:{color:'#9fb0c8',boxWidth:12,boxHeight:12,font:{size:isMob?9:11,weight:'600'},usePointStyle:true,pointStyle:'rectRounded'}},
               datalabels:{display:true,anchor:'end',align:'top',offset:2,rotation:isMob?-90:0,
-                color:'#8fb4ff',font:{weight:'700',size:isMob?9:11},
+                color:ctx=> ctx.datasetIndex===1 ? '#ff9a9c' : '#8fb4ff',font:{weight:'700',size:isMob?8:11},
                 formatter:v=> isMob ? compact(v) : (v>0?'₹'+Math.round(v).toLocaleString('en-IN'):'₹0')},
-              tooltip:{callbacks:{label:ctx=>' ₹'+Math.round(ctx.parsed.y).toLocaleString('en-IN')+' freight'}}}
+              tooltip:{callbacks:{label:ctx=>' '+ctx.dataset.label+': ₹'+Math.round(ctx.parsed.y).toLocaleString('en-IN')}}}
           }});
       };
       if(DISPATCH_DATA && DISPATCH_DATA.length) drawFreightMonth(DISPATCH_DATA);
