@@ -1786,27 +1786,37 @@ function buildCharts(sec){
         const dataEB = labels.map(k=>byMonEB[k]||0);
         if(charts.anFreightMonth) charts.anFreightMonth.destroy();
         const isMob = window.innerWidth < 600;
+        // short month labels: "2026-04" → "Apr'26"
+        const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const shortLabels = labels.map(k=>{const [y,m]=k.split('-');return MON[(+m)-1]+"'"+y.slice(2);});
+        // vertical gradient fill (top bright → neeche halka) — dono bars ke liye
+        const grad = (c1,c2)=>(ctx)=>{const {chart}=ctx; const {ctx:g,chartArea}=chart;
+          if(!chartArea) return c1; const lg=g.createLinearGradient(0,chartArea.top,0,chartArea.bottom);
+          lg.addColorStop(0,c1); lg.addColorStop(1,c2); return lg;};
         // mobile par compact (₹6.67Cr) taaki thin bar par label na chipke; desktop par full number
         const compact = v => { if(v<=0) return '₹0'; const a=Math.abs(v);
           if(a>=1e7) return '₹'+(v/1e7).toFixed(2)+'Cr'; if(a>=1e5) return '₹'+(v/1e5).toFixed(1)+'L';
           return '₹'+Math.round(v).toLocaleString('en-IN'); };
         charts.anFreightMonth = new Chart(fmEl, {type:'bar',
-          data:{labels, datasets:[
-            {label:'Actual Freight', data, backgroundColor:'#2f6fed', borderRadius:8,
-              hoverBackgroundColor:'#5b9dff', maxBarThickness:48},
-            {label:'Actual + Estimated', data:dataEB, backgroundColor:'#e5484d', borderRadius:8,
-              hoverBackgroundColor:'#ff6b6f', maxBarThickness:48}
+          data:{labels:shortLabels, datasets:[
+            {label:'Actual Freight', data, backgroundColor:grad('#5b9dff','#2f6fed'), borderRadius:{topLeft:6,topRight:6},
+              hoverBackgroundColor:'#7db3ff', maxBarThickness:isMob?26:54},
+            {label:'Actual + Estimated', data:dataEB, backgroundColor:grad('#ff6b6f','#e5484d'), borderRadius:{topLeft:6,topRight:6},
+              hoverBackgroundColor:'#ff8b8e', maxBarThickness:isMob?26:54}
           ]},
-          options:{maintainAspectRatio:false,
+          options:{maintainAspectRatio:false, responsive:true,
             layout:{padding:{top:44}},
+            categoryPercentage:0.72, barPercentage:0.9,
+            interaction:{mode:'index',intersect:false},
             scales:{
-              x:{grid:{display:false},ticks:{color:'#9fb0c8',font:{weight:'600',size:isMob?9:11},maxRotation:isMob?55:45,minRotation:isMob?55:0}},
-              y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7d8ba3',font:{size:isMob?9:11},callback:v=>'₹'+(v>=1e7?(v/1e7).toFixed(1)+'Cr':v>=1e5?(v/1e5).toFixed(0)+'L':v)}}},
-            plugins:{legend:{display:true,position:'top',align:'end',labels:{color:'#9fb0c8',boxWidth:12,boxHeight:12,font:{size:isMob?9:11,weight:'600'},usePointStyle:true,pointStyle:'rectRounded'}},
-              datalabels:{display:true,anchor:'end',align:'top',offset:3,rotation:-90,
+              x:{grid:{display:false},ticks:{color:'#9fb0c8',font:{weight:'600',size:isMob?9:11},maxRotation:isMob?0:0,minRotation:0,autoSkip:false}},
+              y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7d8ba3',font:{size:isMob?9:11},maxTicksLimit:isMob?5:8,callback:v=>'₹'+(v>=1e7?(v/1e7).toFixed(1)+'Cr':v>=1e5?(v/1e5).toFixed(0)+'L':v)}}},
+            plugins:{legend:{display:true,position:'top',align:'end',labels:{color:'#9fb0c8',boxWidth:11,boxHeight:11,padding:isMob?8:14,font:{size:isMob?9:11,weight:'600'},usePointStyle:true,pointStyle:'rectRounded'}},
+              datalabels:{display:ctx=> ctx.dataset.data[ctx.dataIndex]>0, anchor:'end',align:'top',offset:3,rotation:-90,
                 color:ctx=> ctx.datasetIndex===1 ? '#ff9a9c' : '#8fb4ff',font:{weight:'700',size:isMob?8:10},
                 formatter:v=> compact(v)},
-              tooltip:{callbacks:{label:ctx=>' '+ctx.dataset.label+': ₹'+Math.round(ctx.parsed.y).toLocaleString('en-IN')}}}
+              tooltip:{mode:'index',intersect:false,titleColor:'#e8ecf2',bodyColor:'#cfe0ff',padding:10,
+                callbacks:{label:ctx=>' '+ctx.dataset.label+': ₹'+Math.round(ctx.parsed.y).toLocaleString('en-IN')}}}
           }});
       };
       if(DISPATCH_DATA && DISPATCH_DATA.length) drawFreightMonth(DISPATCH_DATA);
@@ -5211,6 +5221,18 @@ function doLogin(){
 
   window.addEventListener('resize',()=>{resize()});
   init();draw();
+})();
+
+/* 🔧 Charts ko mobile↔desktop breakpoint cross hone par hi rebuild karo (label/bar size sahi aaye) */
+(function(){
+  let wasMob = window.innerWidth < 600, t;
+  window.addEventListener('resize', ()=>{
+    clearTimeout(t);
+    t = setTimeout(()=>{
+      const nowMob = window.innerWidth < 600;
+      if(nowMob !== wasMob){ wasMob = nowMob; try{ buildCharts(CURRENT); }catch(e){} }
+    }, 200);
+  });
 })();
 </script>
 </body>
