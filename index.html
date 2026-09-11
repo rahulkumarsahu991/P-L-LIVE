@@ -1825,7 +1825,7 @@ function buildCharts(sec){
               x:{grid:{display:false},ticks:{color:'#9fb0c8',font:{weight:'600',size:isMob?9:11},maxRotation:isMob?0:0,minRotation:0,autoSkip:false}},
               y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7d8ba3',font:{size:isMob?9:11},maxTicksLimit:isMob?5:8,callback:v=>'₹'+(v>=1e7?(v/1e7).toFixed(1)+'Cr':v>=1e5?(v/1e5).toFixed(0)+'L':v)}}},
             plugins:{legend:{display:true,position:'top',align:'end',labels:{color:'#9fb0c8',boxWidth:11,boxHeight:11,padding:isMob?8:14,font:{size:isMob?9:11,weight:'600'},usePointStyle:true,pointStyle:'rectRounded'}},
-              datalabels:{display:ctx=> ctx.dataset.data[ctx.dataIndex]>0, anchor:'end',align:'top',offset:3,rotation:-90,
+              datalabels:{display:ctx=> ctx.dataset.data[ctx.dataIndex]>0, anchor:'end',align:'top',offset:isMob?2:4,rotation:isMob?-90:0,clamp:true,
                 color:ctx=> ctx.datasetIndex===1 ? '#ff9a9c' : '#8fb4ff',font:{weight:'700',size:isMob?8:10},
                 formatter:v=> compact(v)},
               tooltip:{mode:'index',intersect:false,titleColor:'#e8ecf2',bodyColor:'#cfe0ff',padding:10,
