@@ -1795,7 +1795,10 @@ function buildCharts(sec){
         const isMob = window.innerWidth < 600;
         // short month labels: "2026-04" → "Apr'26"
         const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-        const shortLabels = labels.map(k=>{const [y,m]=k.split('-');return MON[(+m)-1]+"'"+y.slice(2);});
+        let shortLabels = labels.map(k=>{const [y,m]=k.split('-');return MON[(+m)-1]+"'"+y.slice(2);});
+        let dataV = data, dataEBv = dataEB;
+        // 📱 mobile (horizontal): latest month sabse upar (Sep, phir Aug, Jul…) → order reverse
+        if(isMob){ shortLabels = shortLabels.slice().reverse(); dataV = data.slice().reverse(); dataEBv = dataEB.slice().reverse(); }
         // mobile par compact (₹6.67Cr) taaki thin bar par label na chipke; desktop par full number
         const compact = v => { if(v<=0) return '₹0'; const a=Math.abs(v);
           if(a>=1e7) return '₹'+(v/1e7).toFixed(2)+'Cr'; if(a>=1e5) return '₹'+(v/1e5).toFixed(1)+'L';
@@ -1804,9 +1807,9 @@ function buildCharts(sec){
         const catAxis = {grid:{display:false},ticks:{color:'#9fb0c8',font:{weight:'600',size:isMob?11:11},maxRotation:0,minRotation:0,autoSkip:false}};
         charts.anFreightMonth = new Chart(fmEl, {type:'bar',
           data:{labels:shortLabels, datasets:[
-            {label:'Actual Freight', data, backgroundColor:'#2f6fed', borderRadius:6,
+            {label:'Actual Freight', data:dataV, backgroundColor:'#2f6fed', borderRadius:6,
               hoverBackgroundColor:'#5b9dff', maxBarThickness:isMob?14:48},
-            {label:'Actual + Estimated', data:dataEB, backgroundColor:'#e5484d', borderRadius:6,
+            {label:'Actual + Estimated', data:dataEBv, backgroundColor:'#e5484d', borderRadius:6,
               hoverBackgroundColor:'#ff6b6f', maxBarThickness:isMob?14:48}
           ]},
           options:{maintainAspectRatio:false, responsive:true,
