@@ -1797,7 +1797,12 @@ function buildCharts(sec){
         const compact = v => { if(v<=0) return '₹0'; const a=Math.abs(v);
           if(a>=1e7) return '₹'+(v/1e7).toFixed(2)+'Cr'; if(a>=1e5) return '₹'+(v/1e5).toFixed(1)+'L';
           return '₹'+Math.round(v).toLocaleString('en-IN'); };
-        charts.anFreightMonth = new Chart(fmEl, {type:'bar',
+        // 🌟 bars ke neeche soft colored glow (premium look)
+        const barGlow = {id:'barGlow', beforeDatasetsDraw(chart){
+          const c=chart.ctx; c.save();
+          c.shadowColor='rgba(47,111,237,.35)'; c.shadowBlur=isMob?6:12; c.shadowOffsetY=3;
+        }, afterDatasetsDraw(chart){ chart.ctx.restore(); }};
+        charts.anFreightMonth = new Chart(fmEl, {type:'bar', plugins:[barGlow],
           data:{labels:shortLabels, datasets:[
             {label:'Actual Freight', data, backgroundColor:grad('#5b9dff','#2f6fed'), borderRadius:{topLeft:6,topRight:6},
               hoverBackgroundColor:'#7db3ff', maxBarThickness:isMob?26:54},
@@ -1808,6 +1813,14 @@ function buildCharts(sec){
             layout:{padding:{top:44}},
             categoryPercentage:0.72, barPercentage:0.9,
             interaction:{mode:'index',intersect:false},
+            /* 🎬 stylish staggered grow-up animation */
+            animation:{
+              duration:900, easing:'easeOutQuart',
+              delay:(ctx)=> ctx.type==='data' && ctx.mode==='default'
+                ? (ctx.dataIndex*90 + ctx.datasetIndex*45) : 0,
+              y:{from:(ctx)=> ctx.chart.chartArea ? ctx.chart.chartArea.bottom : 0}
+            },
+            hover:{animationDuration:250},
             scales:{
               x:{grid:{display:false},ticks:{color:'#9fb0c8',font:{weight:'600',size:isMob?9:11},maxRotation:isMob?0:0,minRotation:0,autoSkip:false}},
               y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7d8ba3',font:{size:isMob?9:11},maxTicksLimit:isMob?5:8,callback:v=>'₹'+(v>=1e7?(v/1e7).toFixed(1)+'Cr':v>=1e5?(v/1e5).toFixed(0)+'L':v)}}},
