@@ -710,7 +710,7 @@ const EXP_CACHE = {};   // gid -> parsed matrix (cache)
 /* 🔧 Money Advance (Driver A/C) ab apni alag published workbook me hai (gid 0).
    Isliye is category ka fetch normal EXP_PUB_PREFIX ki jagah is poori URL se hoga.
    Key = config me diya gid (cache key wahi rehta hai). */
-const MONEY_ADV_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSpWa6XGAYXVsH8JZeqcwzkcpeNd_Oxgjkr6gKwfk1dIbYh4-VA94JxS0a9eLJqfyi8qvOZD3yoKQdL/pub?gid=0&single=true&output=csv';
+const MONEY_ADV_CSV = 'https://docs.google.com/spreadsheets/d/1uVhxUPKk8Sc4gyzjJBDAs2zuFnKPHI_PpeojCZ_a0Is/gviz/tq?tqx=out:csv&sheet=Money%20Advance';
 const EXP_URL_BY_GID = { '1326041906': MONEY_ADV_CSV };
 function expCsvUrl(gid){
   const base = EXP_URL_BY_GID[gid] || (EXP_PUB_PREFIX + gid + EXP_PUB_SUFFIX);
@@ -4555,7 +4555,7 @@ const CSV_LINKS = {
   'JK PLANT ADV': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTFfJ5JJKrDtauj07HVgMLNludDmnC4S7Kji5LfAXI28tn552OygrZiXQZc6FSo_kEfGoFSePKeALEh/pub?gid=1030417261&single=true&output=csv',
   'SHREE PLANT ADV': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTFfJ5JJKrDtauj07HVgMLNludDmnC4S7Kji5LfAXI28tn552OygrZiXQZc6FSo_kEfGoFSePKeALEh/pub?gid=1804028662&single=true&output=csv',
   'UPI SHEET': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTFfJ5JJKrDtauj07HVgMLNludDmnC4S7Kji5LfAXI28tn552OygrZiXQZc6FSo_kEfGoFSePKeALEh/pub?gid=33245272&single=true&output=csv',
-  'MONEY ADVANCE SHEET': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSpWa6XGAYXVsH8JZeqcwzkcpeNd_Oxgjkr6gKwfk1dIbYh4-VA94JxS0a9eLJqfyi8qvOZD3yoKQdL/pub?gid=0&single=true&output=csv'
+  'MONEY ADVANCE SHEET': 'https://docs.google.com/spreadsheets/d/1uVhxUPKk8Sc4gyzjJBDAs2zuFnKPHI_PpeojCZ_a0Is/gviz/tq?tqx=out:csv&sheet=Money%20Advance'
 };
 
 /* 🔧 In-memory cache only — localStorage 5MB quota se bachne ke liye (diesel sheet 1.8MB hai,
