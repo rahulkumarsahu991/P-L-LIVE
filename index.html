@@ -4212,12 +4212,21 @@ async function loadPaperRto(){
       const re=new Date(window.SHEET_PERIOD_END.getTime()); re.setHours(23,59,59,999);
       lo=window.SHEET_PERIOD_START.getTime(); hi=re.getTime();
     }
+    // 🔧 series/status filter active ho to sirf current filtered vehicles ka Paper&RTO ginno
+    //    (Overview me series select karne par ye card bhi uske according badle)
+    const filterActive = (typeof SERIES_FILTER!=='undefined' && SERIES_FILTER!=='all'
+                          && !(Array.isArray(SERIES_FILTER) && SERIES_FILTER.length===0))
+                      || (typeof STATUS_FILTER!=='undefined' && STATUS_FILTER!=='all');
+    const norm = v => String(v||'').toUpperCase().replace(/\s+/g,'');
+    const vehSet = filterActive ? new Set((DATA||[]).map(r=>norm(r.Vehicle))) : null;
     let total=0;
     for(let i=1;i<PAPER_RTO_RAW.length;i++){
       const r=PAPER_RTO_RAW[i]; if(!r || r.length<7) continue;
       // 🔧 sirf woh rows jinme G col (FULL VCH NO., index 6) bhara hai
       const fullVeh = String(r[6]||'').trim();
       if(!fullVeh) continue;
+      // 🔧 filter active → sirf selected series/status ki vehicles
+      if(vehSet && !vehSet.has(norm(fullVeh))) continue;
       if(lo!=null && hi!=null){
         const d=parseSheetDate(r[0]); if(!d) continue;
         const x=d.getTime(); if(x<lo||x>hi) continue;
@@ -4225,7 +4234,7 @@ async function loadPaperRto(){
       total += num(r[4]);   // PAYMENT
     }
     if(valEl) valEl.textContent = fmtL(total);
-    if(subEl) subEl.textContent = 'Paper + RTO (sheet se)';
+    if(subEl) subEl.textContent = filterActive ? 'Paper + RTO (filtered)' : 'Paper + RTO (sheet se)';
     // 🔧 Total Expense (Overview) me add karne ke liye global set + re-render (agar badla)
     const changed = (window.PAPER_RTO_TOTAL||0) !== total;
     window.PAPER_RTO_TOTAL = total;
