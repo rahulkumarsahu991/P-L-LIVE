@@ -4400,7 +4400,7 @@ function renderBillingAnalyzer(){
   // 🔧 mode: 'actual' | 'est' (Actual+Estimated) | 'both'. Headline metrics selected mode par.
   const mode = window.BILL_MODE || 'both';
   const P = (mode==='actual') ? vals : valsEB;   // primary series (KPI/ledger/trend ka base)
-  const primaryLbl = (mode==='actual') ? 'Actual' : 'Actual + Estimated';
+  const primaryLbl = (mode==='actual') ? 'Actual' : 'Estimated';
   const total=P.reduce((s,v)=>s+v,0);
   const avg=total/days.length;
   const latest=P[P.length-1], prev=days.length>1?P[P.length-2]:0;
@@ -4443,7 +4443,7 @@ function renderBillingAnalyzer(){
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
       <span style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-right:2px">View</span>
       ${tbtn('actual','🔵 Actual')}
-      ${tbtn('est','🔴 Actual + Estimated')}
+      ${tbtn('est','🔴 Estimated')}
       ${tbtn('both','⚡ Both')}
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px">
@@ -4472,7 +4472,7 @@ function renderBillingAnalyzer(){
         <th style="text-align:left;padding:10px 8px;font-weight:700">Date</th>
         <th style="text-align:left;padding:10px 8px;font-weight:700">Trend</th>
         <th style="text-align:right;padding:10px 8px;font-weight:700;color:#8fb4ff">Actual</th>
-        <th style="text-align:right;padding:10px 8px;font-weight:700;color:#ff9a9c">Act + Est</th>
+        <th style="text-align:right;padding:10px 8px;font-weight:700;color:#ff9a9c">Estimated</th>
         <th style="text-align:right;padding:10px 8px;font-weight:700">Δ vs prev</th>
       </tr></thead>
       <tbody>${rowsHtml}</tbody>
@@ -4494,7 +4494,7 @@ function renderBillingAnalyzer(){
       const gR=cx.createLinearGradient(0,0,0,190);
       gR.addColorStop(0,'rgba(240,68,56,.28)'); gR.addColorStop(1,'rgba(240,68,56,0)');
       const pr=days.length>40?0:3;
-      const dsRed={label:'Actual + Estimated',data:valsEB,borderColor:'#f04438',backgroundColor:gR,
+      const dsRed={label:'Estimated',data:valsEB,borderColor:'#f04438',backgroundColor:gR,
         fill:true,tension:.35,borderWidth:2,borderDash:[5,3],pointRadius:pr,pointBackgroundColor:'#f04438',pointHoverRadius:5};
       const dsBlue={label:'Actual Billing',data:vals,borderColor:'#5b9dff',backgroundColor:g,
         fill:true,tension:.35,borderWidth:2,pointRadius:pr,pointBackgroundColor:'#2f6fed',pointHoverRadius:5};
