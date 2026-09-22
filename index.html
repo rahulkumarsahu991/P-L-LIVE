@@ -685,6 +685,8 @@ th.sortable .sort-arrow{display:inline-block;margin-left:4px;color:var(--accent)
       <span style="color:var(--muted)">→</span>
       <input type="date" id="billTo" style="background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:.85rem">
       <button onclick="renderBillingAnalyzer()" style="background:var(--accent2,#2f6fed);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:.85rem">Apply</button>
+      <button onclick="billQuick('today')" class="bill-q" style="background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;font-size:.8rem">Today</button>
+      <button onclick="billQuick('yest')" class="bill-q" style="background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;font-size:.8rem">Yesterday</button>
       <button onclick="billQuick(7)" class="bill-q" style="background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;font-size:.8rem">7d</button>
       <button onclick="billQuick(30)" class="bill-q" style="background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;font-size:.8rem">30d</button>
       <button onclick="billQuick(0)" class="bill-q" style="background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;font-size:.8rem">All</button>
@@ -4338,7 +4340,10 @@ function billQuick(days){
   if(!allDays.length){ renderBillingAnalyzer(); return; }
   const last=allDays[allDays.length-1], lastD=new Date(last);
   const f=document.getElementById('billFrom'), t=document.getElementById('billTo');
-  if(days===0){ if(f) f.value=allDays[0]; if(t) t.value=last; }
+  // Today = latest data day; Yesterday = uske ek din pehle (data me jo pichhla din ho)
+  if(days==='today'){ if(f) f.value=last; if(t) t.value=last; }
+  else if(days==='yest'){ const prev = allDays.length>1 ? allDays[allDays.length-2] : last; if(f) f.value=prev; if(t) t.value=prev; }
+  else if(days===0){ if(f) f.value=allDays[0]; if(t) t.value=last; }
   else { const fromD=new Date(lastD.getTime()-(days-1)*864e5); if(f) f.value=toISO(fromD); if(t) t.value=last; }
   renderBillingAnalyzer();
 }
