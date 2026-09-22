@@ -4296,19 +4296,26 @@ function openBillingAnalyzer(){
     if(CURRENT_RANGE){ const rs=parseSheetDate(CURRENT_RANGE.start), re=parseSheetDate(CURRENT_RANGE.end);
       setInputs(toISO(rs),toISO(re)); }
     else { // last 30 days of available data
-      const days=Object.keys(billByDay(DISPATCH_DATA||[])).sort();
+      const days=analyzerAllDays().sort();
       if(days.length){ const last=days[days.length-1]; const lastD=new Date(last);
         const fromD=new Date(lastD.getTime()-29*864e5); setInputs(toISO(fromD),last); }
     }
     renderBillingAnalyzer();
   };
-  if(DISPATCH_DATA && DISPATCH_DATA.length){ go(); }
-  else { if(body) body.innerHTML='<div style="color:var(--muted);padding:30px;text-align:center">⏳ Dispatch data load ho raha hai…</div>'; loadDispatch(()=>go()); }
+  const start=()=>ensureEstData(go);   // Estimated Data tab bhi laao, phir render
+  if(body) body.innerHTML='<div style="color:var(--muted);padding:30px;text-align:center">⏳ Data load ho raha hai…</div>';
+  if(DISPATCH_DATA && DISPATCH_DATA.length){ start(); }
+  else { loadDispatch(()=>start()); }
+}
+/* analyzer ka day-set: Estimated Data tab (agar mila) warna dispatch */
+function analyzerAllDays(){
+  const eb=estByDay();
+  return Object.keys(eb.has ? eb.all : billByDay(DISPATCH_DATA||[]));
 }
 function closeBillingAnalyzer(){ const ov=document.getElementById('billOverlay'); if(ov) ov.style.display='none'; }
 function billQuick(days){
   const toISO=d=> d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  const allDays=Object.keys(billByDay(DISPATCH_DATA||[])).sort();
+  const allDays=analyzerAllDays().sort();
   if(!allDays.length){ renderBillingAnalyzer(); return; }
   const last=allDays[allDays.length-1], lastD=new Date(last);
   const f=document.getElementById('billFrom'), t=document.getElementById('billTo');
@@ -4326,6 +4333,35 @@ function billByDay(rows){
     by[k]=(by[k]||0)+fr;
   });
   return by;
+}
+/* 🔧 Estimated Data tab (published CSV) — Trip Start Date col14, Freight(Auto) col25, Status col26 */
+const EST_DATA_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTDVDhqDXdr7uBg2RFkeK7u9B10ZsC5p-XccUju36BiK3NPGLT90Lf8er345KJN5jciH6hrUexynsF1/pub?gid=672314948&single=true&output=csv';
+let EST_RAW = null;
+async function ensureEstData(cb){
+  if(EST_RAW){ cb&&cb(); return; }
+  try{
+    const res = await fetch(EST_DATA_CSV + '&t=' + Date.now());
+    const txt = await res.text();
+    if(!isBadCsv(txt)){
+      const m = Papa.parse(txt,{header:false,skipEmptyLines:true}).data;
+      if(m && m.length>1) EST_RAW = m;
+    }
+  }catch(e){ /* silent — fallback compute se chalega */ }
+  cb&&cb();
+}
+/* Estimated Data → { all:{day:sum freight}, act:{day:sum where status=Actual} } */
+function estByDay(){
+  const all={}, act={};
+  if(!EST_RAW) return {all, act, has:false};
+  for(let i=1;i<EST_RAW.length;i++){
+    const r=EST_RAW[i]; if(!r || r.length<26) continue;
+    const d=parseSheetDate(r[14]); if(!d) continue;
+    const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    const fr=parseFloat(String(r[25]).replace(/[^0-9.\-]/g,''))||0;
+    all[k]=(all[k]||0)+fr;
+    if(String(r[26]||'').trim().toLowerCase()==='actual') act[k]=(act[k]||0)+fr;
+  }
+  return {all, act, has:Object.keys(all).length>0};
 }
 /* dispatch rows → { 'YYYY-MM-DD': actual+estimated } (computeEB logic) */
 function billByDayEB(rows){
@@ -4347,17 +4383,19 @@ function renderBillingAnalyzer(){
   const toV=(document.getElementById('billTo')||{}).value||'';
   const lo=fromV?new Date(fromV+'T00:00:00').getTime():null;
   const hi=toV?new Date(toV+'T23:59:59').getTime():null;
-  const by=billByDay(DISPATCH_DATA||[]);
-  let days=Object.keys(by).sort().filter(k=>{
+  // 🔧 Estimated Data tab se (mila to) — actual = status 'Actual', red = sabhi (actual+estimated)
+  const eb=estByDay();
+  const by    = eb.has ? eb.act : billByDay(DISPATCH_DATA||[]);
+  const byAll = eb.has ? eb.all : billByDayEB(DISPATCH_DATA||[]);
+  let days=Object.keys(byAll).sort().filter(k=>{
     const x=new Date(k+'T12:00:00').getTime();
     if(lo!=null && x<lo) return false; if(hi!=null && x>hi) return false; return true;
   });
   const sub=document.getElementById('billOvSub');
   if(sub) sub.textContent = days.length ? `${fromV||days[0]} → ${toV||days[days.length-1]} · ${days.length} days` : 'koi data nahi';
   if(!days.length){ body.innerHTML='<div style="color:var(--muted);padding:30px;text-align:center">Is period me koi billing data nahi mila.</div>'; return; }
-  const vals=days.map(k=>by[k]);
-  const byEB=billByDayEB(DISPATCH_DATA||[]);
-  const valsEB=days.map(k=>byEB[k]||0);
+  const vals=days.map(k=>by[k]||0);
+  const valsEB=days.map(k=>byAll[k]||0);
   const total=vals.reduce((s,v)=>s+v,0);
   const avg=total/days.length;
   const latest=vals[vals.length-1], prev=days.length>1?vals[vals.length-2]:0;
