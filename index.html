@@ -647,17 +647,20 @@ th.sortable .sort-arrow{display:inline-block;margin-left:4px;color:var(--accent)
 <div id="billOverlay" onclick="if(event.target===this)closeBillingAnalyzer()"
   style="position:fixed;inset:0;z-index:92;background:rgba(6,9,16,.80);backdrop-filter:blur(4px);
   display:none;align-items:center;justify-content:center;padding:16px">
-  <div style="background:var(--panel);border:1px solid var(--line);border-radius:16px;
-    width:100%;max-width:720px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:18px;
+    width:100%;max-width:760px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.55)">
     <div style="display:flex;align-items:center;justify-content:space-between;
-      padding:16px 20px;border-bottom:1px solid var(--line)">
-      <div>
-        <div style="font-size:1.05rem;font-weight:800">📈 Billing Day-by-Day Analyzer</div>
-        <div id="billOvSub" style="font-size:.78rem;color:var(--muted);margin-top:2px">dispatch se · freight (daily billing)</div>
+      padding:18px 22px;background:linear-gradient(135deg,#12203d,#0e1626);border-bottom:1px solid var(--line)">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:42px;height:42px;border-radius:11px;background:linear-gradient(135deg,#2f6fed,#5b9dff);display:flex;align-items:center;justify-content:center;font-size:1.3rem;box-shadow:0 4px 12px rgba(47,111,237,.4)">📈</div>
+        <div>
+          <div style="font-size:1.1rem;font-weight:800;letter-spacing:-.01em">Billing Analytics</div>
+          <div id="billOvSub" style="font-size:.75rem;color:var(--muted);margin-top:1px">Day-by-day revenue · live dispatch</div>
+        </div>
       </div>
-      <span onclick="closeBillingAnalyzer()" style="cursor:pointer;font-size:1.4rem;color:var(--muted);
+      <span onclick="closeBillingAnalyzer()" style="cursor:pointer;font-size:1.3rem;color:var(--muted);
         width:34px;height:34px;display:flex;align-items:center;justify-content:center;
-        border:1px solid var(--line);border-radius:8px">&times;</span>
+        border:1px solid var(--line);border-radius:9px;background:rgba(255,255,255,.03)">&times;</span>
     </div>
     <div style="padding:12px 20px;border-bottom:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <input type="date" id="billFrom" style="background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:.85rem">
@@ -4348,48 +4351,83 @@ function renderBillingAnalyzer(){
   const maxV=Math.max(...vals), maxDay=days[vals.indexOf(maxV)];
   const minV=Math.min(...vals), minDay=days[vals.indexOf(minV)];
   const fmtDay=k=>{const [y,m,dd]=k.split('-');const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return dd+' '+MON[(+m)-1]+" '"+y.slice(2);};
-  const kpi=(lbl,val,sub2,col)=>`<div style="flex:1;min-width:130px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px 14px">
-    <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${lbl}</div>
-    <div style="font-size:1.15rem;font-weight:800;margin-top:3px;color:${col||'var(--txt)'}">${val}</div>
-    <div style="font-size:.72rem;color:var(--muted);margin-top:2px">${sub2||''}</div></div>`;
-  const arrow=dChg>0?'▲':(dChg<0?'▼':'●'); const dCol=dChg>0?'#38d39f':(dChg<0?'#ff6b6f':'var(--muted)');
+  const chip=(v,pct)=>{ if(v==null) return '<span style="color:var(--muted)">—</span>';
+    const up=v>0,zero=v===0; const c=zero?'#8b97a8':(up?'#16b364':'#f04438');
+    const bg=zero?'rgba(139,151,168,.12)':(up?'rgba(22,179,100,.12)':'rgba(240,68,56,.12)');
+    const ar=zero?'':(up?'▲':'▼');
+    return `<span style="display:inline-flex;align-items:center;gap:3px;background:${bg};color:${c};font-weight:700;font-size:.76rem;padding:2px 8px;border-radius:20px;white-space:nowrap">${ar} ${inr(Math.abs(v))}${pct!=null?` · ${pct>0?'+':''}${pct.toFixed(0)}%`:''}</span>`;};
+  // corporate KPI tile with accent bar + icon
+  const kpi=(icon,lbl,val,sub2,accent)=>`
+    <div style="flex:1;min-width:150px;position:relative;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent);border:1px solid var(--line);border-radius:14px;padding:14px 16px 14px 18px;overflow:hidden">
+      <div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:${accent||'#2f6fed'}"></div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;font-weight:600">${icon?`<span style="font-size:.9rem">${icon}</span>`:''}${lbl}</div>
+      <div style="font-size:1.32rem;font-weight:800;margin-top:5px;letter-spacing:-.02em">${val}</div>
+      <div style="font-size:.74rem;color:var(--muted);margin-top:3px">${sub2||''}</div>
+    </div>`;
   // day-by-day rows (latest first)
   let rowsHtml='';
   for(let i=days.length-1;i>=0;i--){
     const k=days[i], v=by[k], pv=i>0?by[days[i-1]]:null;
     const chg=pv==null?null:v-pv, pct=(pv)?((chg/pv)*100):null;
-    const cCol=chg==null?'var(--muted)':(chg>0?'#38d39f':(chg<0?'#ff6b6f':'var(--muted)'));
-    const cTxt=chg==null?'—':(chg>0?'▲ ':(chg<0?'▼ ':''))+inr(Math.abs(chg))+(pct!=null?` (${pct>0?'+':''}${pct.toFixed(0)}%)`:'');
-    const barW=Math.max(2,Math.round((v/maxV)*100));
-    rowsHtml+=`<tr style="border-top:1px solid var(--line)">
-      <td style="padding:9px 6px;font-weight:600;white-space:nowrap">${fmtDay(k)}</td>
-      <td style="padding:9px 6px;min-width:120px"><div style="background:linear-gradient(90deg,#2f6fed,#5b9dff);height:8px;border-radius:4px;width:${barW}%"></div></td>
-      <td style="padding:9px 6px;text-align:right;font-weight:700;white-space:nowrap">${inr(v)}</td>
-      <td style="padding:9px 6px;text-align:right;color:${cCol};white-space:nowrap;font-size:.82rem">${cTxt}</td>
+    const barW=Math.max(3,Math.round((v/maxV)*100));
+    const zebra = (days.length-1-i)%2 ? 'background:rgba(255,255,255,.015)':'';
+    rowsHtml+=`<tr style="border-top:1px solid var(--line);${zebra}">
+      <td style="padding:11px 8px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums">${fmtDay(k)}</td>
+      <td style="padding:11px 8px;min-width:110px;width:32%"><div style="background:rgba(255,255,255,.05);border-radius:5px;overflow:hidden"><div style="background:linear-gradient(90deg,#2f6fed,#5b9dff);height:9px;border-radius:5px;width:${barW}%"></div></div></td>
+      <td style="padding:11px 8px;text-align:right;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums">${inr(v)}</td>
+      <td style="padding:11px 8px;text-align:right">${chip(chg,pct)}</td>
     </tr>`;
   }
+  const dCol=dChg>0?'#16b364':(dChg<0?'#f04438':'#8b97a8');
   body.innerHTML=`
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
-      ${kpi('Latest Day',inr(latest),fmtDay(days[days.length-1]))}
-      ${kpi('vs Previous', (dChg>=0?'+':'')+compact(dChg), arrow+' '+(dPct>0?'+':'')+dPct.toFixed(1)+'% vs '+(days.length>1?fmtDay(days[days.length-2]):'—'), dCol)}
-      ${kpi('Period Total',compact(total),days.length+' days')}
-      ${kpi('Avg / Day',compact(avg),'')}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px">
+      ${kpi('📅','Latest Day',inr(latest),fmtDay(days[days.length-1]),'#2f6fed')}
+      ${kpi('','vs Previous Day', `<span style="color:${dCol}">${dChg>0?'+':''}${compact(dChg)}</span>`, `${dPct>0?'+':''}${dPct.toFixed(1)}% vs ${days.length>1?fmtDay(days[days.length-2]):'—'}`, dCol)}
+      ${kpi('Σ','Period Total',compact(total),days.length+' days',' #7c5cff')}
+      ${kpi('⌀','Avg / Day',compact(avg),'per active day','#00b5d8')}
+      ${kpi('▲','Best Day',compact(maxV),fmtDay(maxDay),'#16b364')}
+      ${kpi('▼','Lowest Day',compact(minV),fmtDay(minDay),'#f79009')}
     </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
-      ${kpi('Best Day',compact(maxV),fmtDay(maxDay),'#38d39f')}
-      ${kpi('Lowest Day',compact(minV),fmtDay(minDay),'#ffb84d')}
+    <div style="border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:16px;background:linear-gradient(180deg,rgba(47,111,237,.04),transparent)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:.82rem;font-weight:700;letter-spacing:.2px">Daily Billing Trend</div>
+        <div style="font-size:.72rem;color:var(--muted)">${fromV||days[0]} → ${toV||days[days.length-1]}</div>
+      </div>
+      <div style="height:190px;position:relative"><canvas id="billTrendChart"></canvas></div>
     </div>
-    <div style="font-size:.8rem;color:var(--muted);margin-bottom:6px">Day-by-day billing (latest upar) · Δ = pichhle din se badlaav</div>
-    <div style="overflow-x:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-size:.82rem;font-weight:700">Day-by-Day Ledger</div>
+      <div style="font-size:.72rem;color:var(--muted)">Δ = change vs previous day</div>
+    </div>
+    <div style="border:1px solid var(--line);border-radius:14px;overflow:hidden">
+    <div style="overflow-x:auto;max-height:320px;overflow-y:auto">
     <table style="width:100%;border-collapse:collapse;font-size:.9rem">
-      <thead><tr style="color:var(--muted);font-size:.74rem;text-transform:uppercase">
-        <th style="text-align:left;padding:4px 6px">Date</th>
-        <th style="text-align:left;padding:4px 6px">Trend</th>
-        <th style="text-align:right;padding:4px 6px">Billing</th>
-        <th style="text-align:right;padding:4px 6px">Δ vs prev</th>
+      <thead><tr style="color:var(--muted);font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;position:sticky;top:0;background:var(--panel);z-index:1">
+        <th style="text-align:left;padding:10px 8px;font-weight:700">Date</th>
+        <th style="text-align:left;padding:10px 8px;font-weight:700">Trend</th>
+        <th style="text-align:right;padding:10px 8px;font-weight:700">Billing</th>
+        <th style="text-align:right;padding:10px 8px;font-weight:700">Δ vs prev</th>
       </tr></thead>
       <tbody>${rowsHtml}</tbody>
-    </table></div>`;
+    </table></div></div>`;
+  // area trend chart
+  try{
+    if(window.__billTrendChart) window.__billTrendChart.destroy();
+    const cEl=document.getElementById('billTrendChart');
+    if(cEl && typeof Chart!=='undefined'){
+      const cx=cEl.getContext('2d');
+      const g=cx.createLinearGradient(0,0,0,190);
+      g.addColorStop(0,'rgba(91,157,255,.45)'); g.addColorStop(1,'rgba(91,157,255,0)');
+      window.__billTrendChart=new Chart(cEl,{type:'line',
+        data:{labels:days.map(fmtDay),datasets:[{data:vals,borderColor:'#5b9dff',backgroundColor:g,
+          fill:true,tension:.35,borderWidth:2,pointRadius:days.length>40?0:3,pointBackgroundColor:'#2f6fed',pointHoverRadius:5}]},
+        options:{maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:false},
+          tooltip:{callbacks:{label:c=>' '+inr(c.parsed.y)}}},
+          scales:{x:{grid:{display:false},ticks:{color:'#7d8ba3',font:{size:9},maxRotation:0,autoSkip:true,maxTicksLimit:8}},
+            y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7d8ba3',font:{size:9},callback:v=>compact(v)}}}}
+      });
+    }
+  }catch(e){}
 }
 
 async function loadDieselUreaStats(){
