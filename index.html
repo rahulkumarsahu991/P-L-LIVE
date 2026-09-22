@@ -4316,7 +4316,7 @@ function billQuick(days){
   else { const fromD=new Date(lastD.getTime()-(days-1)*864e5); if(f) f.value=toISO(fromD); if(t) t.value=last; }
   renderBillingAnalyzer();
 }
-/* dispatch rows → { 'YYYY-MM-DD': totalFreight } */
+/* dispatch rows → { 'YYYY-MM-DD': totalFreight (actual billing) } */
 function billByDay(rows){
   const by={};
   (rows||[]).forEach(t=>{
@@ -4325,6 +4325,18 @@ function billByDay(rows){
     const fr=parseFloat(String(t.freight).replace(/[^0-9.\-]/g,''))||0;
     by[k]=(by[k]||0)+fr;
   });
+  return by;
+}
+/* dispatch rows → { 'YYYY-MM-DD': actual+estimated } (computeEB logic) */
+function billByDayEB(rows){
+  const by={};
+  try{
+    computeEB(rows||[], null).forEach(r=>{
+      const d=parseSheetDate(r.date); if(!d) return;
+      const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      by[k]=(by[k]||0)+(r.billing||0);
+    });
+  }catch(e){}
   return by;
 }
 function renderBillingAnalyzer(){
@@ -4344,6 +4356,8 @@ function renderBillingAnalyzer(){
   if(sub) sub.textContent = days.length ? `${fromV||days[0]} → ${toV||days[days.length-1]} · ${days.length} days` : 'koi data nahi';
   if(!days.length){ body.innerHTML='<div style="color:var(--muted);padding:30px;text-align:center">Is period me koi billing data nahi mila.</div>'; return; }
   const vals=days.map(k=>by[k]);
+  const byEB=billByDayEB(DISPATCH_DATA||[]);
+  const valsEB=days.map(k=>byEB[k]||0);
   const total=vals.reduce((s,v)=>s+v,0);
   const avg=total/days.length;
   const latest=vals[vals.length-1], prev=days.length>1?vals[vals.length-2]:0;
@@ -4417,12 +4431,20 @@ function renderBillingAnalyzer(){
     if(cEl && typeof Chart!=='undefined'){
       const cx=cEl.getContext('2d');
       const g=cx.createLinearGradient(0,0,0,190);
-      g.addColorStop(0,'rgba(91,157,255,.45)'); g.addColorStop(1,'rgba(91,157,255,0)');
+      g.addColorStop(0,'rgba(91,157,255,.42)'); g.addColorStop(1,'rgba(91,157,255,0)');
+      const gR=cx.createLinearGradient(0,0,0,190);
+      gR.addColorStop(0,'rgba(240,68,56,.28)'); gR.addColorStop(1,'rgba(240,68,56,0)');
+      const pr=days.length>40?0:3;
       window.__billTrendChart=new Chart(cEl,{type:'line',
-        data:{labels:days.map(fmtDay),datasets:[{data:vals,borderColor:'#5b9dff',backgroundColor:g,
-          fill:true,tension:.35,borderWidth:2,pointRadius:days.length>40?0:3,pointBackgroundColor:'#2f6fed',pointHoverRadius:5}]},
-        options:{maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:false},
-          tooltip:{callbacks:{label:c=>' '+inr(c.parsed.y)}}},
+        data:{labels:days.map(fmtDay),datasets:[
+          {label:'Actual + Estimated',data:valsEB,borderColor:'#f04438',backgroundColor:gR,
+            fill:true,tension:.35,borderWidth:2,borderDash:[5,3],pointRadius:pr,pointBackgroundColor:'#f04438',pointHoverRadius:5},
+          {label:'Actual Billing',data:vals,borderColor:'#5b9dff',backgroundColor:g,
+            fill:true,tension:.35,borderWidth:2,pointRadius:pr,pointBackgroundColor:'#2f6fed',pointHoverRadius:5}
+        ]},
+        options:{maintainAspectRatio:false,plugins:{legend:{display:true,position:'top',align:'end',labels:{color:'#9fb0c8',boxWidth:10,boxHeight:10,padding:12,font:{size:10,weight:'600'},usePointStyle:true,pointStyle:'line'}},datalabels:{display:false},
+          interaction:{mode:'index',intersect:false},
+          tooltip:{mode:'index',intersect:false,callbacks:{label:c=>' '+c.dataset.label+': '+inr(c.parsed.y)}}},
           scales:{x:{grid:{display:false},ticks:{color:'#7d8ba3',font:{size:9},maxRotation:0,autoSkip:true,maxTicksLimit:8}},
             y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7d8ba3',font:{size:9},callback:v=>compact(v)}}}}
       });
