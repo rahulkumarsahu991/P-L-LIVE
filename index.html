@@ -4313,6 +4313,7 @@ function analyzerAllDays(){
   return Object.keys(eb.has ? eb.all : billByDay(DISPATCH_DATA||[]));
 }
 function closeBillingAnalyzer(){ const ov=document.getElementById('billOverlay'); if(ov) ov.style.display='none'; }
+function setBillMode(m){ window.BILL_MODE=m; renderBillingAnalyzer(); }
 function billQuick(days){
   const toISO=d=> d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   const allDays=analyzerAllDays().sort();
@@ -4394,14 +4395,18 @@ function renderBillingAnalyzer(){
   const sub=document.getElementById('billOvSub');
   if(sub) sub.textContent = days.length ? `${fromV||days[0]} → ${toV||days[days.length-1]} · ${days.length} days` : 'koi data nahi';
   if(!days.length){ body.innerHTML='<div style="color:var(--muted);padding:30px;text-align:center">Is period me koi billing data nahi mila.</div>'; return; }
-  const vals=days.map(k=>by[k]||0);
-  const valsEB=days.map(k=>byAll[k]||0);
-  const total=vals.reduce((s,v)=>s+v,0);
+  const vals=days.map(k=>by[k]||0);       // Actual
+  const valsEB=days.map(k=>byAll[k]||0);  // Actual + Estimated
+  // 🔧 mode: 'actual' | 'est' (Actual+Estimated) | 'both'. Headline metrics selected mode par.
+  const mode = window.BILL_MODE || 'both';
+  const P = (mode==='actual') ? vals : valsEB;   // primary series (KPI/ledger/trend ka base)
+  const primaryLbl = (mode==='actual') ? 'Actual' : 'Actual + Estimated';
+  const total=P.reduce((s,v)=>s+v,0);
   const avg=total/days.length;
-  const latest=vals[vals.length-1], prev=days.length>1?vals[vals.length-2]:0;
+  const latest=P[P.length-1], prev=days.length>1?P[P.length-2]:0;
   const dChg=latest-prev, dPct=prev?((dChg/prev)*100):0;
-  const maxV=Math.max(...vals), maxDay=days[vals.indexOf(maxV)];
-  const minV=Math.min(...vals), minDay=days[vals.indexOf(minV)];
+  const maxV=Math.max(...P), maxDay=days[P.indexOf(maxV)];
+  const minV=Math.min(...P), minDay=days[P.indexOf(minV)];
   const fmtDay=k=>{const [y,m,dd]=k.split('-');const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return dd+' '+MON[(+m)-1]+" '"+y.slice(2);};
   const chip=(v,pct)=>{ if(v==null) return '<span style="color:var(--muted)">—</span>';
     const up=v>0,zero=v===0; const c=zero?'#8b97a8':(up?'#16b364':'#f04438');
@@ -4416,26 +4421,35 @@ function renderBillingAnalyzer(){
       <div style="font-size:1.32rem;font-weight:800;margin-top:5px;letter-spacing:-.02em">${val}</div>
       <div style="font-size:.74rem;color:var(--muted);margin-top:3px">${sub2||''}</div>
     </div>`;
-  // day-by-day rows (latest first)
+  // day-by-day rows (latest first) — Actual + (Act+Est) dono columns
   let rowsHtml='';
   for(let i=days.length-1;i>=0;i--){
-    const k=days[i], v=by[k], pv=i>0?by[days[i-1]]:null;
-    const chg=pv==null?null:v-pv, pct=(pv)?((chg/pv)*100):null;
-    const barW=Math.max(3,Math.round((v/maxV)*100));
+    const k=days[i], a=vals[i], e=valsEB[i];
+    const pvP = i>0 ? P[i-1] : null, vP=P[i];
+    const chg=pvP==null?null:vP-pvP, pct=(pvP)?((chg/pvP)*100):null;
+    const barW=Math.max(3,Math.round((vP/(maxV||1))*100));
     const zebra = (days.length-1-i)%2 ? 'background:rgba(255,255,255,.015)':'';
     rowsHtml+=`<tr style="border-top:1px solid var(--line);${zebra}">
       <td style="padding:11px 8px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums">${fmtDay(k)}</td>
-      <td style="padding:11px 8px;min-width:110px;width:32%"><div style="background:rgba(255,255,255,.05);border-radius:5px;overflow:hidden"><div style="background:linear-gradient(90deg,#2f6fed,#5b9dff);height:9px;border-radius:5px;width:${barW}%"></div></div></td>
-      <td style="padding:11px 8px;text-align:right;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums">${inr(v)}</td>
+      <td style="padding:11px 8px;min-width:90px"><div style="background:rgba(255,255,255,.05);border-radius:5px;overflow:hidden"><div style="background:linear-gradient(90deg,#2f6fed,#5b9dff);height:9px;border-radius:5px;width:${barW}%"></div></div></td>
+      <td style="padding:11px 8px;text-align:right;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums;color:#8fb4ff">${inr(a)}</td>
+      <td style="padding:11px 8px;text-align:right;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums;color:#ff9a9c">${inr(e)}</td>
       <td style="padding:11px 8px;text-align:right">${chip(chg,pct)}</td>
     </tr>`;
   }
   const dCol=dChg>0?'#16b364':(dChg<0?'#f04438':'#8b97a8');
+  const tbtn=(m,txt)=>`<button onclick="setBillMode('${m}')" style="background:${mode===m?'linear-gradient(135deg,#2f6fed,#5b9dff)':'var(--bg)'};color:${mode===m?'#fff':'var(--txt)'};border:1px solid ${mode===m?'transparent':'var(--line)'};border-radius:8px;padding:7px 14px;font-weight:700;font-size:.8rem;cursor:pointer">${txt}</button>`;
   body.innerHTML=`
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+      <span style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-right:2px">View</span>
+      ${tbtn('actual','🔵 Actual')}
+      ${tbtn('est','🔴 Actual + Estimated')}
+      ${tbtn('both','⚡ Both')}
+    </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px">
-      ${kpi('📅','Latest Day',inr(latest),fmtDay(days[days.length-1]),'#2f6fed')}
+      ${kpi('📅','Latest Day',inr(latest),fmtDay(days[days.length-1])+' · '+primaryLbl,'#2f6fed')}
       ${kpi('','vs Previous Day', `<span style="color:${dCol}">${dChg>0?'+':''}${compact(dChg)}</span>`, `${dPct>0?'+':''}${dPct.toFixed(1)}% vs ${days.length>1?fmtDay(days[days.length-2]):'—'}`, dCol)}
-      ${kpi('Σ','Period Total',compact(total),days.length+' days',' #7c5cff')}
+      ${kpi('Σ','Period Total',compact(total),days.length+' days · '+primaryLbl,'#7c5cff')}
       ${kpi('⌀','Avg / Day',compact(avg),'per active day','#00b5d8')}
       ${kpi('▲','Best Day',compact(maxV),fmtDay(maxDay),'#16b364')}
       ${kpi('▼','Lowest Day',compact(minV),fmtDay(minDay),'#f79009')}
@@ -4449,18 +4463,25 @@ function renderBillingAnalyzer(){
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div style="font-size:.82rem;font-weight:700">Day-by-Day Ledger</div>
-      <div style="font-size:.72rem;color:var(--muted)">Δ = change vs previous day</div>
+      <div style="font-size:.72rem;color:var(--muted)">Δ = ${primaryLbl} change vs prev day</div>
     </div>
     <div style="border:1px solid var(--line);border-radius:14px;overflow:hidden">
     <div style="overflow-x:auto;max-height:320px;overflow-y:auto">
-    <table style="width:100%;border-collapse:collapse;font-size:.9rem">
-      <thead><tr style="color:var(--muted);font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;position:sticky;top:0;background:var(--panel);z-index:1">
+    <table style="width:100%;border-collapse:collapse;font-size:.88rem">
+      <thead><tr style="color:var(--muted);font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;position:sticky;top:0;background:var(--panel);z-index:1">
         <th style="text-align:left;padding:10px 8px;font-weight:700">Date</th>
         <th style="text-align:left;padding:10px 8px;font-weight:700">Trend</th>
-        <th style="text-align:right;padding:10px 8px;font-weight:700">Billing</th>
+        <th style="text-align:right;padding:10px 8px;font-weight:700;color:#8fb4ff">Actual</th>
+        <th style="text-align:right;padding:10px 8px;font-weight:700;color:#ff9a9c">Act + Est</th>
         <th style="text-align:right;padding:10px 8px;font-weight:700">Δ vs prev</th>
       </tr></thead>
       <tbody>${rowsHtml}</tbody>
+      <tfoot><tr style="border-top:2px solid var(--line);background:rgba(255,255,255,.02);font-weight:800">
+        <td style="padding:11px 8px">TOTAL</td><td></td>
+        <td style="padding:11px 8px;text-align:right;color:#8fb4ff;font-variant-numeric:tabular-nums">${inr(vals.reduce((s,v)=>s+v,0))}</td>
+        <td style="padding:11px 8px;text-align:right;color:#ff9a9c;font-variant-numeric:tabular-nums">${inr(valsEB.reduce((s,v)=>s+v,0))}</td>
+        <td></td>
+      </tr></tfoot>
     </table></div></div>`;
   // area trend chart
   try{
@@ -4473,13 +4494,13 @@ function renderBillingAnalyzer(){
       const gR=cx.createLinearGradient(0,0,0,190);
       gR.addColorStop(0,'rgba(240,68,56,.28)'); gR.addColorStop(1,'rgba(240,68,56,0)');
       const pr=days.length>40?0:3;
+      const dsRed={label:'Actual + Estimated',data:valsEB,borderColor:'#f04438',backgroundColor:gR,
+        fill:true,tension:.35,borderWidth:2,borderDash:[5,3],pointRadius:pr,pointBackgroundColor:'#f04438',pointHoverRadius:5};
+      const dsBlue={label:'Actual Billing',data:vals,borderColor:'#5b9dff',backgroundColor:g,
+        fill:true,tension:.35,borderWidth:2,pointRadius:pr,pointBackgroundColor:'#2f6fed',pointHoverRadius:5};
+      const dsets = mode==='actual' ? [dsBlue] : (mode==='est' ? [dsRed] : [dsRed,dsBlue]);
       window.__billTrendChart=new Chart(cEl,{type:'line',
-        data:{labels:days.map(fmtDay),datasets:[
-          {label:'Actual + Estimated',data:valsEB,borderColor:'#f04438',backgroundColor:gR,
-            fill:true,tension:.35,borderWidth:2,borderDash:[5,3],pointRadius:pr,pointBackgroundColor:'#f04438',pointHoverRadius:5},
-          {label:'Actual Billing',data:vals,borderColor:'#5b9dff',backgroundColor:g,
-            fill:true,tension:.35,borderWidth:2,pointRadius:pr,pointBackgroundColor:'#2f6fed',pointHoverRadius:5}
-        ]},
+        data:{labels:days.map(fmtDay),datasets:dsets},
         options:{maintainAspectRatio:false,plugins:{legend:{display:true,position:'top',align:'end',labels:{color:'#9fb0c8',boxWidth:10,boxHeight:10,padding:12,font:{size:10,weight:'600'},usePointStyle:true,pointStyle:'line'}},datalabels:{display:false},
           interaction:{mode:'index',intersect:false},
           tooltip:{mode:'index',intersect:false,callbacks:{label:c=>' '+c.dataset.label+': '+inr(c.parsed.y)}}},
