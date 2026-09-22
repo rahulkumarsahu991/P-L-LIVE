@@ -643,6 +643,35 @@ th.sortable .sort-arrow{display:inline-block;margin-left:4px;color:var(--accent)
   </div>
 </div>
 
+<!-- 📈 Billing Day-by-Day Analyzer overlay (dispatch se) -->
+<div id="billOverlay" onclick="if(event.target===this)closeBillingAnalyzer()"
+  style="position:fixed;inset:0;z-index:92;background:rgba(6,9,16,.80);backdrop-filter:blur(4px);
+  display:none;align-items:center;justify-content:center;padding:16px">
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    width:100%;max-width:720px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;
+      padding:16px 20px;border-bottom:1px solid var(--line)">
+      <div>
+        <div style="font-size:1.05rem;font-weight:800">📈 Billing Day-by-Day Analyzer</div>
+        <div id="billOvSub" style="font-size:.78rem;color:var(--muted);margin-top:2px">dispatch se · freight (daily billing)</div>
+      </div>
+      <span onclick="closeBillingAnalyzer()" style="cursor:pointer;font-size:1.4rem;color:var(--muted);
+        width:34px;height:34px;display:flex;align-items:center;justify-content:center;
+        border:1px solid var(--line);border-radius:8px">&times;</span>
+    </div>
+    <div style="padding:12px 20px;border-bottom:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input type="date" id="billFrom" style="background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:.85rem">
+      <span style="color:var(--muted)">→</span>
+      <input type="date" id="billTo" style="background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:.85rem">
+      <button onclick="renderBillingAnalyzer()" style="background:var(--accent2,#2f6fed);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:.85rem">Apply</button>
+      <button onclick="billQuick(7)" class="bill-q" style="background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;font-size:.8rem">7d</button>
+      <button onclick="billQuick(30)" class="bill-q" style="background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;font-size:.8rem">30d</button>
+      <button onclick="billQuick(0)" class="bill-q" style="background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;font-size:.8rem">All</button>
+    </div>
+    <div id="billOvBody" style="padding:16px 20px;overflow-y:auto"></div>
+  </div>
+</div>
+
 <script>
 /* ================================================================
    LIVE DATA SETUP  (neeche README dekho)
@@ -1234,7 +1263,10 @@ const SECTIONS = {
         <div class="chart-box"><canvas id="ovPie"></canvas></div></div>
     </div>
     <div class="card insights-card">
-      <h3>✦ AI Business Insights<span class="tag" id="insTag">auto-generated</span></h3>
+      <h3 style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <span>✦ AI Business Insights<span class="tag" id="insTag">auto-generated</span></span>
+        <button onclick="openBillingAnalyzer()" style="background:linear-gradient(135deg,#2f6fed,#5b9dff);color:#fff;border:none;border-radius:9px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:.82rem;box-shadow:0 2px 8px rgba(47,111,237,.35)">📈 Billing Day-by-Day</button>
+      </h3>
       <div id="insightsBox" class="insights-grid"></div>
     </div>`;
   },
@@ -4247,6 +4279,117 @@ async function loadPaperRto(){
   }catch(e){
     if(subEl) subEl.textContent = 'load nahi hua';
   }
+}
+
+/* ================= 📈 Billing Day-by-Day Analyzer (dispatch freight se) ================= */
+function openBillingAnalyzer(){
+  const ov=document.getElementById('billOverlay'); if(ov) ov.style.display='flex';
+  const body=document.getElementById('billOvBody');
+  // default dates: agar Overview filter hai to wahi, warna latest se 30 din
+  const setInputs=(from,to)=>{ const f=document.getElementById('billFrom'),t=document.getElementById('billTo');
+    if(f) f.value=from||''; if(t) t.value=to||''; };
+  const toISO=d=> d? d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'):'';
+  const go=()=>{
+    if(CURRENT_RANGE){ const rs=parseSheetDate(CURRENT_RANGE.start), re=parseSheetDate(CURRENT_RANGE.end);
+      setInputs(toISO(rs),toISO(re)); }
+    else { // last 30 days of available data
+      const days=Object.keys(billByDay(DISPATCH_DATA||[])).sort();
+      if(days.length){ const last=days[days.length-1]; const lastD=new Date(last);
+        const fromD=new Date(lastD.getTime()-29*864e5); setInputs(toISO(fromD),last); }
+    }
+    renderBillingAnalyzer();
+  };
+  if(DISPATCH_DATA && DISPATCH_DATA.length){ go(); }
+  else { if(body) body.innerHTML='<div style="color:var(--muted);padding:30px;text-align:center">⏳ Dispatch data load ho raha hai…</div>'; loadDispatch(()=>go()); }
+}
+function closeBillingAnalyzer(){ const ov=document.getElementById('billOverlay'); if(ov) ov.style.display='none'; }
+function billQuick(days){
+  const toISO=d=> d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const allDays=Object.keys(billByDay(DISPATCH_DATA||[])).sort();
+  if(!allDays.length){ renderBillingAnalyzer(); return; }
+  const last=allDays[allDays.length-1], lastD=new Date(last);
+  const f=document.getElementById('billFrom'), t=document.getElementById('billTo');
+  if(days===0){ if(f) f.value=allDays[0]; if(t) t.value=last; }
+  else { const fromD=new Date(lastD.getTime()-(days-1)*864e5); if(f) f.value=toISO(fromD); if(t) t.value=last; }
+  renderBillingAnalyzer();
+}
+/* dispatch rows → { 'YYYY-MM-DD': totalFreight } */
+function billByDay(rows){
+  const by={};
+  (rows||[]).forEach(t=>{
+    const d=parseSheetDate(t.start); if(!d) return;
+    const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    const fr=parseFloat(String(t.freight).replace(/[^0-9.\-]/g,''))||0;
+    by[k]=(by[k]||0)+fr;
+  });
+  return by;
+}
+function renderBillingAnalyzer(){
+  const body=document.getElementById('billOvBody'); if(!body) return;
+  const inr=n=>'₹'+Math.round(n).toLocaleString('en-IN');
+  const compact=v=>{const a=Math.abs(v); if(a>=1e7) return '₹'+(v/1e7).toFixed(2)+'Cr'; if(a>=1e5) return '₹'+(v/1e5).toFixed(2)+'L'; return '₹'+Math.round(v).toLocaleString('en-IN');};
+  const fromV=(document.getElementById('billFrom')||{}).value||'';
+  const toV=(document.getElementById('billTo')||{}).value||'';
+  const lo=fromV?new Date(fromV+'T00:00:00').getTime():null;
+  const hi=toV?new Date(toV+'T23:59:59').getTime():null;
+  const by=billByDay(DISPATCH_DATA||[]);
+  let days=Object.keys(by).sort().filter(k=>{
+    const x=new Date(k+'T12:00:00').getTime();
+    if(lo!=null && x<lo) return false; if(hi!=null && x>hi) return false; return true;
+  });
+  const sub=document.getElementById('billOvSub');
+  if(sub) sub.textContent = days.length ? `${fromV||days[0]} → ${toV||days[days.length-1]} · ${days.length} days` : 'koi data nahi';
+  if(!days.length){ body.innerHTML='<div style="color:var(--muted);padding:30px;text-align:center">Is period me koi billing data nahi mila.</div>'; return; }
+  const vals=days.map(k=>by[k]);
+  const total=vals.reduce((s,v)=>s+v,0);
+  const avg=total/days.length;
+  const latest=vals[vals.length-1], prev=days.length>1?vals[vals.length-2]:0;
+  const dChg=latest-prev, dPct=prev?((dChg/prev)*100):0;
+  const maxV=Math.max(...vals), maxDay=days[vals.indexOf(maxV)];
+  const minV=Math.min(...vals), minDay=days[vals.indexOf(minV)];
+  const fmtDay=k=>{const [y,m,dd]=k.split('-');const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return dd+' '+MON[(+m)-1]+" '"+y.slice(2);};
+  const kpi=(lbl,val,sub2,col)=>`<div style="flex:1;min-width:130px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px 14px">
+    <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${lbl}</div>
+    <div style="font-size:1.15rem;font-weight:800;margin-top:3px;color:${col||'var(--txt)'}">${val}</div>
+    <div style="font-size:.72rem;color:var(--muted);margin-top:2px">${sub2||''}</div></div>`;
+  const arrow=dChg>0?'▲':(dChg<0?'▼':'●'); const dCol=dChg>0?'#38d39f':(dChg<0?'#ff6b6f':'var(--muted)');
+  // day-by-day rows (latest first)
+  let rowsHtml='';
+  for(let i=days.length-1;i>=0;i--){
+    const k=days[i], v=by[k], pv=i>0?by[days[i-1]]:null;
+    const chg=pv==null?null:v-pv, pct=(pv)?((chg/pv)*100):null;
+    const cCol=chg==null?'var(--muted)':(chg>0?'#38d39f':(chg<0?'#ff6b6f':'var(--muted)'));
+    const cTxt=chg==null?'—':(chg>0?'▲ ':(chg<0?'▼ ':''))+inr(Math.abs(chg))+(pct!=null?` (${pct>0?'+':''}${pct.toFixed(0)}%)`:'');
+    const barW=Math.max(2,Math.round((v/maxV)*100));
+    rowsHtml+=`<tr style="border-top:1px solid var(--line)">
+      <td style="padding:9px 6px;font-weight:600;white-space:nowrap">${fmtDay(k)}</td>
+      <td style="padding:9px 6px;min-width:120px"><div style="background:linear-gradient(90deg,#2f6fed,#5b9dff);height:8px;border-radius:4px;width:${barW}%"></div></td>
+      <td style="padding:9px 6px;text-align:right;font-weight:700;white-space:nowrap">${inr(v)}</td>
+      <td style="padding:9px 6px;text-align:right;color:${cCol};white-space:nowrap;font-size:.82rem">${cTxt}</td>
+    </tr>`;
+  }
+  body.innerHTML=`
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      ${kpi('Latest Day',inr(latest),fmtDay(days[days.length-1]))}
+      ${kpi('vs Previous', (dChg>=0?'+':'')+compact(dChg), arrow+' '+(dPct>0?'+':'')+dPct.toFixed(1)+'% vs '+(days.length>1?fmtDay(days[days.length-2]):'—'), dCol)}
+      ${kpi('Period Total',compact(total),days.length+' days')}
+      ${kpi('Avg / Day',compact(avg),'')}
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      ${kpi('Best Day',compact(maxV),fmtDay(maxDay),'#38d39f')}
+      ${kpi('Lowest Day',compact(minV),fmtDay(minDay),'#ffb84d')}
+    </div>
+    <div style="font-size:.8rem;color:var(--muted);margin-bottom:6px">Day-by-day billing (latest upar) · Δ = pichhle din se badlaav</div>
+    <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:.9rem">
+      <thead><tr style="color:var(--muted);font-size:.74rem;text-transform:uppercase">
+        <th style="text-align:left;padding:4px 6px">Date</th>
+        <th style="text-align:left;padding:4px 6px">Trend</th>
+        <th style="text-align:right;padding:4px 6px">Billing</th>
+        <th style="text-align:right;padding:4px 6px">Δ vs prev</th>
+      </tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table></div>`;
 }
 
 async function loadDieselUreaStats(){
