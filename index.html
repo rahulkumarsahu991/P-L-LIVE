@@ -4485,9 +4485,12 @@ function renderBillingAnalyzer(){
       </div>
       <div style="height:190px;position:relative"><canvas id="billTrendChart"></canvas></div>
     </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">
       <div style="font-size:.82rem;font-weight:700">Day-by-Day Ledger</div>
-      <div style="font-size:.72rem;color:var(--muted)">Δ = ${primaryLbl} change vs prev day</div>
+      <div style="display:flex;align-items:center;gap:12px;font-size:.72rem;color:var(--muted)">
+        <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:14px;height:5px;border-radius:3px;background:linear-gradient(90deg,#2f6fed,#5b9dff);display:inline-block"></span>Actual</span>
+        <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:14px;height:5px;border-radius:3px;background:linear-gradient(90deg,#e5484d,#ff8b8e);display:inline-block"></span>Estimated</span>
+      </div>
     </div>
     <div style="border:1px solid var(--line);border-radius:14px;overflow:hidden">
     <div style="overflow-x:auto;max-height:320px;overflow-y:auto">
