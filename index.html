@@ -4560,17 +4560,20 @@ function renderBillingAnalyzer(){
       const gR=cx.createLinearGradient(0,0,0,H);
       gR.addColorStop(0,'rgba(240,68,56,.45)'); gR.addColorStop(.55,'rgba(240,68,56,.12)'); gR.addColorStop(1,'rgba(240,68,56,0)');
       const pr=days.length>45?0:(days.length>25?2:3.5);
-      // 🔴 Estimated line = Actual + Estimated (total projection) → hamesha blue ke upar rehti hai.
-      //    blue aur red ke beech ka gap = estimated (pending) portion.
-      const dsRed={label:'Estimated (A+E)',data:valsT,borderColor:'#ff5a5f',backgroundColor:gR,
-        fill:true,tension:.4,borderWidth:2.5,borderDash:[6,4],pointRadius:pr,pointBackgroundColor:'#ff5a5f',pointBorderColor:'#1a1030',pointBorderWidth:1.5,pointHoverRadius:6,pointHoverBorderWidth:2};
+      // 📊 Band chart: blue = Actual (area to bottom). red = Total (A+E) line jo blue ke UPAR.
+      //    'both' me red sirf blue se total tak ka GAP bharti hai (= estimated portion) → clear dikhta hai.
       const dsBlue={label:'Actual',data:vals,borderColor:'#5b9dff',backgroundColor:g,
-        fill:true,tension:.4,borderWidth:3,pointRadius:pr,pointBackgroundColor:'#5b9dff',pointBorderColor:'#0e1626',pointBorderWidth:1.5,pointHoverRadius:6,pointHoverBorderWidth:2};
-      const dsets = mode==='actual' ? [dsBlue] : (mode==='est' ? [dsRed] : [dsRed,dsBlue]);
+        fill:'origin',tension:.4,borderWidth:3,pointRadius:pr,pointBackgroundColor:'#5b9dff',pointBorderColor:'#0e1626',pointBorderWidth:1.5,pointHoverRadius:6,pointHoverBorderWidth:2,order:2};
+      const dsRedBand={label:'Estimated (A+E)',data:valsT,borderColor:'#ff5a5f',backgroundColor:gR,
+        fill:'-1',tension:.4,borderWidth:2.5,borderDash:[6,4],pointRadius:pr,pointBackgroundColor:'#ff5a5f',pointBorderColor:'#1a1030',pointBorderWidth:1.5,pointHoverRadius:6,pointHoverBorderWidth:2,order:1};
+      const dsRedSolo={label:'Estimated (A+E)',data:valsT,borderColor:'#ff5a5f',backgroundColor:gR,
+        fill:'origin',tension:.4,borderWidth:2.5,borderDash:[6,4],pointRadius:pr,pointBackgroundColor:'#ff5a5f',pointBorderColor:'#1a1030',pointBorderWidth:1.5,pointHoverRadius:6,pointHoverBorderWidth:2};
+      // both mode me blue pehle (index0) taaki red ka fill:'-1' blue tak jaaye
+      const dsets = mode==='actual' ? [dsBlue] : (mode==='est' ? [dsRedSolo] : [dsBlue,dsRedBand]);
       // glow plugin — lines ke neeche soft colored shadow
       const glow={id:'lineGlow',beforeDatasetDraw(chart,args){
         const c=chart.ctx, col=args.meta.dataset&&args.meta.dataset.options?args.meta.dataset.options.borderColor:'#5b9dff';
-        c.save(); c.shadowColor=col; c.shadowBlur=12; c.shadowOffsetY=4;
+        c.save(); c.shadowColor=col; c.shadowBlur=5; c.shadowOffsetY=2;
       }, afterDatasetDraw(chart){ chart.ctx.restore(); }};
       window.__billTrendChart=new Chart(cEl,{type:'line',
         data:{labels:days.map(fmtDay),datasets:dsets},
