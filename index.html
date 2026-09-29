@@ -4322,15 +4322,15 @@ function openBillingAnalyzer(){
     }
     renderBillingAnalyzer();
   };
-  const start=()=>ensureEstData(go);   // Estimated Data tab bhi laao, phir render
+  const start=go;   // computeEB dispatch se hi actual/estimated — extra sheet ki zaroorat nahi
   if(body) body.innerHTML='<div style="color:var(--muted);padding:30px;text-align:center">⏳ Data load ho raha hai…</div>';
   if(DISPATCH_DATA && DISPATCH_DATA.length){ start(); }
   else { loadDispatch(()=>start()); }
 }
-/* analyzer ka day-set: Estimated Data tab (agar mila) warna dispatch */
+/* analyzer ka day-set: computeEB (dispatch) ke actual+estimated dono din */
 function analyzerAllDays(){
-  const eb=estByDay();
-  return Object.keys(eb.has ? eb.all : billByDay(DISPATCH_DATA||[]));
+  const eb=ebByDay(DISPATCH_DATA||[]);
+  return Array.from(new Set([...Object.keys(eb.act),...Object.keys(eb.est)]));
 }
 function closeBillingAnalyzer(){ const ov=document.getElementById('billOverlay'); if(ov) ov.style.display='none'; }
 function setBillMode(m){ window.BILL_MODE=m; renderBillingAnalyzer(); }
@@ -4399,6 +4399,20 @@ function billByDayEB(rows){
   }catch(e){}
   return by;
 }
+/* 🔧 Estimated Billing section ke SAME computeEB logic se day-wise:
+   act = actual (freight Z hai), est = estimated (freight nahi → wt×rate). Numbers estbilling se match. */
+function ebByDay(rows){
+  const act={}, est={};
+  try{
+    computeEB(rows||[], null).forEach(r=>{
+      const d=parseSheetDate(r.date); if(!d) return;
+      const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      if(r.isActual) act[k]=(act[k]||0)+(r.billing||0);
+      else           est[k]=(est[k]||0)+(r.billing||0);
+    });
+  }catch(e){}
+  return {act, est};
+}
 function renderBillingAnalyzer(){
   const body=document.getElementById('billOvBody'); if(!body) return;
   const inr=n=>'₹'+Math.round(n).toLocaleString('en-IN');
@@ -4407,30 +4421,30 @@ function renderBillingAnalyzer(){
   const toV=(document.getElementById('billTo')||{}).value||'';
   const lo=fromV?new Date(fromV+'T00:00:00').getTime():null;
   const hi=toV?new Date(toV+'T23:59:59').getTime():null;
-  // 🔧 Estimated Data tab se (mila to) — actual = status 'Actual', red = sabhi (actual+estimated)
-  const eb=estByDay();
-  const by    = eb.has ? eb.act : billByDay(DISPATCH_DATA||[]);
-  const byAll = eb.has ? eb.all : billByDayEB(DISPATCH_DATA||[]);
-  let days=Object.keys(byAll).sort().filter(k=>{
-    const x=new Date(k+'T12:00:00').getTime();
-    if(lo!=null && x<lo) return false; if(hi!=null && x>hi) return false; return true;
-  });
+  // 🔧 Estimated Billing section ke SAME computeEB logic se (numbers wahi match honge):
+  //    Actual = freight(Z) wale trips; Estimated = freight nahi (wt×rate); Both = dono ka sum.
+  const eb=ebByDay(DISPATCH_DATA||[]);
+  const byA=eb.act, byE=eb.est;
+  const inRange = k=>{ const x=new Date(k+'T12:00:00').getTime();
+    if(lo!=null && x<lo) return false; if(hi!=null && x>hi) return false; return true; };
+  let days=Array.from(new Set([...Object.keys(byA),...Object.keys(byE)])).sort().filter(inRange);
   const sub=document.getElementById('billOvSub');
   if(sub) sub.textContent = days.length ? `${fromV||days[0]} → ${toV||days[days.length-1]} · ${days.length} days` : 'koi data nahi';
   if(!days.length){ body.innerHTML='<div style="color:var(--muted);padding:30px;text-align:center">Is period me koi billing data nahi mila.</div>'; return; }
-  const vals=days.map(k=>by[k]||0);       // Actual
-  const valsEB=days.map(k=>byAll[k]||0);  // Actual + Estimated
-  // 🔧 mode: 'actual' | 'est' (Actual+Estimated) | 'both'. Headline metrics selected mode par.
+  const vals   = days.map(k=>byA[k]||0);            // Actual
+  const valsE  = days.map(k=>byE[k]||0);            // Estimated (only)
+  const valsT  = days.map((k,i)=>vals[i]+valsE[i]); // Total (Act+Est)
+  // 🔧 mode: 'actual' | 'est' | 'both'(=total). Headline metrics selected mode par.
   const mode = window.BILL_MODE || 'both';
-  const P = (mode==='actual') ? vals : valsEB;   // primary series (KPI/ledger/trend ka base)
-  const primaryLbl = (mode==='actual') ? 'Actual' : 'Estimated';
+  const P = (mode==='actual') ? vals : (mode==='est' ? valsE : valsT);   // primary series
+  const primaryLbl = (mode==='actual') ? 'Actual' : (mode==='est' ? 'Estimated' : 'Total');
   const total=P.reduce((s,v)=>s+v,0);
   const avg=total/days.length;
   const latest=P[P.length-1], prev=days.length>1?P[P.length-2]:0;
   const dChg=latest-prev, dPct=prev?((dChg/prev)*100):0;
   const maxV=Math.max(...P), maxDay=days[P.indexOf(maxV)];
   const minV=Math.min(...P), minDay=days[P.indexOf(minV)];
-  const maxA=Math.max(1,...vals), maxE=Math.max(1,...valsEB);
+  const maxA=Math.max(1,...vals), maxE=Math.max(1,...valsE);
   const fmtDay=k=>{const [y,m,dd]=k.split('-');const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return dd+' '+MON[(+m)-1]+" '"+y.slice(2);};
   const chip=(v,pct)=>{ if(v==null) return '<span style="color:var(--muted)">—</span>';
     const up=v>0,zero=v===0; const c=zero?'#8b97a8':(up?'#16b364':'#f04438');
@@ -4448,7 +4462,7 @@ function renderBillingAnalyzer(){
   // day-by-day rows (latest first) — Actual + (Act+Est) dono columns
   let rowsHtml='';
   for(let i=days.length-1;i>=0;i--){
-    const k=days[i], a=vals[i], e=valsEB[i];
+    const k=days[i], a=vals[i], e=valsE[i];
     const pvP = i>0 ? P[i-1] : null, vP=P[i];
     const chg=pvP==null?null:vP-pvP, pct=(pvP)?((chg/pvP)*100):null;
     const aW=Math.max(2,Math.round((a/maxA)*100)), eW=Math.max(2,Math.round((e/maxE)*100));
@@ -4511,7 +4525,7 @@ function renderBillingAnalyzer(){
       <tfoot><tr style="border-top:2px solid var(--line);background:rgba(255,255,255,.02);font-weight:800">
         <td style="padding:11px 8px">TOTAL</td><td></td>
         <td style="padding:11px 8px;text-align:right;color:#8fb4ff;font-variant-numeric:tabular-nums">${inr(vals.reduce((s,v)=>s+v,0))}</td>
-        <td style="padding:11px 8px;text-align:right;color:#ff9a9c;font-variant-numeric:tabular-nums">${inr(valsEB.reduce((s,v)=>s+v,0))}</td>
+        <td style="padding:11px 8px;text-align:right;color:#ff9a9c;font-variant-numeric:tabular-nums">${inr(valsE.reduce((s,v)=>s+v,0))}</td>
         <td></td>
       </tr></tfoot>
     </table></div></div>`;
@@ -4526,7 +4540,7 @@ function renderBillingAnalyzer(){
       const gR=cx.createLinearGradient(0,0,0,190);
       gR.addColorStop(0,'rgba(240,68,56,.28)'); gR.addColorStop(1,'rgba(240,68,56,0)');
       const pr=days.length>40?0:3;
-      const dsRed={label:'Estimated',data:valsEB,borderColor:'#f04438',backgroundColor:gR,
+      const dsRed={label:'Estimated',data:valsE,borderColor:'#f04438',backgroundColor:gR,
         fill:true,tension:.35,borderWidth:2,borderDash:[5,3],pointRadius:pr,pointBackgroundColor:'#f04438',pointHoverRadius:5};
       const dsBlue={label:'Actual Billing',data:vals,borderColor:'#5b9dff',backgroundColor:g,
         fill:true,tension:.35,borderWidth:2,pointRadius:pr,pointBackgroundColor:'#2f6fed',pointHoverRadius:5};
