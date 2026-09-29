@@ -4515,7 +4515,7 @@ function renderBillingAnalyzer(){
         <div style="font-size:.82rem;font-weight:700;letter-spacing:.2px">Daily Billing Trend</div>
         <div style="font-size:.72rem;color:var(--muted)">${fromV||days[0]} → ${toV||days[days.length-1]}</div>
       </div>
-      <div style="height:190px;position:relative"><canvas id="billTrendChart"></canvas></div>
+      <div style="height:210px;position:relative"><canvas id="billTrendChart"></canvas></div>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">
       <div style="font-size:.82rem;font-weight:700">Day-by-Day Ledger</div>
@@ -4542,29 +4542,46 @@ function renderBillingAnalyzer(){
         <td></td>
       </tr></tfoot>
     </table></div></div>`;
-  // area trend chart
+  // area trend chart — attractive/graphical
   try{
     if(window.__billTrendChart) window.__billTrendChart.destroy();
     const cEl=document.getElementById('billTrendChart');
     if(cEl && typeof Chart!=='undefined'){
+      const H=210;
       const cx=cEl.getContext('2d');
-      const g=cx.createLinearGradient(0,0,0,190);
-      g.addColorStop(0,'rgba(91,157,255,.42)'); g.addColorStop(1,'rgba(91,157,255,0)');
-      const gR=cx.createLinearGradient(0,0,0,190);
-      gR.addColorStop(0,'rgba(240,68,56,.28)'); gR.addColorStop(1,'rgba(240,68,56,0)');
-      const pr=days.length>40?0:3;
-      const dsRed={label:'Estimated',data:valsE,borderColor:'#f04438',backgroundColor:gR,
-        fill:true,tension:.35,borderWidth:2,borderDash:[5,3],pointRadius:pr,pointBackgroundColor:'#f04438',pointHoverRadius:5};
+      // richer vertical gradients
+      const g=cx.createLinearGradient(0,0,0,H);
+      g.addColorStop(0,'rgba(91,157,255,.55)'); g.addColorStop(.55,'rgba(91,157,255,.14)'); g.addColorStop(1,'rgba(91,157,255,0)');
+      const gR=cx.createLinearGradient(0,0,0,H);
+      gR.addColorStop(0,'rgba(240,68,56,.45)'); gR.addColorStop(.55,'rgba(240,68,56,.12)'); gR.addColorStop(1,'rgba(240,68,56,0)');
+      const pr=days.length>45?0:(days.length>25?2:3.5);
+      const dsRed={label:'Estimated',data:valsE,borderColor:'#ff5a5f',backgroundColor:gR,
+        fill:true,tension:.4,borderWidth:2.5,borderDash:[6,4],pointRadius:pr,pointBackgroundColor:'#ff5a5f',pointBorderColor:'#1a1030',pointBorderWidth:1.5,pointHoverRadius:6,pointHoverBorderWidth:2};
       const dsBlue={label:'Actual Billing',data:vals,borderColor:'#5b9dff',backgroundColor:g,
-        fill:true,tension:.35,borderWidth:2,pointRadius:pr,pointBackgroundColor:'#2f6fed',pointHoverRadius:5};
+        fill:true,tension:.4,borderWidth:3,pointRadius:pr,pointBackgroundColor:'#5b9dff',pointBorderColor:'#0e1626',pointBorderWidth:1.5,pointHoverRadius:6,pointHoverBorderWidth:2};
       const dsets = mode==='actual' ? [dsBlue] : (mode==='est' ? [dsRed] : [dsRed,dsBlue]);
+      // glow plugin — lines ke neeche soft colored shadow
+      const glow={id:'lineGlow',beforeDatasetDraw(chart,args){
+        const c=chart.ctx, col=args.meta.dataset&&args.meta.dataset.options?args.meta.dataset.options.borderColor:'#5b9dff';
+        c.save(); c.shadowColor=col; c.shadowBlur=12; c.shadowOffsetY=4;
+      }, afterDatasetDraw(chart){ chart.ctx.restore(); }};
       window.__billTrendChart=new Chart(cEl,{type:'line',
         data:{labels:days.map(fmtDay),datasets:dsets},
-        options:{maintainAspectRatio:false,plugins:{legend:{display:true,position:'top',align:'end',labels:{color:'#9fb0c8',boxWidth:10,boxHeight:10,padding:12,font:{size:10,weight:'600'},usePointStyle:true,pointStyle:'line'}},datalabels:{display:false},
+        plugins:[glow],
+        options:{maintainAspectRatio:false,responsive:true,
+          layout:{padding:{top:6,right:4}},
+          animation:{duration:800,easing:'easeOutCubic'},
+          elements:{line:{borderJoinStyle:'round',borderCapStyle:'round'}},
+          plugins:{legend:{display:true,position:'top',align:'end',labels:{color:'#c2ccda',boxWidth:14,boxHeight:3,padding:14,font:{size:10,weight:'700'},usePointStyle:true,pointStyle:'line'}},datalabels:{display:false},
+            tooltip:{mode:'index',intersect:false,backgroundColor:'rgba(10,15,26,.95)',borderColor:'rgba(255,255,255,.1)',borderWidth:1,
+              titleColor:'#e8ecf2',bodyColor:'#cfe0ff',padding:12,cornerRadius:10,boxPadding:6,usePointStyle:true,
+              titleFont:{size:12,weight:'700'},bodyFont:{size:12,weight:'600'},
+              callbacks:{label:c=>'  '+c.dataset.label+':  '+inr(c.parsed.y)}}},
           interaction:{mode:'index',intersect:false},
-          tooltip:{mode:'index',intersect:false,callbacks:{label:c=>' '+c.dataset.label+': '+inr(c.parsed.y)}}},
-          scales:{x:{grid:{display:false},ticks:{color:'#7d8ba3',font:{size:9},maxRotation:0,autoSkip:true,maxTicksLimit:8}},
-            y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7d8ba3',font:{size:9},callback:v=>compact(v)}}}}
+          scales:{
+            x:{grid:{display:false},border:{display:false},ticks:{color:'#8b97a8',font:{size:9,weight:'600'},maxRotation:0,autoSkip:true,maxTicksLimit:9}},
+            y:{grid:{color:'rgba(255,255,255,.045)',drawTicks:false},border:{display:false},beginAtZero:true,
+              ticks:{color:'#8b97a8',font:{size:9},padding:8,maxTicksLimit:6,callback:v=>compact(v)}}}}
       });
     }
   }catch(e){}
