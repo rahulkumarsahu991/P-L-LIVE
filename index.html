@@ -4445,6 +4445,15 @@ function renderBillingAnalyzer(){
   const maxV=Math.max(...P), maxDay=days[P.indexOf(maxV)];
   const minV=Math.min(...P), minDay=days[P.indexOf(minV)];
   const maxA=Math.max(1,...vals), maxE=Math.max(1,...valsE);
+  // 🔧 period breakdown (selected range ke according) — Actual / Estimated / Both
+  const sumA=vals.reduce((s,v)=>s+v,0), sumE=valsE.reduce((s,v)=>s+v,0), sumT=sumA+sumE;
+  const li=days.length-1;
+  const latestA=vals[li]||0, latestE=valsE[li]||0, latestT=valsT[li]||0;
+  const prevT = days.length>1 ? valsT[li-1] : 0;
+  const dChgT=latestT-prevT, dPctT=prevT?((dChgT/prevT)*100):0;
+  const avgT=sumT/days.length;
+  const maxT=Math.max(...valsT), maxTDay=days[valsT.indexOf(maxT)];
+  const minT=Math.min(...valsT), minTDay=days[valsT.indexOf(minT)];
   const fmtDay=k=>{const [y,m,dd]=k.split('-');const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return dd+' '+MON[(+m)-1]+" '"+y.slice(2);};
   const chip=(v,pct)=>{ if(v==null) return '<span style="color:var(--muted)">—</span>';
     const up=v>0,zero=v===0; const c=zero?'#8b97a8':(up?'#16b364':'#f04438');
@@ -4489,13 +4498,17 @@ function renderBillingAnalyzer(){
       ${tbtn('est','🔴 Estimated')}
       ${tbtn('both','⚡ Both')}
     </div>
+    <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:8px">Period Billing · ${fromV||days[0]} → ${toV||days[days.length-1]} (${days.length} days)</div>
+    <div class="bill-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px">
+      ${kpi('🔵','Actual',compact(sumA),`Avg ${compact(sumA/days.length)}/day`,'#2f6fed')}
+      ${kpi('🔴','Estimated',compact(sumE),`Avg ${compact(sumE/days.length)}/day`,'#f04438')}
+      ${kpi('⚡','Both (Total)',compact(sumT),`Avg ${compact(avgT)}/day`,'#7c5cff')}
+    </div>
     <div class="bill-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px">
-      ${kpi('📅','Latest Day',inr(latest),fmtDay(days[days.length-1])+' · '+primaryLbl,'#2f6fed')}
-      ${kpi('','vs Previous Day', `<span style="color:${dCol}">${dChg>0?'+':''}${compact(dChg)}</span>`, `${dPct>0?'+':''}${dPct.toFixed(1)}% vs ${days.length>1?fmtDay(days[days.length-2]):'—'}`, dCol)}
-      ${kpi('Σ','Period Total',compact(total),days.length+' days · '+primaryLbl,'#7c5cff')}
-      ${kpi('⌀','Avg / Day',compact(avg),'per active day','#00b5d8')}
-      ${kpi('▲','Best Day',compact(maxV),fmtDay(maxDay),'#16b364')}
-      ${kpi('▼','Lowest Day',compact(minV),fmtDay(minDay),'#f79009')}
+      ${kpi('📅','Latest Day',compact(latestT),fmtDay(days[li])+` · A ${compact(latestA)} · E ${compact(latestE)}`,'#00b5d8')}
+      ${kpi('','vs Previous Day', `<span style="color:${dChgT>0?'#16b364':(dChgT<0?'#f04438':'#8b97a8')}">${dChgT>0?'+':''}${compact(dChgT)}</span>`, `${dPctT>0?'+':''}${dPctT.toFixed(1)}% vs ${days.length>1?fmtDay(days[li-1]):'—'}`, dChgT>0?'#16b364':(dChgT<0?'#f04438':'#8b97a8'))}
+      ${kpi('▲','Best Day',compact(maxT),fmtDay(maxTDay),'#16b364')}
+      ${kpi('▼','Lowest Day',compact(minT),fmtDay(minTDay),'#f79009')}
     </div>
     <div style="border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:16px;background:linear-gradient(180deg,rgba(47,111,237,.04),transparent)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
