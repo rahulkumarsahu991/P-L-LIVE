@@ -6,6 +6,8 @@
 <title>Fleet P&L Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Spline+Sans+Mono:wght@400;500;600&display=swap');
@@ -4511,9 +4513,12 @@ function renderBillingAnalyzer(){
       ${kpi('▼','Lowest Day',compact(minT),fmtDay(minTDay),'#f79009')}
     </div>
     <div style="border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:16px;background:linear-gradient(180deg,rgba(47,111,237,.04),transparent)">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">
         <div style="font-size:.82rem;font-weight:700;letter-spacing:.2px">Daily Billing Trend</div>
-        <div style="font-size:.72rem;color:var(--muted)">${fromV||days[0]} → ${toV||days[days.length-1]}</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:.68rem;color:var(--muted)">🔍 drag to zoom · wheel · shift+drag pan</span>
+          <button id="billZoomReset" onclick="if(window.__billTrendChart){window.__billTrendChart.resetZoom();this.style.display='none';}" style="display:none;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:5px 10px;font-size:.72rem;font-weight:700;cursor:pointer">⟲ Reset zoom</button>
+        </div>
       </div>
       <div style="height:210px;position:relative"><canvas id="billTrendChart"></canvas></div>
     </div>
@@ -4576,7 +4581,13 @@ function renderBillingAnalyzer(){
             tooltip:{mode:'index',intersect:false,backgroundColor:'rgba(10,15,26,.95)',borderColor:'rgba(255,255,255,.1)',borderWidth:1,
               titleColor:'#e8ecf2',bodyColor:'#cfe0ff',padding:12,cornerRadius:10,boxPadding:6,usePointStyle:true,
               titleFont:{size:12,weight:'700'},bodyFont:{size:12,weight:'600'},
-              callbacks:{label:c=>'  '+c.dataset.label+':  '+inr(c.parsed.y)}}},
+              callbacks:{label:c=>'  '+c.dataset.label+':  '+inr(c.parsed.y)}},
+            zoom:{
+              zoom:{ drag:{enabled:true,backgroundColor:'rgba(91,157,255,.18)',borderColor:'#5b9dff',borderWidth:1},
+                     wheel:{enabled:true,speed:.08}, pinch:{enabled:true}, mode:'x',
+                     onZoomComplete:({chart})=>{ const b=document.getElementById('billZoomReset'); if(b) b.style.display='inline-block'; } },
+              pan:{ enabled:true, mode:'x', modifierKey:'shift' }
+            }},
           interaction:{mode:'index',intersect:false},
           scales:{
             x:{grid:{display:false},border:{display:false},ticks:{color:'#8b97a8',font:{size:9,weight:'600'},maxRotation:0,autoSkip:true,maxTicksLimit:9}},
