@@ -4560,9 +4560,11 @@ function renderBillingAnalyzer(){
       const gR=cx.createLinearGradient(0,0,0,H);
       gR.addColorStop(0,'rgba(240,68,56,.45)'); gR.addColorStop(.55,'rgba(240,68,56,.12)'); gR.addColorStop(1,'rgba(240,68,56,0)');
       const pr=days.length>45?0:(days.length>25?2:3.5);
-      const dsRed={label:'Estimated',data:valsE,borderColor:'#ff5a5f',backgroundColor:gR,
+      // 🔴 Estimated line = Actual + Estimated (total projection) → hamesha blue ke upar rehti hai.
+      //    blue aur red ke beech ka gap = estimated (pending) portion.
+      const dsRed={label:'Estimated (A+E)',data:valsT,borderColor:'#ff5a5f',backgroundColor:gR,
         fill:true,tension:.4,borderWidth:2.5,borderDash:[6,4],pointRadius:pr,pointBackgroundColor:'#ff5a5f',pointBorderColor:'#1a1030',pointBorderWidth:1.5,pointHoverRadius:6,pointHoverBorderWidth:2};
-      const dsBlue={label:'Actual Billing',data:vals,borderColor:'#5b9dff',backgroundColor:g,
+      const dsBlue={label:'Actual',data:vals,borderColor:'#5b9dff',backgroundColor:g,
         fill:true,tension:.4,borderWidth:3,pointRadius:pr,pointBackgroundColor:'#5b9dff',pointBorderColor:'#0e1626',pointBorderWidth:1.5,pointHoverRadius:6,pointHoverBorderWidth:2};
       const dsets = mode==='actual' ? [dsBlue] : (mode==='est' ? [dsRed] : [dsRed,dsBlue]);
       // glow plugin — lines ke neeche soft colored shadow
