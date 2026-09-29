@@ -4429,7 +4429,7 @@ function renderBillingAnalyzer(){
     if(lo!=null && x<lo) return false; if(hi!=null && x>hi) return false; return true; };
   let days=Array.from(new Set([...Object.keys(byA),...Object.keys(byE)])).sort().filter(inRange);
   const sub=document.getElementById('billOvSub');
-  if(sub) sub.textContent = days.length ? `${fromV||days[0]} → ${toV||days[days.length-1]} · ${days.length} days` : 'koi data nahi';
+  if(sub) sub.textContent = (days.length ? `${fromV||days[0]} → ${toV||days[days.length-1]} · ${days.length} days` : 'koi data nahi') + ' · v2 (computeEB)';
   if(!days.length){ body.innerHTML='<div style="color:var(--muted);padding:30px;text-align:center">Is period me koi billing data nahi mila.</div>'; return; }
   const vals   = days.map(k=>byA[k]||0);            // Actual
   const valsE  = days.map(k=>byE[k]||0);            // Estimated (only)
