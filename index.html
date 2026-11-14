@@ -1675,13 +1675,26 @@ const SECTIONS = {
 
   freightcheck(){
     return `
-    <div class="section-intro">Freight &amp; Billing reconciliation — dispatch vs N-sheet. Niche saare filter (date, consignor, consignee, bill status) live client-side lagte hain.</div>
+    <style>
+      #fcStats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:18px}
+      @media (max-width:600px){
+        .fc-filters{padding:12px 12px !important;gap:8px !important}
+        .fc-filters input, .fc-filters select{flex:1 1 44%;min-width:0;max-width:none !important;font-size:.8rem}
+        .fc-filters button{flex:1 1 auto}
+        #fcStats{grid-template-columns:1fr 1fr !important;gap:10px}
+        #fcStats > div > div:last-child{font-size:1.05rem !important}
+        .fc-grid2{grid-template-columns:1fr !important}
+      }
+      @media (max-width:380px){ #fcStats{grid-template-columns:1fr !important} }
+    </style>
+    <div class="section-intro">Freight &amp; Billing reconciliation — dispatch vs N-sheet. Niche saare filter (vehicle, date, consignor, consignee, bill status) live client-side lagte hain.</div>
     <!-- filters -->
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px;padding:14px 18px;background:linear-gradient(135deg,rgba(63,207,142,.10),rgba(63,207,142,.03));border:1px solid #3fcf8e;border-radius:12px">
+    <div class="fc-filters" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px;padding:14px 18px;background:linear-gradient(135deg,rgba(63,207,142,.10),rgba(63,207,142,.03));border:1px solid #3fcf8e;border-radius:12px">
       <span style="font-weight:700;font-size:.78rem;color:#49e3a0;letter-spacing:.06em;text-transform:uppercase">🔍 Filters</span>
       <input type="date" id="fcFrom" style="background:var(--panel2);border:1px solid #3fcf8e55;border-radius:8px;padding:6px 10px;color:var(--text);font-family:inherit;font-size:.8rem">
       <span style="color:var(--muted)">→</span>
       <input type="date" id="fcTo" style="background:var(--panel2);border:1px solid #3fcf8e55;border-radius:8px;padding:6px 10px;color:var(--text);font-family:inherit;font-size:.8rem">
+      <select id="fcVehicle" onchange="renderFreightCheck()" style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--text);font-size:.8rem;cursor:pointer;max-width:170px"><option value="">All Vehicles</option></select>
       <select id="fcConsignor" onchange="renderFreightCheck()" style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--text);font-size:.8rem;cursor:pointer;max-width:200px"><option value="">All Consignors</option></select>
       <select id="fcConsignee" onchange="renderFreightCheck()" style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--text);font-size:.8rem;cursor:pointer;max-width:200px"><option value="">All Consignees</option></select>
       <select id="fcStatus" onchange="renderFreightCheck()" style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--text);font-size:.8rem;cursor:pointer"><option value="">All Bill Status</option></select>
@@ -1689,8 +1702,8 @@ const SECTIONS = {
       <button onclick="clearFreightCheck()" style="background:transparent;color:#49e3a0;border:1px solid #3fcf8e55;border-radius:8px;padding:7px 14px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer">Clear</button>
       <button onclick="exportFreightCheckCSV()" style="margin-left:auto;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 16px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer">⬇ Export CSV</button>
     </div>
-    <div id="fcStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:18px"></div>
-    <div class="grid2" style="margin-bottom:18px">
+    <div id="fcStats"></div>
+    <div class="grid2 fc-grid2" style="margin-bottom:18px">
       <div class="card"><h3>Billing Status Breakdown</h3>
         <div class="table-wrap"><table>
           <thead><tr><th style="text-align:left">Status</th><th class="num">Trips</th><th class="num">Weight (MT)</th><th class="num">Freight (₹)</th><th class="num">% Share</th></tr></thead>
@@ -1708,12 +1721,12 @@ const SECTIONS = {
       </div>
       <div class="table-wrap" style="max-height:60vh;overflow-y:auto;overflow-x:auto"><table style="min-width:900px">
         <thead><tr>
-          <th class="num">Date</th><th style="text-align:left">LR / Trip No.</th><th style="text-align:left">From → To</th>
+          <th class="num">Date</th><th style="text-align:left">Vehicle</th><th style="text-align:left">LR / Trip No.</th><th style="text-align:left">From → To</th>
           <th style="text-align:left">Consignor</th><th style="text-align:left">Consignee</th><th style="text-align:left">Item</th>
           <th class="num">Wt (MT)</th><th class="num">Rate/T</th><th class="num">Freight</th>
           <th style="text-align:left">Status</th><th class="num">N Freight</th><th class="num">Dispatch Frt</th><th class="num">Diff</th>
         </tr></thead>
-        <tbody id="fcTable"><tr><td colspan="13" style="text-align:center;color:var(--muted);padding:16px">Loading freight data…</td></tr></tbody>
+        <tbody id="fcTable"><tr><td colspan="14" style="text-align:center;color:var(--muted);padding:16px">Loading freight data…</td></tr></tbody>
       </table></div>
     </div>`;
   }
@@ -4312,11 +4325,29 @@ function clearEbFilter(){
 const FREIGHT_CHECK_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRLhHvX5yS6Fzan6Er0gwahYtyHdlsB8JZZEHnvXG_IPfwjk2t9M0RMptGHdvTBVBL-jpmWq9Az6njy/pub?gid=35891392&single=true&output=csv';
 let FC_ROWS = null;   // parsed ledger rows
 const fcNum = v => { const n=parseFloat(String(v==null?'':v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; };
+const fcLR = s => String(s||'').toUpperCase().replace(/\s+/g,'').trim();
+/* dispatch sheet se LR(col18) → Vehicle(col1) map banao taaki har trip par gaadi mil jaaye */
+async function fcBuildVehicleMap(){
+  if(window.FC_LRVEH) return window.FC_LRVEH;
+  const map={};
+  try{
+    const res=await fetch(DISPATCH_URL+'&t='+Date.now());
+    const txt=await res.text();
+    if(!isBadCsv(txt)){
+      const M=Papa.parse(txt,{header:false,skipEmptyLines:true}).data;
+      for(let i=1;i<M.length;i++){ const r=M[i]; if(!r) continue;
+        const lr=fcLR(r[18]), veh=String(r[1]||'').toUpperCase().trim();
+        if(lr && veh) map[lr]=veh;
+      }
+    }
+  }catch(e){ /* vehicle optional */ }
+  window.FC_LRVEH=map; return map;
+}
 async function loadFreightCheck(){
   const tb=document.getElementById('fcTable');
   if(FC_ROWS){ renderFreightCheck(); return; }   // cache — instant
   try{
-    const res=await fetch(FREIGHT_CHECK_CSV+'&t='+Date.now());
+    const [res, vmap] = await Promise.all([ fetch(FREIGHT_CHECK_CSV+'&t='+Date.now()), fcBuildVehicleMap() ]);
     const txt=await res.text();
     if(isBadCsv(txt)) throw new Error('load');
     const M=Papa.parse(txt,{header:false,skipEmptyLines:false}).data;
@@ -4325,18 +4356,20 @@ async function loadFreightCheck(){
       date:String(r[2]).trim(), lr:String(r[3]||'').trim(), from:String(r[4]||'').trim(), to:String(r[5]||'').trim(),
       consignor:String(r[6]||'').trim(), consignee:String(r[7]||'').trim(), item:String(r[8]||'').trim(),
       wt:fcNum(r[9]), rate:fcNum(r[10]), freight:fcNum(r[11]), status:String(r[12]||'').trim()||'—',
-      nFreight:fcNum(r[16]), dispFreight:fcNum(r[17])
+      nFreight:fcNum(r[16]), dispFreight:fcNum(r[17]),
+      vehicle:(vmap[fcLR(r[3])]||'')
     }));
     populateFcFilters();
     renderFreightCheck();
   }catch(e){
-    if(tb) tb.innerHTML='<tr><td colspan="13" style="text-align:center;color:var(--accent);padding:20px">⚠ Freight data load nahi hua — dobara try karo.</td></tr>';
+    if(tb) tb.innerHTML='<tr><td colspan="14" style="text-align:center;color:var(--accent);padding:20px">⚠ Freight data load nahi hua — dobara try karo.</td></tr>';
   }
 }
 function populateFcFilters(){
   const uniq=(key)=>Array.from(new Set(FC_ROWS.map(r=>r[key]).filter(v=>v&&v!=='—'))).sort();
   const fill=(id,arr,label)=>{ const s=document.getElementById(id); if(!s) return;
     s.innerHTML=`<option value="">${label}</option>`+arr.map(v=>`<option value="${v.replace(/"/g,'&quot;')}">${v}</option>`).join(''); };
+  fill('fcVehicle',   uniq('vehicle'),   'All Vehicles');
   fill('fcConsignor', uniq('consignor'), 'All Consignors');
   fill('fcConsignee', uniq('consignee'), 'All Consignees');
   fill('fcStatus',    uniq('status'),    'All Bill Status');
@@ -4344,15 +4377,16 @@ function populateFcFilters(){
 function fcFiltered(){
   if(!FC_ROWS) return [];
   const fv=(id)=>(document.getElementById(id)||{}).value||'';
-  const from=fv('fcFrom'), to=fv('fcTo'), cnor=fv('fcConsignor'), cnee=fv('fcConsignee'), st=fv('fcStatus');
+  const from=fv('fcFrom'), to=fv('fcTo'), veh=fv('fcVehicle'), cnor=fv('fcConsignor'), cnee=fv('fcConsignee'), st=fv('fcStatus');
   const q=(fv('fcSearch')||'').toLowerCase().trim();
   return FC_ROWS.filter(r=>{
     if(from && r.date<from) return false;
     if(to && r.date>to) return false;
+    if(veh && r.vehicle!==veh) return false;
     if(cnor && r.consignor!==cnor) return false;
     if(cnee && r.consignee!==cnee) return false;
     if(st && r.status!==st) return false;
-    if(q && !(`${r.lr} ${r.from} ${r.to} ${r.item} ${r.consignor} ${r.consignee}`.toLowerCase().includes(q))) return false;
+    if(q && !(`${r.vehicle} ${r.lr} ${r.from} ${r.to} ${r.item} ${r.consignor} ${r.consignee}`.toLowerCase().includes(q))) return false;
     return true;
   });
 }
@@ -4408,6 +4442,7 @@ function renderFreightCheck(){
     const d=r.dispFreight-r.nFreight;
     return `<tr>
       <td class="num" style="white-space:nowrap">${r.date}</td>
+      <td style="text-align:left;font-size:.8rem;font-weight:700;color:#8fb4ff;white-space:nowrap">${r.vehicle||'—'}</td>
       <td style="text-align:left;font-size:.8rem">${r.lr||'—'}</td>
       <td style="text-align:left;font-size:.8rem">${r.from} → ${r.to}</td>
       <td style="text-align:left;font-size:.8rem">${r.consignor||'—'}</td>
@@ -4421,18 +4456,18 @@ function renderFreightCheck(){
       <td class="num">${inr(r.dispFreight)}</td>
       <td class="num" style="color:${Math.abs(d)>0?'#ff9a9c':'var(--muted)'}">${d===0?'—':inr(d)}</td>
     </tr>`;
-  }).join('')+(L.length>1500?`<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:10px">… ${L.length-1500} aur rows (filter laga ke dekho)</td></tr>`:'') : '<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:16px">In filters me koi trip nahi mila.</td></tr>';
+  }).join('')+(L.length>1500?`<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:10px">… ${L.length-1500} aur rows (filter laga ke dekho)</td></tr>`:'') : '<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:16px">In filters me koi trip nahi mila.</td></tr>';
 }
 function clearFreightCheck(){
   ['fcFrom','fcTo','fcSearch'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
-  ['fcConsignor','fcConsignee','fcStatus'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
+  ['fcVehicle','fcConsignor','fcConsignee','fcStatus'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
   renderFreightCheck();
 }
 function exportFreightCheckCSV(){
   const L=fcFiltered(); if(!L.length){ alert('Export karne ke liye koi data nahi.'); return; }
-  const head=['Trip Date','LR/Trip No','From','To','Consignor','Consignee','Item','Weight MT','Rate/T','Freight','Bill Status','N Freight','Dispatch Freight','Diff'];
+  const head=['Trip Date','Vehicle','LR/Trip No','From','To','Consignor','Consignee','Item','Weight MT','Rate/T','Freight','Bill Status','N Freight','Dispatch Freight','Diff'];
   const esc=s=>`"${String(s==null?'':s).replace(/"/g,'""')}"`;
-  const rows=L.map(r=>[r.date,r.lr,r.from,r.to,r.consignor,r.consignee,r.item,r.wt,r.rate,r.freight,r.status,r.nFreight,r.dispFreight,r.dispFreight-r.nFreight].map(esc).join(','));
+  const rows=L.map(r=>[r.date,r.vehicle,r.lr,r.from,r.to,r.consignor,r.consignee,r.item,r.wt,r.rate,r.freight,r.status,r.nFreight,r.dispFreight,r.dispFreight-r.nFreight].map(esc).join(','));
   const blob=new Blob([head.map(esc).join(',')+'\n'+rows.join('\n')],{type:'text/csv'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='freight-check.csv'; a.click();
 }
