@@ -1694,9 +1694,9 @@ const SECTIONS = {
       <input type="date" id="fcFrom" style="background:var(--panel2);border:1px solid #3fcf8e55;border-radius:8px;padding:6px 10px;color:var(--text);font-family:inherit;font-size:.8rem">
       <span style="color:var(--muted)">→</span>
       <input type="date" id="fcTo" style="background:var(--panel2);border:1px solid #3fcf8e55;border-radius:8px;padding:6px 10px;color:var(--text);font-family:inherit;font-size:.8rem">
-      <select id="fcVehicle" onchange="renderFreightCheck()" style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--text);font-size:.8rem;cursor:pointer;max-width:170px"><option value="">All Vehicles</option></select>
-      <select id="fcConsignor" onchange="renderFreightCheck()" style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--text);font-size:.8rem;cursor:pointer;max-width:200px"><option value="">All Consignors</option></select>
-      <select id="fcConsignee" onchange="renderFreightCheck()" style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--text);font-size:.8rem;cursor:pointer;max-width:200px"><option value="">All Consignees</option></select>
+      <input id="fcVehicle" list="fcVehicleList" placeholder="🔍 Vehicle" oninput="renderFreightCheck()" autocomplete="off" style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--text);font-size:.8rem;max-width:150px"><datalist id="fcVehicleList"></datalist>
+      <input id="fcConsignor" list="fcConsignorList" placeholder="🔍 Consignor" oninput="renderFreightCheck()" autocomplete="off" style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--text);font-size:.8rem;max-width:190px"><datalist id="fcConsignorList"></datalist>
+      <input id="fcConsignee" list="fcConsigneeList" placeholder="🔍 Consignee" oninput="renderFreightCheck()" autocomplete="off" style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--text);font-size:.8rem;max-width:190px"><datalist id="fcConsigneeList"></datalist>
       <select id="fcStatus" onchange="renderFreightCheck()" style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--text);font-size:.8rem;cursor:pointer"><option value="">All Bill Status</option></select>
       <button onclick="renderFreightCheck()" style="background:#3fcf8e;color:#06281b;border:none;border-radius:8px;padding:7px 16px;font-family:inherit;font-size:.78rem;font-weight:800;cursor:pointer">Apply</button>
       <button onclick="clearFreightCheck()" style="background:transparent;color:#49e3a0;border:1px solid #3fcf8e55;border-radius:8px;padding:7px 14px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer">Clear</button>
@@ -4367,24 +4367,28 @@ async function loadFreightCheck(){
 }
 function populateFcFilters(){
   const uniq=(key)=>Array.from(new Set(FC_ROWS.map(r=>r[key]).filter(v=>v&&v!=='—'))).sort();
-  const fill=(id,arr,label)=>{ const s=document.getElementById(id); if(!s) return;
-    s.innerHTML=`<option value="">${label}</option>`+arr.map(v=>`<option value="${v.replace(/"/g,'&quot;')}">${v}</option>`).join(''); };
-  fill('fcVehicle',   uniq('vehicle'),   'All Vehicles');
-  fill('fcConsignor', uniq('consignor'), 'All Consignors');
-  fill('fcConsignee', uniq('consignee'), 'All Consignees');
-  fill('fcStatus',    uniq('status'),    'All Bill Status');
+  // searchable datalists (type karke dhundho)
+  const fillList=(id,arr)=>{ const dl=document.getElementById(id); if(!dl) return;
+    dl.innerHTML=arr.map(v=>`<option value="${v.replace(/"/g,'&quot;')}"></option>`).join(''); };
+  fillList('fcVehicleList',   uniq('vehicle'));
+  fillList('fcConsignorList', uniq('consignor'));
+  fillList('fcConsigneeList', uniq('consignee'));
+  // status stays a dropdown
+  const st=document.getElementById('fcStatus');
+  if(st) st.innerHTML='<option value="">All Bill Status</option>'+uniq('status').map(v=>`<option value="${v.replace(/"/g,'&quot;')}">${v}</option>`).join('');
 }
 function fcFiltered(){
   if(!FC_ROWS) return [];
   const fv=(id)=>(document.getElementById(id)||{}).value||'';
   const from=fv('fcFrom'), to=fv('fcTo'), veh=fv('fcVehicle'), cnor=fv('fcConsignor'), cnee=fv('fcConsignee'), st=fv('fcStatus');
   const q=(fv('fcSearch')||'').toLowerCase().trim();
+  const inc=(a,b)=>String(a||'').toLowerCase().includes(String(b).toLowerCase());
   return FC_ROWS.filter(r=>{
     if(from && r.date<from) return false;
     if(to && r.date>to) return false;
-    if(veh && r.vehicle!==veh) return false;
-    if(cnor && r.consignor!==cnor) return false;
-    if(cnee && r.consignee!==cnee) return false;
+    if(veh && !inc(r.vehicle,veh)) return false;
+    if(cnor && !inc(r.consignor,cnor)) return false;
+    if(cnee && !inc(r.consignee,cnee)) return false;
     if(st && r.status!==st) return false;
     if(q && !(`${r.vehicle} ${r.lr} ${r.from} ${r.to} ${r.item} ${r.consignor} ${r.consignee}`.toLowerCase().includes(q))) return false;
     return true;
