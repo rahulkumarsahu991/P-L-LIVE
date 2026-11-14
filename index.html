@@ -4326,39 +4326,41 @@ const FREIGHT_CHECK_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRLhH
 let FC_ROWS = null;   // parsed ledger rows
 const fcNum = v => { const n=parseFloat(String(v==null?'':v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; };
 const fcLR = s => String(s||'').toUpperCase().replace(/\s+/g,'').trim();
-/* dispatch sheet se LR(col18) → Vehicle(col1) map banao taaki har trip par gaadi mil jaaye */
-async function fcBuildVehicleMap(){
-  if(window.FC_LRVEH) return window.FC_LRVEH;
-  const map={};
-  try{
-    const res=await fetch(DISPATCH_URL+'&t='+Date.now());
-    const txt=await res.text();
-    if(!isBadCsv(txt)){
-      const M=Papa.parse(txt,{header:false,skipEmptyLines:true}).data;
-      for(let i=1;i<M.length;i++){ const r=M[i]; if(!r) continue;
-        const lr=fcLR(r[18]), veh=String(r[1]||'').toUpperCase().trim();
-        if(lr && veh) map[lr]=veh;
-      }
-    }
-  }catch(e){ /* vehicle optional */ }
-  window.FC_LRVEH=map; return map;
-}
+/* 🔧 Raw sheets (same workbook) — DASHBOARD ledger capped tha, isliye seedha in dono se banate hain.
+   Dispatch = saare trips (all months, no cap). N DATA = billing (consignor/consignee/status/N-freight). */
+const FC_DISPATCH_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRLhHvX5yS6Fzan6Er0gwahYtyHdlsB8JZZEHnvXG_IPfwjk2t9M0RMptGHdvTBVBL-jpmWq9Az6njy/pub?gid=936707044&single=true&output=csv';
+const FC_NDATA_CSV    = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRLhHvX5yS6Fzan6Er0gwahYtyHdlsB8JZZEHnvXG_IPfwjk2t9M0RMptGHdvTBVBL-jpmWq9Az6njy/pub?gid=39335415&single=true&output=csv';
 async function loadFreightCheck(){
   const tb=document.getElementById('fcTable');
   if(FC_ROWS){ renderFreightCheck(); return; }   // cache — instant
   try{
-    const [res, vmap] = await Promise.all([ fetch(FREIGHT_CHECK_CSV+'&t='+Date.now()), fcBuildVehicleMap() ]);
-    const txt=await res.text();
-    if(isBadCsv(txt)) throw new Error('load');
-    const M=Papa.parse(txt,{header:false,skipEmptyLines:false}).data;
-    // ledger row = jiska col2 (Trip Date) "YYYY-MM-DD" ho
-    FC_ROWS = M.filter(r=>/^\d{4}-\d{2}-\d{2}$/.test(String(r&&r[2]||'').trim())).map(r=>({
-      date:String(r[2]).trim(), lr:String(r[3]||'').trim(), from:String(r[4]||'').trim(), to:String(r[5]||'').trim(),
-      consignor:String(r[6]||'').trim(), consignee:String(r[7]||'').trim(), item:String(r[8]||'').trim(),
-      wt:fcNum(r[9]), rate:fcNum(r[10]), freight:fcNum(r[11]), status:String(r[12]||'').trim()||'—',
-      nFreight:fcNum(r[16]), dispFreight:fcNum(r[17]),
-      vehicle:(vmap[fcLR(r[3])]||'')
-    }));
+    const [dRes,nRes]=await Promise.all([fetch(FC_DISPATCH_CSV+'&t='+Date.now()), fetch(FC_NDATA_CSV+'&t='+Date.now())]);
+    const dTxt=await dRes.text(), nTxt=await nRes.text();
+    if(isBadCsv(dTxt)||isBadCsv(nTxt)) throw new Error('load');
+    const D=Papa.parse(dTxt,{header:false,skipEmptyLines:true}).data;
+    const N=Papa.parse(nTxt,{header:false,skipEmptyLines:true}).data;
+    // N DATA → LR(col12) par billing map
+    const nmap={};
+    for(let i=1;i<N.length;i++){ const r=N[i]; if(!r) continue;
+      const lr=fcLR(r[12]); if(!lr) continue;
+      nmap[lr]={consignor:String(r[13]||'').trim(), consignee:String(r[14]||'').trim(),
+        status:String(r[10]||'').trim(), nFreight:fcNum(r[9])};
+    }
+    const toISO=s=>{ const d=parseSheetDate(s); if(!d||isNaN(d)) return ''; return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+    // Dispatch = primary trip list; N se billing join
+    FC_ROWS=[];
+    for(let i=1;i<D.length;i++){ const r=D[i]; if(!r||!r[1]) continue;
+      const iso=toISO(r[14]); if(!iso) continue;       // valid Trip Start Date
+      const n=nmap[fcLR(r[18])];
+      const uw=fcNum(r[22]), lw=fcNum(r[21]);
+      FC_ROWS.push({
+        date:iso, vehicle:String(r[1]||'').toUpperCase().trim(), lr:String(r[18]||'').trim(),
+        from:String(r[7]||'').trim(), to:String(r[8]||'').trim(), item:String(r[9]||'').trim(),
+        wt:(uw>0?uw:lw), rate:fcNum(r[24]), freight:fcNum(r[25]), dispFreight:fcNum(r[25]),
+        consignor:n?n.consignor:'', consignee:n?n.consignee:'',
+        status:n?(n.status||'—'):'Not in N DATA', nFreight:n?n.nFreight:0
+      });
+    }
     populateFcFilters();
     renderFreightCheck();
   }catch(e){
