@@ -4358,34 +4358,41 @@ async function loadFreightCheck(){
     if(isBadCsv(dTxt)||isBadCsv(nTxt)) throw new Error('load');
     const D=Papa.parse(dTxt,{header:false,skipEmptyLines:true}).data;
     const N=Papa.parse(nTxt,{header:false,skipEmptyLines:true}).data;
-    // N DATA → LR(col12) par billing map. 🔧 LR kabhi combined hota hai
-    //    ("DMR/ECPR/26-27/01293 / DMR/ECPR/26-27/01292") — use ko " / " par split karke
-    //    har sub-LR ke liye entry banao taaki dispatch ke single LR se match ho.
-    const nmap={};
+    // 🔧 N DATA me ek hi consignment kabhi 2-3 alag LR rows me hota hai (jaise 02027 + 02026,
+    //    same vehicle+date+route+party). Sheet inhe MERGE karke ek row dikhata hai: combined LR
+    //    "02027 / 02026" + N freight = dono ka sum. Yahan bhi waisa hi group banate hain.
+    const groups={};   // group key -> {lrs:[], fr, consignor, consignee, status}
+    const lr2g={};     // sub-LR key -> group key
     for(let i=1;i<N.length;i++){ const r=N[i]; if(!r) continue;
-      const lrFull=String(r[12]||'').trim();
-      const parts=lrFull.split(/\s+\/\s+/).map(s=>s.trim()).filter(Boolean);
-      const info={consignor:String(r[13]||'').trim(), consignee:String(r[14]||'').trim(),
-        status:String(r[10]||'').trim(), nFreight:fcNum(r[9]),
-        lrFull:lrFull, multi:parts.length>1};   // multi = combined (2+ LR)
-      parts.forEach(part=>{ const lr=fcLR(part); if(lr) nmap[lr]=info; });
+      const lrFull=String(r[12]||'').trim(); if(!lrFull) continue;
+      const gk=[fcLR(r[1]),String(r[0]||'').trim(),fcLR(r[3]),fcLR(r[4]),fcLR(r[13]),fcLR(r[14]),fcLR(r[5])].join('|');
+      if(!groups[gk]) groups[gk]={lrs:[], fr:0, consignor:String(r[13]||'').trim(), consignee:String(r[14]||'').trim(), status:String(r[10]||'').trim()};
+      // lrFull khud combined ("a / b") bhi ho sakta hai — split karke har LR add
+      lrFull.split(/\s+\/\s+/).map(s=>s.trim()).filter(Boolean).forEach(p=>{
+        if(!groups[gk].lrs.includes(p)) groups[gk].lrs.push(p);
+        const k=fcLR(p); if(k) lr2g[k]=gk;
+      });
+      groups[gk].fr += fcNum(r[9]);
     }
     const toISO=s=>{ const d=parseSheetDate(s); if(!d||isNaN(d)) return ''; return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
-    // Dispatch = primary trip list; N se billing join
+    // Dispatch = primary trip list; N group se billing join
+    const gUsed={};   // group ka freight ek hi dispatch row pe (double-count na ho)
     FC_ROWS=[];
     for(let i=1;i<D.length;i++){ const r=D[i]; if(!r||!r[1]) continue;
       const iso=toISO(r[14]); if(!iso) continue;       // valid Trip Start Date
-      const n=nmap[fcLR(r[18])];
       const uw=fcNum(r[22]), lw=fcNum(r[21]);
       const dispLr=String(r[18]||'').trim();
-      // double-LR ho to N ka full combined LR dikhao (dono number), warna dispatch ka single
-      const lrShow=(n && n.multi) ? n.lrFull : dispLr;
+      const gk=lr2g[fcLR(r[18])];
+      const g=gk?groups[gk]:null;
+      const isMulti=!!(g && g.lrs.length>1);
+      const lrShow=g ? g.lrs.join(' / ') : dispLr;   // double LR → dono slashed
+      let nf=0; if(g){ if(!gUsed[gk]){ nf=g.fr; gUsed[gk]=1; } }   // group N freight ek baar
       FC_ROWS.push({
-        date:iso, vehicle:String(r[1]||'').toUpperCase().trim(), lr:lrShow, dblLR:!!(n&&n.multi),
+        date:iso, vehicle:String(r[1]||'').toUpperCase().trim(), lr:lrShow, dblLR:isMulti,
         from:String(r[7]||'').trim(), to:String(r[8]||'').trim(), item:String(r[9]||'').trim(),
         wt:(uw>0?uw:lw), rate:fcNum(r[24]), freight:fcNum(r[25]), dispFreight:fcNum(r[25]),
-        consignor:n?n.consignor:'', consignee:n?n.consignee:'',
-        status:n?(n.status||'—'):'Not in N DATA', nFreight:n?n.nFreight:0
+        consignor:g?g.consignor:'', consignee:g?g.consignee:'',
+        status:g?(g.status||'—'):'Not in N DATA', nFreight:nf
       });
     }
     populateFcFilters();
