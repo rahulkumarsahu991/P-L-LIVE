@@ -1721,12 +1721,7 @@ const SECTIONS = {
         <input type="text" id="fcSearch" placeholder="Search LR / route / item…" style="flex:1;min-width:200px;max-width:340px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--text);font-size:.85rem" onkeyup="renderFreightCheck()">
       </div>
       <div class="table-wrap" style="max-height:60vh;overflow-y:auto;overflow-x:auto"><table style="min-width:900px">
-        <thead><tr>
-          <th class="num">Date</th><th style="text-align:left">Vehicle</th><th style="text-align:left">LR / Trip No.</th><th style="text-align:left">From → To</th>
-          <th style="text-align:left">Consignor</th><th style="text-align:left">Consignee</th><th style="text-align:left">Item</th>
-          <th class="num">Wt (MT)</th><th class="num">Rate/T</th><th class="num">Freight</th>
-          <th style="text-align:left">Status</th><th class="num">N Freight</th><th class="num">Dispatch Frt</th><th class="num">Diff</th>
-        </tr></thead>
+        <thead id="fcHead"></thead>
         <tbody id="fcTable"><tr><td colspan="14" style="text-align:center;color:var(--muted);padding:16px">Loading freight data…</td></tr></tbody>
       </table></div>
     </div>`;
@@ -4325,7 +4320,28 @@ function clearEbFilter(){
 /* ================= 🔍 FREIGHT CHECK (DASHBOARD sheet reconciliation) ================= */
 const FREIGHT_CHECK_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRLhHvX5yS6Fzan6Er0gwahYtyHdlsB8JZZEHnvXG_IPfwjk2t9M0RMptGHdvTBVBL-jpmWq9Az6njy/pub?gid=35891392&single=true&output=csv';
 let FC_ROWS = null;   // parsed ledger rows
+let FC_SORT = {key:'date', dir:-1};   // default: latest date first
 const fcNum = v => { const n=parseFloat(String(v==null?'':v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; };
+/* sortable columns */
+const FC_COLS=[
+  {k:'date',l:'Date',num:1,al:'right'},{k:'vehicle',l:'Vehicle',al:'left'},{k:'lr',l:'LR / Trip No.',al:'left'},
+  {k:'from',l:'From → To',al:'left'},{k:'consignor',l:'Consignor',al:'left'},{k:'consignee',l:'Consignee',al:'left'},
+  {k:'item',l:'Item',al:'left'},{k:'wt',l:'Wt (MT)',num:1,al:'right'},{k:'rate',l:'Rate/T',num:1,al:'right'},
+  {k:'freight',l:'Freight',num:1,al:'right'},{k:'status',l:'Status',al:'left'},{k:'nFreight',l:'N Freight',num:1,al:'right'},
+  {k:'dispFreight',l:'Dispatch Frt',num:1,al:'right'},{k:'diff',l:'Diff',num:1,al:'right'}
+];
+function fcSort(key){
+  if(FC_SORT.key===key) FC_SORT.dir=-FC_SORT.dir; else FC_SORT={key, dir:(['date','wt','rate','freight','nFreight','dispFreight','diff'].includes(key)?-1:1)};
+  renderFreightCheck();
+}
+function fcBuildHead(){
+  const head=document.getElementById('fcHead'); if(!head) return;
+  head.innerHTML='<tr>'+FC_COLS.map(c=>{
+    const act=FC_SORT.key===c.k;
+    const arr=act?(FC_SORT.dir>0?'▲':'▼'):'<span style="opacity:.3">↕</span>';
+    return `<th onclick="fcSort('${c.k}')" style="text-align:${c.al};cursor:pointer;white-space:nowrap;user-select:none" title="Sort">${c.l} <span style="color:${act?'#49e3a0':'var(--muted)'};font-size:.7rem">${arr}</span></th>`;
+  }).join('')+'</tr>';
+}
 const fcLR = s => String(s||'').toUpperCase().replace(/\s+/g,'').trim();
 /* 🔧 Raw sheets (same workbook) — DASHBOARD ledger capped tha, isliye seedha in dono se banate hain.
    Dispatch = saare trips (all months, no cap). N DATA = billing (consignor/consignee/status/N-freight). */
@@ -4407,7 +4423,18 @@ function fcFiltered(){
 }
 function renderFreightCheck(){
   if(!FC_ROWS){ return; }
+  fcBuildHead();
   const L=fcFiltered();
+  // sorting
+  const sk=FC_SORT.key, dir=FC_SORT.dir;
+  const numKeys=['wt','rate','freight','nFreight','dispFreight','diff'];
+  const val=(r)=> sk==='diff' ? (r.dispFreight-r.nFreight) : r[sk];
+  L.sort((a,b)=>{
+    let va=val(a), vb=val(b);
+    if(numKeys.includes(sk)){ return (fcNum(va)-fcNum(vb))*dir; }
+    if(sk==='date'){ return (String(va)<String(vb)?-1:String(va)>String(vb)?1:0)*dir; }
+    return String(va||'').localeCompare(String(vb||''))*dir;
+  });
   const inr=n=>'₹'+Math.round(n).toLocaleString('en-IN');
   const cr=n=>{const a=Math.abs(n),s=n<0?'-':''; if(a>=1e7) return s+'₹'+(a/1e7).toFixed(2)+' Cr'; if(a>=1e5) return s+'₹'+(a/1e5).toFixed(2)+' L'; return s+inr(a);};
   // KPIs
