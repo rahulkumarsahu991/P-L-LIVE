@@ -4345,9 +4345,12 @@ async function loadFreightCheck(){
     //    har sub-LR ke liye entry banao taaki dispatch ke single LR se match ho.
     const nmap={};
     for(let i=1;i<N.length;i++){ const r=N[i]; if(!r) continue;
+      const lrFull=String(r[12]||'').trim();
+      const parts=lrFull.split(/\s+\/\s+/).map(s=>s.trim()).filter(Boolean);
       const info={consignor:String(r[13]||'').trim(), consignee:String(r[14]||'').trim(),
-        status:String(r[10]||'').trim(), nFreight:fcNum(r[9])};
-      String(r[12]||'').split(/\s+\/\s+/).forEach(part=>{ const lr=fcLR(part); if(lr) nmap[lr]=info; });
+        status:String(r[10]||'').trim(), nFreight:fcNum(r[9]),
+        lrFull:lrFull, multi:parts.length>1};   // multi = combined (2+ LR)
+      parts.forEach(part=>{ const lr=fcLR(part); if(lr) nmap[lr]=info; });
     }
     const toISO=s=>{ const d=parseSheetDate(s); if(!d||isNaN(d)) return ''; return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
     // Dispatch = primary trip list; N se billing join
@@ -4356,8 +4359,11 @@ async function loadFreightCheck(){
       const iso=toISO(r[14]); if(!iso) continue;       // valid Trip Start Date
       const n=nmap[fcLR(r[18])];
       const uw=fcNum(r[22]), lw=fcNum(r[21]);
+      const dispLr=String(r[18]||'').trim();
+      // double-LR ho to N ka full combined LR dikhao (dono number), warna dispatch ka single
+      const lrShow=(n && n.multi) ? n.lrFull : dispLr;
       FC_ROWS.push({
-        date:iso, vehicle:String(r[1]||'').toUpperCase().trim(), lr:String(r[18]||'').trim(),
+        date:iso, vehicle:String(r[1]||'').toUpperCase().trim(), lr:lrShow, dblLR:!!(n&&n.multi),
         from:String(r[7]||'').trim(), to:String(r[8]||'').trim(), item:String(r[9]||'').trim(),
         wt:(uw>0?uw:lw), rate:fcNum(r[24]), freight:fcNum(r[25]), dispFreight:fcNum(r[25]),
         consignor:n?n.consignor:'', consignee:n?n.consignee:'',
@@ -4452,7 +4458,7 @@ function renderFreightCheck(){
     return `<tr>
       <td class="num" style="white-space:nowrap">${r.date}</td>
       <td style="text-align:left;font-size:.8rem;font-weight:700;color:#8fb4ff;white-space:nowrap">${r.vehicle||'—'}</td>
-      <td style="text-align:left;font-size:.8rem">${r.lr||'—'}</td>
+      <td style="text-align:left;font-size:.8rem;${r.dblLR?'color:#ff5a5f;font-weight:700':''}" title="${r.dblLR?'Double LR':''}">${r.dblLR?'⚠ ':''}${r.lr||'—'}</td>
       <td style="text-align:left;font-size:.8rem">${r.from} → ${r.to}</td>
       <td style="text-align:left;font-size:.8rem">${r.consignor||'—'}</td>
       <td style="text-align:left;font-size:.8rem">${r.consignee||'—'}</td>
