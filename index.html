@@ -1691,6 +1691,7 @@ const SECTIONS = {
     <!-- filters -->
     <div class="fc-filters" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px;padding:14px 18px;background:linear-gradient(135deg,rgba(63,207,142,.10),rgba(63,207,142,.03));border:1px solid #3fcf8e;border-radius:12px">
       <span style="font-weight:700;font-size:.78rem;color:#49e3a0;letter-spacing:.06em;text-transform:uppercase">🔍 Filters</span>
+      <select id="fcMonth" onchange="fcPickMonth()" title="Month select" style="background:var(--panel2);border:1px solid #3fcf8e55;border-radius:8px;padding:7px 10px;color:var(--text);font-family:inherit;font-size:.8rem;font-weight:700;cursor:pointer"><option value="">📅 All Months</option></select>
       <input type="date" id="fcFrom" style="background:var(--panel2);border:1px solid #3fcf8e55;border-radius:8px;padding:6px 10px;color:var(--text);font-family:inherit;font-size:.8rem">
       <span style="color:var(--muted)">→</span>
       <input type="date" id="fcTo" style="background:var(--panel2);border:1px solid #3fcf8e55;border-radius:8px;padding:6px 10px;color:var(--text);font-family:inherit;font-size:.8rem">
@@ -4404,6 +4405,29 @@ function populateFcFilters(){
   // status stays a dropdown
   const st=document.getElementById('fcStatus');
   if(st) st.innerHTML='<option value="">All Bill Status</option>'+uniq('status').map(v=>`<option value="${v.replace(/"/g,'&quot;')}">${v}</option>`).join('');
+  // Month dropdown (YYYY-MM) — data me jo months hain unse auto, latest upar
+  const mSel=document.getElementById('fcMonth');
+  if(mSel){
+    const mons=Array.from(new Set(FC_ROWS.map(r=>String(r.date||'').slice(0,7)).filter(Boolean))).sort().reverse();
+    const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const label=m=>{const[y,mm]=m.split('-');return MN[(+mm)-1]+" '"+y.slice(2);};
+    const cur=mSel.value;
+    mSel.innerHTML='<option value="">📅 All Months</option>'+mons.map(m=>`<option value="${m}">${label(m)}</option>`).join('');
+    if(cur) mSel.value=cur;
+  }
+}
+// Month select → us month ki from/to auto-set karke filter
+function fcPickMonth(){
+  const m=(document.getElementById('fcMonth')||{}).value||'';
+  const from=document.getElementById('fcFrom'), to=document.getElementById('fcTo');
+  if(!m){ if(from)from.value=''; if(to)to.value=''; }
+  else{
+    const [y,mm]=m.split('-').map(Number);
+    const last=new Date(y,mm,0).getDate();
+    if(from) from.value=`${y}-${String(mm).padStart(2,'0')}-01`;
+    if(to)   to.value  =`${y}-${String(mm).padStart(2,'0')}-${String(last).padStart(2,'0')}`;
+  }
+  renderFreightCheck();
 }
 function fcFiltered(){
   if(!FC_ROWS) return [];
@@ -4509,7 +4533,7 @@ function refreshFreightCheck(){
 }
 function clearFreightCheck(){
   ['fcFrom','fcTo','fcSearch'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
-  ['fcVehicle','fcConsignor','fcConsignee','fcStatus'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
+  ['fcVehicle','fcConsignor','fcConsignee','fcStatus','fcMonth'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
   renderFreightCheck();
 }
 function exportFreightCheckCSV(){
