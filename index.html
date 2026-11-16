@@ -1700,6 +1700,7 @@ const SECTIONS = {
       <select id="fcStatus" onchange="renderFreightCheck()" style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--text);font-size:.8rem;cursor:pointer"><option value="">All Bill Status</option></select>
       <button onclick="renderFreightCheck()" style="background:#3fcf8e;color:#06281b;border:none;border-radius:8px;padding:7px 16px;font-family:inherit;font-size:.78rem;font-weight:800;cursor:pointer">Apply</button>
       <button onclick="clearFreightCheck()" style="background:transparent;color:#49e3a0;border:1px solid #3fcf8e55;border-radius:8px;padding:7px 14px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer">Clear</button>
+      <button onclick="refreshFreightCheck()" style="background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 14px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer">🔄 Refresh</button>
       <button onclick="exportFreightCheckCSV()" style="margin-left:auto;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 16px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer">⬇ Export CSV</button>
     </div>
     <div id="fcStats"></div>
@@ -4463,6 +4464,12 @@ function renderFreightCheck(){
       <td class="num" style="color:${Math.abs(d)>0?'#ff9a9c':'var(--muted)'}">${d===0?'—':inr(d)}</td>
     </tr>`;
   }).join('')+(L.length>1500?`<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:10px">… ${L.length-1500} aur rows (filter laga ke dekho)</td></tr>`:'') : '<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:16px">In filters me koi trip nahi mila.</td></tr>';
+}
+function refreshFreightCheck(){
+  FC_ROWS=null;   // cache clear → fresh CSV fetch
+  const tb=document.getElementById('fcTable');
+  if(tb) tb.innerHTML='<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:16px">🔄 Latest data laa rahe hain…</td></tr>';
+  loadFreightCheck();
 }
 function clearFreightCheck(){
   ['fcFrom','fcTo','fcSearch'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
