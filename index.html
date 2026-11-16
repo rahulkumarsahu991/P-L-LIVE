@@ -4351,7 +4351,8 @@ async function loadFreightCheck(){
   const tb=document.getElementById('fcTable');
   if(FC_ROWS){ renderFreightCheck(); return; }   // cache — instant
   try{
-    const [dRes,nRes]=await Promise.all([fetch(FC_DISPATCH_CSV+'&t='+Date.now()), fetch(FC_NDATA_CSV+'&t='+Date.now())]);
+    const noCache={cache:'no-store',headers:{'cache-control':'no-cache','pragma':'no-cache'}};
+    const [dRes,nRes]=await Promise.all([fetch(FC_DISPATCH_CSV+'&t='+Date.now(),noCache), fetch(FC_NDATA_CSV+'&t='+Date.now(),noCache)]);
     const dTxt=await dRes.text(), nTxt=await nRes.text();
     if(isBadCsv(dTxt)||isBadCsv(nTxt)) throw new Error('load');
     const D=Papa.parse(dTxt,{header:false,skipEmptyLines:true}).data;
