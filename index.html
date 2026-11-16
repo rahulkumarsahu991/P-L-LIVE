@@ -4384,7 +4384,8 @@ async function loadFreightCheck(){
         from:String(r[7]||'').trim(), to:String(r[8]||'').trim(), item:String(r[9]||'').trim(),
         wt:(uw>0?uw:lw), rate:fcNum(r[24]), freight:fcNum(r[25]), dispFreight:fcNum(r[25]),
         consignor:n?n.consignor:'', consignee:n?n.consignee:'',
-        status:n?(n.status||'—'):'Not in N DATA', nFreight:n?n.nFreight:0
+        status:n?(n.status||'—'):'Not in N DATA', nFreight:n?n.nFreight:0,
+        nKey:n?n.lrFull:''   // N entry identity (combined LR rows share same key → count N freight once)
       });
     }
     populateFcFilters();
@@ -4445,7 +4446,10 @@ function renderFreightCheck(){
   const posted=L.filter(r=>r.status.toLowerCase()==='posted').reduce((s,r)=>s+r.freight,0);
   const pending=L.filter(r=>['draft','not created'].includes(r.status.toLowerCase())).reduce((s,r)=>s+r.freight,0);
   const missing=L.filter(r=>r.status.toLowerCase().includes('not in n')).reduce((s,r)=>s+r.freight,0);
-  const nTot=L.reduce((s,r)=>s+r.nFreight,0), dTot=L.reduce((s,r)=>s+r.dispFreight,0);
+  // N Sheet Total: har N entry ek baar (combined LR do dispatch rows se match ho to double-count na ho)
+  const _nSeen=new Set(); let nTot=0;
+  L.forEach(r=>{ if(!r.nFreight) return; const k=r.nKey||('#'+r.lr); if(_nSeen.has(k)) return; _nSeen.add(k); nTot+=r.nFreight; });
+  const dTot=L.reduce((s,r)=>s+r.dispFreight,0);
   const realize=totFreight?(posted/totFreight*100):0;
   const kpi=(lbl,val,col)=>`<div style="position:relative;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent);border:1px solid var(--line);border-radius:13px;padding:13px 15px 13px 17px;overflow:hidden">
     <div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:${col}"></div>
