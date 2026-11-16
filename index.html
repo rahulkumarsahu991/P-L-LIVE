@@ -4340,12 +4340,14 @@ async function loadFreightCheck(){
     if(isBadCsv(dTxt)||isBadCsv(nTxt)) throw new Error('load');
     const D=Papa.parse(dTxt,{header:false,skipEmptyLines:true}).data;
     const N=Papa.parse(nTxt,{header:false,skipEmptyLines:true}).data;
-    // N DATA → LR(col12) par billing map
+    // N DATA → LR(col12) par billing map. 🔧 LR kabhi combined hota hai
+    //    ("DMR/ECPR/26-27/01293 / DMR/ECPR/26-27/01292") — use ko " / " par split karke
+    //    har sub-LR ke liye entry banao taaki dispatch ke single LR se match ho.
     const nmap={};
     for(let i=1;i<N.length;i++){ const r=N[i]; if(!r) continue;
-      const lr=fcLR(r[12]); if(!lr) continue;
-      nmap[lr]={consignor:String(r[13]||'').trim(), consignee:String(r[14]||'').trim(),
+      const info={consignor:String(r[13]||'').trim(), consignee:String(r[14]||'').trim(),
         status:String(r[10]||'').trim(), nFreight:fcNum(r[9])};
+      String(r[12]||'').split(/\s+\/\s+/).forEach(part=>{ const lr=fcLR(part); if(lr) nmap[lr]=info; });
     }
     const toISO=s=>{ const d=parseSheetDate(s); if(!d||isNaN(d)) return ''; return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
     // Dispatch = primary trip list; N se billing join
