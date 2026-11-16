@@ -4343,46 +4343,48 @@ function fcBuildHead(){
   }).join('')+'</tr>';
 }
 const fcLR = s => String(s||'').toUpperCase().replace(/\s+/g,'').trim();
-/* 🔧 EXACT G-Sheet parity: Freight Check seedha DASHBOARD ledger se banta hai (jahaan se sheet ke
-   "N SHEET" & "DISPATCH SHEET" totals bante hain). Ledger ke apne per-trip columns:
-     c2=Trip Date, c3=LR, c4=From, c5=To, c6=Consignor, c7=Consignee, c8=Item, c9=Weight,
-     c10=Rate, c11=Freight, c12=Bill Status, c16=N Freight Amt, c17=Dispatch Freight Amt.
-   N Total = Σ c16 (bina dedup), Dispatch Total = Σ c17 — bilkul sheet jaisa (kam/jyada nahi).
-   Vehicle ledger me nahi hota → Dispatch sheet (gid 936707044) se LR par join karte hain. */
-const FC_DASH_CSV     = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRLhHvX5yS6Fzan6Er0gwahYtyHdlsB8JZZEHnvXG_IPfwjk2t9M0RMptGHdvTBVBL-jpmWq9Az6njy/pub?gid=35891392&single=true&output=csv';
+/* 🔧 Raw sheets (same workbook) — DASHBOARD ledger capped tha, isliye seedha in dono se banate hain.
+   Dispatch = saare trips (all months, no cap). N DATA = billing (consignor/consignee/status/N-freight). */
 const FC_DISPATCH_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRLhHvX5yS6Fzan6Er0gwahYtyHdlsB8JZZEHnvXG_IPfwjk2t9M0RMptGHdvTBVBL-jpmWq9Az6njy/pub?gid=936707044&single=true&output=csv';
+const FC_NDATA_CSV    = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRLhHvX5yS6Fzan6Er0gwahYtyHdlsB8JZZEHnvXG_IPfwjk2t9M0RMptGHdvTBVBL-jpmWq9Az6njy/pub?gid=39335415&single=true&output=csv';
 async function loadFreightCheck(){
   const tb=document.getElementById('fcTable');
   if(FC_ROWS){ renderFreightCheck(); return; }   // cache — instant
   try{
     const noCache={cache:'no-store',headers:{'cache-control':'no-cache','pragma':'no-cache'}};
-    const [hRes,dRes]=await Promise.all([fetch(FC_DASH_CSV+'&t='+Date.now(),noCache), fetch(FC_DISPATCH_CSV+'&t='+Date.now(),noCache)]);
-    const hTxt=await hRes.text(), dTxt=await dRes.text();
-    if(isBadCsv(hTxt)) throw new Error('load');
-    const H=Papa.parse(hTxt,{header:false,skipEmptyLines:false}).data;   // DASHBOARD (ledger)
-    const D=Papa.parse(dTxt,{header:false,skipEmptyLines:true}).data;    // Dispatch (vehicle lookup)
-    // Vehicle map: har sub-LR → vehicle (Dispatch col18=LR, col1=Vehicle)
-    const vmap={};
-    for(let i=1;i<D.length;i++){ const r=D[i]; if(!r||!r[1]) continue;
-      String(r[18]||'').split(/\s+\/\s+/).forEach(p=>{ const k=fcLR(p); if(k) vmap[k]=String(r[1]).toUpperCase().trim(); });
+    const [dRes,nRes]=await Promise.all([fetch(FC_DISPATCH_CSV+'&t='+Date.now(),noCache), fetch(FC_NDATA_CSV+'&t='+Date.now(),noCache)]);
+    const dTxt=await dRes.text(), nTxt=await nRes.text();
+    if(isBadCsv(dTxt)||isBadCsv(nTxt)) throw new Error('load');
+    const D=Papa.parse(dTxt,{header:false,skipEmptyLines:true}).data;
+    const N=Papa.parse(nTxt,{header:false,skipEmptyLines:true}).data;
+    // N DATA → LR(col12) par billing map. 🔧 LR kabhi combined hota hai
+    //    ("DMR/ECPR/26-27/01293 / DMR/ECPR/26-27/01292") — use ko " / " par split karke
+    //    har sub-LR ke liye entry banao taaki dispatch ke single LR se match ho.
+    const nmap={};
+    for(let i=1;i<N.length;i++){ const r=N[i]; if(!r) continue;
+      const lrFull=String(r[12]||'').trim();
+      const parts=lrFull.split(/\s+\/\s+/).map(s=>s.trim()).filter(Boolean);
+      const info={consignor:String(r[13]||'').trim(), consignee:String(r[14]||'').trim(),
+        status:String(r[10]||'').trim(), nFreight:fcNum(r[9]),
+        lrFull:lrFull, multi:parts.length>1};   // multi = combined (2+ LR)
+      parts.forEach(part=>{ const lr=fcLR(part); if(lr) nmap[lr]=info; });
     }
-    // Ledger header row dhoondo ("S NO." col1 me), uske baad data
-    let hdr=-1;
-    for(let i=0;i<H.length;i++){ if(String((H[i]||[])[1]||'').trim().toUpperCase()==='S NO.'){ hdr=i; break; } }
     const toISO=s=>{ const d=parseSheetDate(s); if(!d||isNaN(d)) return ''; return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+    // Dispatch = primary trip list; N se billing join
     FC_ROWS=[];
-    for(let i=hdr+1;i<H.length;i++){ const r=H[i]; if(!r) continue;
-      const lr=String(r[3]||'').trim(); if(!lr) continue;             // valid ledger row
-      const sno=String(r[1]||'').trim(); if(!/^\d+$/.test(sno)) continue;
-      const iso=toISO(r[2]); if(!iso) continue;
-      // vehicle: ledger me nahi → LR (ya sub-LR) se dispatch join
-      let veh=''; for(const p of lr.split(/\s+\/\s+/)){ const k=fcLR(p); if(vmap[k]){ veh=vmap[k]; break; } }
+    for(let i=1;i<D.length;i++){ const r=D[i]; if(!r||!r[1]) continue;
+      const iso=toISO(r[14]); if(!iso) continue;       // valid Trip Start Date
+      const n=nmap[fcLR(r[18])];
+      const uw=fcNum(r[22]), lw=fcNum(r[21]);
+      const dispLr=String(r[18]||'').trim();
+      // double-LR ho to N ka full combined LR dikhao (dono number), warna dispatch ka single
+      const lrShow=(n && n.multi) ? n.lrFull : dispLr;
       FC_ROWS.push({
-        date:iso, vehicle:veh, lr:lr, dblLR:/\s\/\s/.test(lr),
-        from:String(r[4]||'').trim(), to:String(r[5]||'').trim(), item:String(r[8]||'').trim(),
-        wt:fcNum(r[9]), rate:fcNum(r[10]), freight:fcNum(r[11]), dispFreight:fcNum(r[17]),
-        consignor:String(r[6]||'').trim(), consignee:String(r[7]||'').trim(),
-        status:String(r[12]||'').trim()||'—', nFreight:fcNum(r[16])
+        date:iso, vehicle:String(r[1]||'').toUpperCase().trim(), lr:lrShow, dblLR:!!(n&&n.multi),
+        from:String(r[7]||'').trim(), to:String(r[8]||'').trim(), item:String(r[9]||'').trim(),
+        wt:(uw>0?uw:lw), rate:fcNum(r[24]), freight:fcNum(r[25]), dispFreight:fcNum(r[25]),
+        consignor:n?n.consignor:'', consignee:n?n.consignee:'',
+        status:n?(n.status||'—'):'Not in N DATA', nFreight:n?n.nFreight:0
       });
     }
     populateFcFilters();
@@ -4443,7 +4445,6 @@ function renderFreightCheck(){
   const posted=L.filter(r=>r.status.toLowerCase()==='posted').reduce((s,r)=>s+r.freight,0);
   const pending=L.filter(r=>['draft','not created'].includes(r.status.toLowerCase())).reduce((s,r)=>s+r.freight,0);
   const missing=L.filter(r=>r.status.toLowerCase().includes('not in n')).reduce((s,r)=>s+r.freight,0);
-  // EXACT sheet parity: N Total = Σ N Freight (col16), Dispatch Total = Σ Dispatch Freight (col17) — bina dedup
   const nTot=L.reduce((s,r)=>s+r.nFreight,0), dTot=L.reduce((s,r)=>s+r.dispFreight,0);
   const realize=totFreight?(posted/totFreight*100):0;
   const kpi=(lbl,val,col)=>`<div style="position:relative;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent);border:1px solid var(--line);border-radius:13px;padding:13px 15px 13px 17px;overflow:hidden">
