@@ -2,8 +2,20 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Fleet P&L Dashboard</title>
+<!-- PWA (mobile app) -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d1014">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Daman Fleet">
+<link rel="apple-touch-icon" href="logo.jpeg">
+<link rel="icon" href="logo.jpeg">
+<script>
+if('serviceWorker' in navigator){ window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); }); }
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
@@ -5964,7 +5976,7 @@ function homeVehSearch(){
   const list=computeEB(DISPATCH_DATA, rng).filter(r=>(r.veh||'').toUpperCase()===veh)
     .sort((a,b)=>{ const da=parseSheetDate(a.date)||0, db=parseSheetDate(b.date)||0; return db-da; });
   const fmtD=d=>{ const x=parseSheetDate(d); if(!x||isNaN(x)) return d||'—'; const mn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return x.getDate()+' '+mn[x.getMonth()]; };
-  const rows=list.map((r,i)=>`<tr style="border-top:1px solid #1d242e">
+  const rows=list.map((r,i)=>`<tr onclick="homeOpenVeh('${veh}')" title="Pura detail kholo" style="border-top:1px solid #1d242e;cursor:pointer" onmouseover="this.style.background='#151c26'" onmouseout="this.style.background='transparent'">
       <td style="padding:9px 10px;color:#6b7686;font-size:.74rem">${i+1}</td>
       <td style="padding:9px 10px;white-space:nowrap;font-size:.8rem">${fmtD(r.date)}</td>
       <td style="padding:9px 10px;font-size:.8rem">${(r.from||'?')} <span style="color:#5b6472">→</span> ${(r.to||'?')}</td>
@@ -5984,6 +5996,7 @@ function homeVehSearch(){
     <div style="background:#0f141b;border:1px solid #232c38;border-radius:14px;overflow:hidden">
       <div style="padding:12px 16px;font-weight:800;font-size:.86rem;border-bottom:1px solid #1d242e;display:flex;justify-content:space-between;align-items:center">
         <span>📋 Trip List <span style="color:#8a94a6;font-weight:500">(${list.length} trips)</span></span>
+        <span style="color:#6b7686;font-weight:500;font-size:.68rem">👆 tap row → full detail</span>
       </div>
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;min-width:520px">
@@ -6011,6 +6024,19 @@ function homeToggleMenu(){
 }
 function homeGoSection(sec){ document.getElementById('homeMenu').style.display='none'; document.getElementById('homePage').style.display='none'; document.getElementById('appWrap').style.display='block'; if(typeof go==='function') go(sec); }
 function homeClose(){ document.getElementById('homePage').style.display='none'; document.getElementById('appWrap').style.display='block'; }
+
+/* trip row click → main page jaisa pura vehicle detail (drawer) kholo */
+function homeOpenVeh(veh){
+  document.getElementById('homeMenu').style.display='none';
+  document.getElementById('homePage').style.display='none';
+  document.getElementById('appWrap').style.display='block';
+  if(typeof showVeh==='function'){
+    const found = (typeof DATA!=='undefined') && DATA && DATA.find && DATA.find(x=>(x.Vehicle||'').toUpperCase()===veh.toUpperCase());
+    if(found){ showVeh(found.Vehicle); return; }
+  }
+  if(typeof go==='function') go('vehicles');   // fallback: Vehicles section
+  const si=document.getElementById('vehSearch'); if(si){ si.value=veh; if(typeof fillVehicles==='function') fillVehicles(veh); }
+}
 
 function homeOpen(){
   document.getElementById('homePage').style.display='block';
