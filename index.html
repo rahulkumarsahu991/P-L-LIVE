@@ -578,6 +578,7 @@ th.sortable .sort-arrow{display:inline-block;margin-left:4px;color:var(--accent)
         <div class="sub" id="secSub">Fleet performance summary</div>
       </div>
       <div class="topbar-right">
+        <button onclick="homeOpen()" title="Home page" style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;color:var(--text);font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px">🏠 Home</button>
         <span id="dataPeriod" onclick="openDateModal()" title="Click karke date range badlo"
           style="background:var(--panel2);border:1px solid var(--line);border-radius:7px;cursor:pointer;
           padding:5px 10px;color:var(--text);font-family:'Spline Sans Mono',monospace;font-size:.72rem">📅 Full data</span>
@@ -4158,7 +4159,8 @@ function computeEB(rows, range){
     } else {
       billing=0; isActual=false; wt=0; wtEst=true; rateEst=true;
     }
-    return {veh:t.vehicle||'—', route:(t.from||'?')+' → '+(t.to||'?'), date:t.start||'—',
+    return {veh:t.vehicle||'—', route:(t.from||'?')+' → '+(t.to||'?'), from:t.from||'', to:t.to||'',
+      item:t.item||'', date:t.start||'—',
       wt, rate, billing, isActual, wtEst, rateEst};
   }).sort((a,b)=>b.billing-a.billing);
 }
@@ -5952,14 +5954,50 @@ function homeVehSearch(){
   const out=document.getElementById('homeVehResult'); if(!out) return;
   if(!veh){ out.innerHTML=''; return; }
   const rng=homeRanges()[HOME_PERIOD];
-  if(!(Array.isArray(DISPATCH_DATA)&&DISPATCH_DATA.length) || !HOME_EXP_INDEX){ out.innerHTML='<div style="color:#8a94a6;font-size:.85rem">⏳ Data load ho raha hai…</div>'; return; }
+  if(!(Array.isArray(DISPATCH_DATA)&&DISPATCH_DATA.length) || !HOME_EXP_INDEX){ out.innerHTML='<div style="color:#8a94a6;font-size:.85rem;padding:16px">⏳ Data load ho raha hai…</div>'; return; }
   const s=homeStats(rng, veh);
-  if(!s.trips && !s.expense){ out.innerHTML=`<div style="background:#12171e;border:1px solid #262d38;border-radius:12px;padding:16px;color:#8a94a6">${veh} ka <b>${rng.label}</b> me koi data nahi mila.</div>`; return; }
-  const card=(l,v,c)=>`<div style="flex:1;min-width:130px;background:#12171e;border:1px solid #262d38;border-radius:12px;padding:13px 15px"><div style="font-size:.66rem;color:#8a94a6;text-transform:uppercase;letter-spacing:.5px">${l}</div><div style="font-size:1.15rem;font-weight:800;margin-top:3px;color:${c||'#e8ecf2'}">${v}</div></div>`;
-  out.innerHTML=`<div style="font-weight:800;margin-bottom:8px">${veh} <span style="color:#8a94a6;font-weight:500;font-size:.78rem">· ${rng.label} (${rng.start} → ${rng.end})</span></div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
-      ${card('Trips',s.trips)}${card('Freight / Billing',homeFmt(s.billing))}
-      ${card('Expense',homeFmt(s.expense),'#ff8a8a')}${card('Net Profit',homeFmt(s.profit),s.profit>=0?'#3fcf8e':'#ff5a5f')}
+  if(!s.trips && !s.expense){ out.innerHTML=`<div style="background:#12171e;border:1px solid #262d38;border-radius:14px;padding:22px;text-align:center;color:#8a94a6">🔍 <b style="color:#e8ecf2">${veh}</b> ka <b>${rng.label}</b> me koi data nahi mila.</div>`; return; }
+  const card=(l,v,c,ic)=>`<div style="flex:1;min-width:140px;background:linear-gradient(160deg,#141a22,#0f141b);border:1px solid #232c38;border-radius:14px;padding:14px 16px">
+      <div style="font-size:.64rem;color:#8a94a6;text-transform:uppercase;letter-spacing:.6px;font-weight:700">${ic||''} ${l}</div>
+      <div style="font-size:1.3rem;font-weight:800;margin-top:5px;color:${c||'#e8ecf2'}">${v}</div></div>`;
+  // trip list (same computeEB jisse box totals bante hain)
+  const list=computeEB(DISPATCH_DATA, rng).filter(r=>(r.veh||'').toUpperCase()===veh)
+    .sort((a,b)=>{ const da=parseSheetDate(a.date)||0, db=parseSheetDate(b.date)||0; return db-da; });
+  const fmtD=d=>{ const x=parseSheetDate(d); if(!x||isNaN(x)) return d||'—'; const mn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return x.getDate()+' '+mn[x.getMonth()]; };
+  const rows=list.map((r,i)=>`<tr style="border-top:1px solid #1d242e">
+      <td style="padding:9px 10px;color:#6b7686;font-size:.74rem">${i+1}</td>
+      <td style="padding:9px 10px;white-space:nowrap;font-size:.8rem">${fmtD(r.date)}</td>
+      <td style="padding:9px 10px;font-size:.8rem">${(r.from||'?')} <span style="color:#5b6472">→</span> ${(r.to||'?')}</td>
+      <td style="padding:9px 10px;font-size:.78rem;color:#9aa4b2">${r.item||'—'}</td>
+      <td style="padding:9px 10px;text-align:right;font-size:.8rem;white-space:nowrap">${r.wt?r.wt.toFixed(1):'—'}</td>
+      <td style="padding:9px 10px;text-align:right;font-size:.82rem;font-weight:700;white-space:nowrap">${homeFmt(r.billing)} ${r.isActual?'':'<span style=\"color:#c08cff;font-size:.62rem;font-weight:700\" title=\"Estimated\">~est</span>'}</td>
+    </tr>`).join('');
+  out.innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <span style="font-size:1.1rem;font-weight:800">🚛 ${veh}</span>
+      <span style="background:#1b2029;border:1px solid #2a3340;border-radius:20px;padding:3px 11px;color:#9aa4b2;font-size:.74rem">${rng.label} · ${rng.start} → ${rng.end}</span>
+    </div>
+    <div style="display:flex;gap:11px;flex-wrap:wrap;margin-bottom:16px">
+      ${card('Trips',s.trips,'#5b9dff','🧾')}${card('Freight / Billing',homeFmt(s.billing),'#e8ecf2','💰')}
+      ${card('Expense',homeFmt(s.expense),'#ff8a8a','⛽')}${card('Net Profit',homeFmt(s.profit),s.profit>=0?'#3fcf8e':'#ff5a5f','📈')}
+    </div>
+    <div style="background:#0f141b;border:1px solid #232c38;border-radius:14px;overflow:hidden">
+      <div style="padding:12px 16px;font-weight:800;font-size:.86rem;border-bottom:1px solid #1d242e;display:flex;justify-content:space-between;align-items:center">
+        <span>📋 Trip List <span style="color:#8a94a6;font-weight:500">(${list.length} trips)</span></span>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;min-width:520px">
+          <thead><tr style="background:#131922">
+            <th style="padding:9px 10px;text-align:left;font-size:.64rem;color:#8a94a6;text-transform:uppercase;letter-spacing:.5px">#</th>
+            <th style="padding:9px 10px;text-align:left;font-size:.64rem;color:#8a94a6;text-transform:uppercase;letter-spacing:.5px">Date</th>
+            <th style="padding:9px 10px;text-align:left;font-size:.64rem;color:#8a94a6;text-transform:uppercase;letter-spacing:.5px">Route</th>
+            <th style="padding:9px 10px;text-align:left;font-size:.64rem;color:#8a94a6;text-transform:uppercase;letter-spacing:.5px">Item</th>
+            <th style="padding:9px 10px;text-align:right;font-size:.64rem;color:#8a94a6;text-transform:uppercase;letter-spacing:.5px">Wt (MT)</th>
+            <th style="padding:9px 10px;text-align:right;font-size:.64rem;color:#8a94a6;text-transform:uppercase;letter-spacing:.5px">Billing</th>
+          </tr></thead>
+          <tbody>${rows||'<tr><td colspan="6" style="padding:18px;text-align:center;color:#8a94a6">Is period me koi trip nahi</td></tr>'}</tbody>
+        </table>
+      </div>
     </div>`;
 }
 
