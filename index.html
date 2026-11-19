@@ -539,7 +539,19 @@ th.sortable .sort-arrow{display:inline-block;margin-left:4px;color:var(--accent)
 #homePage .glass{ background:var(--hm-glass);border:1px solid var(--hm-line);border-radius:16px;backdrop-filter:blur(12px);box-shadow:0 10px 30px rgba(0,0,0,.33),inset 0 1px 0 rgba(255,255,255,.05) }
 #homeBoxes>div{ transition:.18s }
 #homeBoxes>div:hover{ transform:translateY(-3px);box-shadow:0 16px 34px rgba(0,0,0,.42) }
-@media(max-width:560px){ #homeWrap{ padding:14px 10px 70px !important } #homeBoxes{ gap:7px !important } }
+/* iPhone notch/camera — content camera ke niche se shuru ho (safe-area insets) */
+#homeWrap{
+  padding-top:calc(16px + env(safe-area-inset-top)) !important;
+  padding-left:calc(16px + env(safe-area-inset-left)) !important;
+  padding-right:calc(16px + env(safe-area-inset-right)) !important;
+  padding-bottom:calc(70px + env(safe-area-inset-bottom)) !important;
+}
+@media(max-width:560px){
+  #homeWrap{ padding-left:calc(10px + env(safe-area-inset-left)) !important; padding-right:calc(10px + env(safe-area-inset-right)) !important; }
+  #homeBoxes{ gap:7px !important }
+}
+/* installed app (standalone) — dashboard bhi notch ke niche se */
+@media all and (display-mode: standalone){ body{ padding-top:env(safe-area-inset-top); } }
 </style>
 <div id="homePage" style="position:fixed;inset:0;z-index:9000;display:none;overflow-y:auto;font-family:'Manrope',sans-serif;color:#eef2f8;background:
   radial-gradient(900px 500px at 12% -5%, rgba(63,207,142,.16), transparent 60%),
@@ -5931,7 +5943,7 @@ function doLogin(){
 
 /* ===== HOME / LAUNCHER PAGE ===== */
 let HOME_PERIOD='thisM';
-let HOME_EXP_INDEX=null, HOME_EXP_LOADING=false;
+let HOME_EXP_INDEX=null, HOME_PAPER_INDEX=null, HOME_EMI_INDEX=null, HOME_EXP_LOADING=false;
 
 function homeRanges(){
   const now=new Date(), y=now.getFullYear(), m=now.getMonth();
@@ -5960,13 +5972,33 @@ async function buildHomeExpenseIndex(){
     recs.push({veh:String(r[cm.vehicle]||'').toUpperCase().trim(), d:d, amt:amt});
   }); };
   const job=async(sheet,key)=>{ try{ const rows=await fetchExpenseSheetData(sheet); push(rows, COLUMN_MAP[key]||COLUMN_MAP[sheet]); }catch(e){} };
+  const hnum=v=>parseFloat(String(v==null?'':v).replace(/[^0-9.\-]/g,''))||0;
+  // Paper (dated) — gid 1097945924: date(0), amount(4), vehicle(6)
+  const paperRecs=[];
+  const paperJob=async()=>{ try{
+    let m=EXP_CACHE['1097945924'];
+    if(!m){ const t=await (await fetch(expCsvUrl('1097945924')+'&t='+Date.now())).text(); if(isBadCsv(t)) return; m=Papa.parse(t,{header:false,skipEmptyLines:false}).data; if(m&&m.length>=2) EXP_CACHE['1097945924']=m; }
+    for(let i=1;i<m.length;i++){ const r=m[i]; if(!r) continue; const d=parseSheetDate(r[0]); if(!d||isNaN(d)) continue; const amt=Math.max(0,hnum(r[4])); if(!amt) continue; paperRecs.push({d:d, veh:String(r[6]||'').toUpperCase().trim(), amt:amt}); }
+  }catch(e){} };
+  // EMI (month-matrix) — gid 2108749699: vehCol 0, months from col 1
+  const emiRecs=[];
+  const emiJob=async()=>{ try{
+    let m=EXP_CACHE['2108749699'];
+    if(!m){ const t=await (await fetch(expCsvUrl('2108749699')+'&t='+Date.now())).text(); if(isBadCsv(t)) return; m=Papa.parse(t,{header:false,skipEmptyLines:false}).data; if(m&&m.length>=2) EXP_CACHE['2108749699']=m; }
+    const header=m[0]||[];
+    for(let i=1;i<m.length;i++){ const r=m[i]; if(!r) continue; const veh=String(r[0]||'').toUpperCase().trim().split(/\s+/)[0]; if(!veh) continue;
+      for(let c=1;c<header.length;c++){ const md=parseMonthLabel(header[c]); if(!md) continue; const amt=hnum(r[c]); if(amt<=0) continue;
+        emiRecs.push({ms:md.getTime(), me:new Date(md.getFullYear(),md.getMonth()+1,0,23,59,59,999).getTime(), veh:veh, amt:amt}); } }
+  }catch(e){} };
   await Promise.all([
     job('DIESEL&UREA','Diesel'), job('DIESEL&UREA','Urea'),
     job('FASTAG SHEET','Fastag'), job('MONEY ADVANCE SHEET','Driver A/C'),
     job('CASH SHEET','Cash'), job('EMAMI PLANT ADV','EMAMI PLANT ADV'),
     job('JK PLANT ADV','JK PLANT ADV'), job('SHREE PLANT ADV','SHREE PLANT ADV'),
-    job('UPI SHEET','UPI'), job('TYRE SHEET','Tyre'), job('TAX SHEET','RTO')
+    job('UPI SHEET','UPI'), job('TYRE SHEET','Tyre'), job('TAX SHEET','RTO'),
+    paperJob(), emiJob()
   ]);
+  HOME_PAPER_INDEX=paperRecs; HOME_EMI_INDEX=emiRecs;
   HOME_EXP_INDEX=recs; HOME_EXP_LOADING=false;
   return recs;
 }
@@ -5977,12 +6009,15 @@ function homeStats(range, veh){
     const list=computeEB(DISPATCH_DATA, range);
     for(const r of list){ if(veh && (r.veh||'').toUpperCase()!==veh) continue; billing+=r.billing; trips++; }
   }
+  const rs=parseSheetDate(range.start), re=parseSheetDate(range.end); if(re) re.setHours(23,59,59,999);
   let expense=0;
-  if(HOME_EXP_INDEX){
-    const rs=parseSheetDate(range.start), re=parseSheetDate(range.end); if(re) re.setHours(23,59,59,999);
-    for(const e of HOME_EXP_INDEX){ if(rs&&e.d<rs) continue; if(re&&e.d>re) continue; if(veh && e.veh!==veh) continue; expense+=e.amt; }
-  }
-  return {billing, expense, profit:billing-expense, trips};
+  if(HOME_EXP_INDEX){ for(const e of HOME_EXP_INDEX){ if(rs&&e.d<rs) continue; if(re&&e.d>re) continue; if(veh && e.veh!==veh) continue; expense+=e.amt; } }
+  let paper=0;
+  if(HOME_PAPER_INDEX){ for(const p of HOME_PAPER_INDEX){ if(rs&&p.d<rs) continue; if(re&&p.d>re) continue; if(veh && p.veh!==veh) continue; paper+=p.amt; } }
+  let emi=0;
+  if(HOME_EMI_INDEX){ const lo=rs?rs.getTime():-Infinity, hi=re?re.getTime():Infinity;
+    for(const em of HOME_EMI_INDEX){ if(em.me<lo||em.ms>hi) continue; if(veh && em.veh!==veh) continue; emi+=em.amt; } }
+  return {billing, expense, profit:billing-expense, trips, emi, paper};
 }
 
 function homeFmt(n){ const a=Math.abs(n), s=n<0?'-':''; if(a>=1e7) return s+'₹'+(a/1e7).toFixed(2)+' Cr'; if(a>=1e5) return s+'₹'+(a/1e5).toFixed(2)+' L'; return s+'₹'+Math.round(a).toLocaleString('en-IN'); }
@@ -6001,7 +6036,8 @@ function homeRenderBoxes(){
         profC=expReady?(s.profit>=0?'#49e3a0':'#ff6b70'):'#9aa7bb';
       const line=(ic,l,v,c)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:4px;padding:clamp(3px,1vw,5px) 0;font-size:clamp(.62rem,2.5vw,.8rem)"><span style="color:#b6c0d2;font-weight:600;white-space:nowrap">${ic} ${l}</span><b style="color:${c||'#eef2f8'};white-space:nowrap">${v}</b></div>`;
       body=line('💰','Billing',homeFmt(s.billing))+line('⛽','Expense',exp,'#ff8f8f')+
-        `<div style="border-top:1px solid rgba(255,255,255,.1);margin-top:3px">`+line('📈','Profit',prof,profC)+`</div>`+line('🚚','Trips',s.trips);
+        `<div style="border-top:1px solid rgba(255,255,255,.1);margin-top:3px">`+line('📈','Profit',prof,profC)+`</div>`+
+        line('🚚','Trips',s.trips)+line('🏦','EMI',expReady?homeFmt(s.emi):'…','#ffc68a')+line('📄','Paper',expReady?homeFmt(s.paper):'…','#c6b3ff');
     }
     return `<div onclick="homePick('${key}')" class="glass" style="cursor:pointer;padding:clamp(9px,2.4vw,15px);border-color:${sel?col:'rgba(255,255,255,.09)'};${sel?('box-shadow:0 0 0 1.5px '+col+',0 16px 34px rgba(0,0,0,.45);background:linear-gradient(180deg,'+col+'22,rgba(255,255,255,.04))'):''}">
       <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px"><span style="width:9px;height:9px;border-radius:50%;background:${col};box-shadow:0 0 10px ${col};flex:none"></span><span style="font-weight:800;font-size:clamp(.66rem,2.6vw,.82rem)">${rng.label}</span></div>
