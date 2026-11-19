@@ -25,11 +25,15 @@ function pwaHideInstall(){ document.querySelectorAll('.pwaInstall').forEach(func
 async function pwaInstall(){
   if(DEFERRED_PROMPT){ DEFERRED_PROMPT.prompt(); try{ var c=await DEFERRED_PROMPT.userChoice; if(c&&c.outcome==='accepted') pwaHideInstall(); }catch(e){} DEFERRED_PROMPT=null; }
   else{ var iOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
-    alert(iOS ? 'iPhone par install:\n\nSafari me Share (⬆️) button dabao → "Add to Home Screen" chuno.'
-              : 'Install karne ke liye:\n\nChrome menu (⋮) → "Install app" / "Add to Home screen".'); }
+    alert(iOS ? 'To install on iPhone:\n\nIn Safari, tap the Share (⬆️) button → choose "Add to Home Screen".'
+              : 'To install:\n\nOpen the Chrome menu (⋮) → "Install app" / "Add to Home screen".'); }
 }
 /* Agar browser prompt na bheje (iOS / already installable nahi) par app installed nahi — phir bhi button dikhao taaki instructions mile */
-window.addEventListener('load',function(){ setTimeout(function(){ if(!pwaInstalled() && !DEFERRED_PROMPT){ document.querySelectorAll('.pwaInstall').forEach(function(b){ b.style.display='inline-flex'; }); } },1500); });
+window.addEventListener('load',function(){
+  setTimeout(function(){ if(!pwaInstalled() && !DEFERRED_PROMPT){ document.querySelectorAll('.pwaInstall').forEach(function(b){ b.style.display='inline-flex'; }); } },1500);
+  /* home ka data background me warm karo — login ke baad boxes turant dikhein */
+  setTimeout(function(){ try{ if(typeof loadDispatch==='function') loadDispatch(function(){}); if(typeof buildHomeExpenseIndex==='function') buildHomeExpenseIndex(); }catch(e){} }, 1200);
+});
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
@@ -528,8 +532,7 @@ th.sortable .sort-arrow{display:inline-block;margin-left:4px;color:var(--accent)
 #homePage .glass{ background:var(--hm-glass);border:1px solid var(--hm-line);border-radius:16px;backdrop-filter:blur(12px);box-shadow:0 10px 30px rgba(0,0,0,.33),inset 0 1px 0 rgba(255,255,255,.05) }
 #homeBoxes>div{ transition:.18s }
 #homeBoxes>div:hover{ transform:translateY(-3px);box-shadow:0 16px 34px rgba(0,0,0,.42) }
-@media(max-width:560px){ #homeBoxes{ grid-template-columns:1fr 1fr !important; } #homeWrap{ padding:14px 13px 70px !important } }
-@media(max-width:400px){ #homeBoxes{ grid-template-columns:1fr !important; } }
+@media(max-width:560px){ #homeWrap{ padding:14px 10px 70px !important } #homeBoxes{ gap:7px !important } }
 </style>
 <div id="homePage" style="position:fixed;inset:0;z-index:9000;display:none;overflow-y:auto;font-family:'Manrope',sans-serif;color:#eef2f8;background:
   radial-gradient(900px 500px at 12% -5%, rgba(63,207,142,.16), transparent 60%),
@@ -542,23 +545,23 @@ th.sortable .sort-arrow{display:inline-block;margin-left:4px;color:var(--accent)
       <div style="display:flex;align-items:center;gap:10px"><img src="logo.jpeg" style="width:30px;height:30px;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,0,0,.4))"><span style="font-weight:800;letter-spacing:.05em;font-size:1.05rem">DAMAN FLEET</span></div>
       <div style="display:flex;gap:8px">
         <button onclick="pwaInstall()" class="pwaInstall hm-ico" title="Install App" style="display:none;font-size:1.15rem;width:auto;padding:0 13px;gap:7px;font-weight:700;font-size:.82rem">📲 <span style="font-family:Manrope">Install</span></button>
-        <button onclick="homeClose()" title="Dashboard kholo" class="hm-ico" style="font-size:1.3rem">✕</button>
+        <button onclick="homeClose()" title="Open dashboard" class="hm-ico" style="font-size:1.3rem">✕</button>
       </div>
     </div>
 
     <!-- install banner -->
     <div id="installBanner" style="display:none;align-items:center;gap:12px;margin-bottom:14px;padding:12px 15px" class="glass">
-      <div style="font-size:1.6rem">📲</div>
-      <div style="flex:1"><div style="font-weight:800;font-size:.9rem">Daman Fleet App install karo</div><div style="color:#9aa7bb;font-size:.76rem">Home screen par icon — tezi se khulega, full-screen app jaisa</div></div>
+      <img src="logo.jpeg" style="width:34px;height:34px;object-fit:contain;flex:none;filter:drop-shadow(0 2px 6px rgba(0,0,0,.4))">
+      <div style="flex:1"><div style="font-weight:800;font-size:.9rem">Install the Daman Fleet App</div><div style="color:#9aa7bb;font-size:.76rem">Add to your home screen — opens fast, like a full-screen app</div></div>
       <button onclick="pwaInstall()" style="background:#3fcf8e;color:#06281b;border:none;border-radius:9px;padding:9px 16px;font-family:inherit;font-weight:800;font-size:.82rem;cursor:pointer">Install</button>
-      <button onclick="document.getElementById('installBanner').style.display='none'" title="Baad me" style="background:transparent;border:none;color:#9aa7bb;font-size:1.1rem;cursor:pointer">✕</button>
+      <button onclick="document.getElementById('installBanner').style.display='none'" title="Later" style="background:transparent;border:none;color:#9aa7bb;font-size:1.1rem;cursor:pointer">✕</button>
     </div>
 
     <div id="homeMenu" class="glass" style="display:none;padding:8px;margin-bottom:12px"></div>
 
     <div style="text-align:center;margin:16px 0 20px">
       <div style="font-size:1.55rem;font-weight:800;letter-spacing:.01em">Fleet P&amp;L — Quick View</div>
-      <div style="color:#9aa7bb;font-size:.85rem;margin-top:5px">Period chuno, phir niche vehicle number search karo</div>
+      <div style="color:#9aa7bb;font-size:.85rem;margin-top:5px">Pick a period, then search a vehicle number below</div>
     </div>
     <div id="homeBoxes" style="display:grid;grid-template-columns:repeat(3,1fr);gap:13px"></div>
     <div style="margin-top:24px">
@@ -5980,19 +5983,22 @@ function homeFmt(n){ const a=Math.abs(n), s=n<0?'-':''; if(a>=1e7) return s+'₹
 function homeRenderBoxes(){
   const R=homeRanges();
   const defs=[['thisM',R.thisM,'#3fcf8e'],['lastM',R.lastM,'#5b9dff'],['fy',R.fy,'#c08cff']];
-  const ready=(Array.isArray(DISPATCH_DATA)&&DISPATCH_DATA.length) && HOME_EXP_INDEX;
+  const dispReady=Array.isArray(DISPATCH_DATA)&&DISPATCH_DATA.length;
+  const expReady=!!HOME_EXP_INDEX;
   const html=defs.map(([key,rng,col])=>{
     const sel=HOME_PERIOD===key;
     let body;
-    if(!ready){ body='<div style="color:#8a94a6;font-size:.8rem;padding:14px 0">⏳ Loading…</div>'; }
+    if(!dispReady){ body='<div style="color:#9aa7bb;font-size:.76rem;padding:16px 0;text-align:center">⏳ Loading…</div>'; }
     else{ const s=homeStats(rng);
-      const line=(l,v,c)=>`<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:.8rem"><span style="color:#9aa7bb">${l}</span><b style="color:${c||'#eef2f8'}">${v}</b></div>`;
-      body=line('Billing',homeFmt(s.billing))+line('Expense',homeFmt(s.expense),'#ff8f8f')+
-        `<div style="border-top:1px solid rgba(255,255,255,.1);margin-top:3px">`+line('Profit',homeFmt(s.profit),s.profit>=0?'#49e3a0':'#ff6b70')+`</div>`+line('Trips',s.trips);
+      const exp=expReady?homeFmt(s.expense):'…', prof=expReady?homeFmt(s.profit):'…',
+        profC=expReady?(s.profit>=0?'#49e3a0':'#ff6b70'):'#9aa7bb';
+      const line=(ic,l,v,c)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:4px;padding:clamp(3px,1vw,5px) 0;font-size:clamp(.62rem,2.5vw,.8rem)"><span style="color:#b6c0d2;font-weight:600;white-space:nowrap">${ic} ${l}</span><b style="color:${c||'#eef2f8'};white-space:nowrap">${v}</b></div>`;
+      body=line('💰','Billing',homeFmt(s.billing))+line('⛽','Expense',exp,'#ff8f8f')+
+        `<div style="border-top:1px solid rgba(255,255,255,.1);margin-top:3px">`+line('📈','Profit',prof,profC)+`</div>`+line('🚚','Trips',s.trips);
     }
-    return `<div onclick="homePick('${key}')" class="glass" style="cursor:pointer;padding:14px 15px;border-color:${sel?col:'rgba(255,255,255,.09)'};${sel?('box-shadow:0 0 0 1.5px '+col+',0 16px 34px rgba(0,0,0,.45);background:linear-gradient(180deg,'+col+'22,rgba(255,255,255,.04))'):''}">
-      <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px"><span style="width:10px;height:10px;border-radius:50%;background:${col};box-shadow:0 0 10px ${col}"></span><span style="font-weight:800;font-size:.82rem">${rng.label}</span></div>
-      <div style="font-size:.66rem;color:#8795a8;margin-bottom:7px">${rng.start} → ${rng.end}</div>${body}</div>`;
+    return `<div onclick="homePick('${key}')" class="glass" style="cursor:pointer;padding:clamp(9px,2.4vw,15px);border-color:${sel?col:'rgba(255,255,255,.09)'};${sel?('box-shadow:0 0 0 1.5px '+col+',0 16px 34px rgba(0,0,0,.45);background:linear-gradient(180deg,'+col+'22,rgba(255,255,255,.04))'):''}">
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px"><span style="width:9px;height:9px;border-radius:50%;background:${col};box-shadow:0 0 10px ${col};flex:none"></span><span style="font-weight:800;font-size:clamp(.66rem,2.6vw,.82rem)">${rng.label}</span></div>
+      <div style="font-size:clamp(.54rem,2vw,.66rem);color:#8795a8;margin-bottom:7px">${rng.start} → ${rng.end}</div>${body}</div>`;
   }).join('');
   const el=document.getElementById('homeBoxes'); if(el) el.innerHTML=html;
 }
@@ -6004,9 +6010,9 @@ function homeVehSearch(){
   const out=document.getElementById('homeVehResult'); if(!out) return;
   if(!veh){ out.innerHTML=''; return; }
   const rng=homeRanges()[HOME_PERIOD];
-  if(!(Array.isArray(DISPATCH_DATA)&&DISPATCH_DATA.length) || !HOME_EXP_INDEX){ out.innerHTML='<div style="color:#9aa7bb;font-size:.85rem;padding:16px">⏳ Data load ho raha hai…</div>'; return; }
+  if(!(Array.isArray(DISPATCH_DATA)&&DISPATCH_DATA.length) || !HOME_EXP_INDEX){ out.innerHTML='<div style="color:#9aa7bb;font-size:.85rem;padding:16px">⏳ Loading data…</div>'; return; }
   const s=homeStats(rng, veh);
-  if(!s.trips && !s.expense){ out.innerHTML=`<div class="glass" style="padding:22px;text-align:center;color:#9aa7bb">🔍 <b style="color:#eef2f8">${veh}</b> ka <b>${rng.label}</b> me koi data nahi mila.</div>`; return; }
+  if(!s.trips && !s.expense){ out.innerHTML=`<div class="glass" style="padding:22px;text-align:center;color:#9aa7bb">🔍 No data found for <b style="color:#eef2f8">${veh}</b> in <b>${rng.label}</b>.</div>`; return; }
   const card=(l,v,c,ic)=>`<div class="glass" style="flex:1;min-width:140px;padding:14px 16px">
       <div style="font-size:.64rem;color:#9aa7bb;text-transform:uppercase;letter-spacing:.6px;font-weight:700">${ic||''} ${l}</div>
       <div style="font-size:1.32rem;font-weight:800;margin-top:5px;color:${c||'#eef2f8'}">${v}</div></div>`;
@@ -6014,7 +6020,7 @@ function homeVehSearch(){
   const list=computeEB(DISPATCH_DATA, rng).filter(r=>(r.veh||'').toUpperCase()===veh)
     .sort((a,b)=>{ const da=parseSheetDate(a.date)||0, db=parseSheetDate(b.date)||0; return db-da; });
   const fmtD=d=>{ const x=parseSheetDate(d); if(!x||isNaN(x)) return d||'—'; const mn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return x.getDate()+' '+mn[x.getMonth()]; };
-  const rows=list.map((r,i)=>`<tr onclick="homeOpenVeh('${veh}')" title="Pura detail kholo" style="border-top:1px solid rgba(255,255,255,.07);cursor:pointer" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background='transparent'">
+  const rows=list.map((r,i)=>`<tr onclick="homeOpenVeh('${veh}')" title="Open full detail" style="border-top:1px solid rgba(255,255,255,.07);cursor:pointer" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background='transparent'">
       <td style="padding:9px 10px;color:#6b7686;font-size:.74rem">${i+1}</td>
       <td style="padding:9px 10px;white-space:nowrap;font-size:.8rem">${fmtD(r.date)}</td>
       <td style="padding:9px 10px;font-size:.8rem">${(r.from||'?')} <span style="color:#5b6472">→</span> ${(r.to||'?')}</td>
@@ -6034,7 +6040,7 @@ function homeVehSearch(){
     <div class="glass" style="overflow:hidden">
       <div style="padding:13px 16px;font-weight:800;font-size:.86rem;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center">
         <span>📋 Trip List <span style="color:#9aa7bb;font-weight:500">(${list.length} trips)</span></span>
-        <span style="color:#8795a8;font-weight:500;font-size:.68rem">👆 tap row → full detail</span>
+        <span style="color:#8795a8;font-weight:500;font-size:.68rem">👆 tap a row for full detail</span>
       </div>
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;min-width:520px">
@@ -6046,7 +6052,7 @@ function homeVehSearch(){
             <th style="padding:10px;text-align:right;font-size:.64rem;color:#9aa7bb;text-transform:uppercase;letter-spacing:.5px">Wt (MT)</th>
             <th style="padding:10px;text-align:right;font-size:.64rem;color:#9aa7bb;text-transform:uppercase;letter-spacing:.5px">Billing</th>
           </tr></thead>
-          <tbody>${rows||'<tr><td colspan="6" style="padding:18px;text-align:center;color:#8a94a6">Is period me koi trip nahi</td></tr>'}</tbody>
+          <tbody>${rows||'<tr><td colspan="6" style="padding:18px;text-align:center;color:#9aa7bb">No trips in this period</td></tr>'}</tbody>
         </table>
       </div>
     </div>`;
@@ -6073,7 +6079,7 @@ async function homeOpenVeh(veh){
   // chota loading overlay
   let ov=document.getElementById('homeDetailLoad');
   if(!ov){ ov=document.createElement('div'); ov.id='homeDetailLoad'; ov.style.cssText='position:fixed;inset:0;z-index:9500;background:rgba(10,13,17,.72);display:flex;align-items:center;justify-content:center;color:#e8ecf2;font-family:Manrope,sans-serif;font-weight:700'; document.body.appendChild(ov); }
-  ov.innerHTML='<div style="background:#12171e;border:1px solid #262d38;border-radius:12px;padding:16px 22px">⏳ '+veh+' — '+period.label+' ka data laa rahe hain…</div>';
+  ov.innerHTML='<div style="background:#12171e;border:1px solid #262d38;border-radius:12px;padding:16px 22px">⏳ Loading '+veh+' — '+period.label+'…</div>';
   ov.style.display='flex';
   // dashboard ki date-range ko HOME period pe set karke recompute (taaki detail = us period ka)
   try{
