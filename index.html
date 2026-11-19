@@ -11,8 +11,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Daman Fleet">
-<link rel="apple-touch-icon" href="logo.jpeg">
-<link rel="icon" href="logo.jpeg">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
 <script>
 if('serviceWorker' in navigator){ window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); }); }
 /* ===== Install App prompt (PWA) ===== */
@@ -23,10 +23,17 @@ window.addEventListener('appinstalled',function(){ DEFERRED_PROMPT=null; pwaHide
 function pwaShowInstall(){ if(pwaInstalled()) return; document.querySelectorAll('.pwaInstall').forEach(function(b){ b.style.display='inline-flex'; }); var bn=document.getElementById('installBanner'); if(bn) bn.style.display='flex'; }
 function pwaHideInstall(){ document.querySelectorAll('.pwaInstall').forEach(function(b){ b.style.display='none'; }); var bn=document.getElementById('installBanner'); if(bn) bn.style.display='none'; }
 async function pwaInstall(){
-  if(DEFERRED_PROMPT){ DEFERRED_PROMPT.prompt(); try{ var c=await DEFERRED_PROMPT.userChoice; if(c&&c.outcome==='accepted') pwaHideInstall(); }catch(e){} DEFERRED_PROMPT=null; }
-  else{ var iOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
-    alert(iOS ? 'To install on iPhone:\n\nIn Safari, tap the Share (⬆️) button → choose "Add to Home Screen".'
-              : 'To install:\n\nOpen the Chrome menu (⋮) → "Install app" / "Add to Home screen".'); }
+  // prompt late aa sakta hai — thoda wait karo taaki ek-click install ho
+  if(!DEFERRED_PROMPT){ for(var i=0;i<24 && !DEFERRED_PROMPT;i++){ await new Promise(function(r){setTimeout(r,150);}); } }
+  if(DEFERRED_PROMPT){
+    DEFERRED_PROMPT.prompt();
+    try{ var c=await DEFERRED_PROMPT.userChoice; if(c&&c.outcome==='accepted') pwaHideInstall(); }catch(e){}
+    DEFERRED_PROMPT=null; return;
+  }
+  if(pwaInstalled()){ alert('App already installed — open it from your home screen / apps.'); return; }
+  var iOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  alert(iOS ? 'To install on iPhone:\n\nIn Safari, tap the Share (⬆️) button → choose "Add to Home Screen".'
+            : 'To install:\n\nOpen the browser menu (⋮) → "Install app" / "Add to Home screen". (If not shown, reload the page once.)');
 }
 /* Agar browser prompt na bheje (iOS / already installable nahi) par app installed nahi — phir bhi button dikhao taaki instructions mile */
 window.addEventListener('load',function(){
