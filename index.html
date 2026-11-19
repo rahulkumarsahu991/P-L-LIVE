@@ -15,6 +15,21 @@
 <link rel="icon" href="logo.jpeg">
 <script>
 if('serviceWorker' in navigator){ window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); }); }
+/* ===== Install App prompt (PWA) ===== */
+var DEFERRED_PROMPT=null;
+function pwaInstalled(){ return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true; }
+window.addEventListener('beforeinstallprompt',function(e){ e.preventDefault(); DEFERRED_PROMPT=e; pwaShowInstall(); });
+window.addEventListener('appinstalled',function(){ DEFERRED_PROMPT=null; pwaHideInstall(); });
+function pwaShowInstall(){ if(pwaInstalled()) return; document.querySelectorAll('.pwaInstall').forEach(function(b){ b.style.display='inline-flex'; }); var bn=document.getElementById('installBanner'); if(bn) bn.style.display='flex'; }
+function pwaHideInstall(){ document.querySelectorAll('.pwaInstall').forEach(function(b){ b.style.display='none'; }); var bn=document.getElementById('installBanner'); if(bn) bn.style.display='none'; }
+async function pwaInstall(){
+  if(DEFERRED_PROMPT){ DEFERRED_PROMPT.prompt(); try{ var c=await DEFERRED_PROMPT.userChoice; if(c&&c.outcome==='accepted') pwaHideInstall(); }catch(e){} DEFERRED_PROMPT=null; }
+  else{ var iOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+    alert(iOS ? 'iPhone par install:\n\nSafari me Share (⬆️) button dabao → "Add to Home Screen" chuno.'
+              : 'Install karne ke liye:\n\nChrome menu (⋮) → "Install app" / "Add to Home screen".'); }
+}
+/* Agar browser prompt na bheje (iOS / already installable nahi) par app installed nahi — phir bhi button dikhao taaki instructions mile */
+window.addEventListener('load',function(){ setTimeout(function(){ if(!pwaInstalled() && !DEFERRED_PROMPT){ document.querySelectorAll('.pwaInstall').forEach(function(b){ b.style.display='inline-flex'; }); } },1500); });
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
@@ -507,26 +522,49 @@ th.sortable .sort-arrow{display:inline-block;margin-left:4px;color:var(--accent)
 
 <!-- ===== HOME / LAUNCHER (login ke baad) ===== -->
 <style>
-@media(max-width:560px){ #homeBoxes{ grid-template-columns:1fr 1fr !important; } }
-@media(max-width:380px){ #homeBoxes{ grid-template-columns:1fr !important; } }
+#homePage{ --hm-glass:rgba(255,255,255,.05); --hm-line:rgba(255,255,255,.09); --hm-txt:#eef2f8; --hm-mut:#9aa7bb; }
+#homePage .hm-ico{ background:rgba(255,255,255,.06);border:1px solid var(--hm-line);border-radius:12px;width:46px;height:46px;color:var(--hm-txt);line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);transition:.18s;box-shadow:0 4px 14px rgba(0,0,0,.25) }
+#homePage .hm-ico:hover{ background:rgba(255,255,255,.12);transform:translateY(-1px) }
+#homePage .glass{ background:var(--hm-glass);border:1px solid var(--hm-line);border-radius:16px;backdrop-filter:blur(12px);box-shadow:0 10px 30px rgba(0,0,0,.33),inset 0 1px 0 rgba(255,255,255,.05) }
+#homeBoxes>div{ transition:.18s }
+#homeBoxes>div:hover{ transform:translateY(-3px);box-shadow:0 16px 34px rgba(0,0,0,.42) }
+@media(max-width:560px){ #homeBoxes{ grid-template-columns:1fr 1fr !important; } #homeWrap{ padding:14px 13px 70px !important } }
+@media(max-width:400px){ #homeBoxes{ grid-template-columns:1fr !important; } }
 </style>
-<div id="homePage" style="position:fixed;inset:0;z-index:9000;background:linear-gradient(180deg,#0d1014,#0a0d11);display:none;overflow-y:auto;font-family:'Manrope',sans-serif;color:#e8ecf2">
-  <div style="max-width:1000px;margin:0 auto;padding:16px 16px 60px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-      <button onclick="homeToggleMenu()" title="Menu" style="background:#161b22;border:1px solid #262d38;border-radius:10px;width:44px;height:44px;color:#e8ecf2;font-size:1.4rem;line-height:1;cursor:pointer">⋮</button>
-      <div style="display:flex;align-items:center;gap:9px"><img src="logo.jpeg" style="width:28px;height:28px;object-fit:contain"><span style="font-weight:800;letter-spacing:.04em">DAMAN FLEET</span></div>
-      <button onclick="homeClose()" title="Dashboard kholo" style="background:#161b22;border:1px solid #262d38;border-radius:10px;width:44px;height:44px;color:#e8ecf2;font-size:1.25rem;line-height:1;cursor:pointer">✕</button>
+<div id="homePage" style="position:fixed;inset:0;z-index:9000;display:none;overflow-y:auto;font-family:'Manrope',sans-serif;color:#eef2f8;background:
+  radial-gradient(900px 500px at 12% -5%, rgba(63,207,142,.16), transparent 60%),
+  radial-gradient(800px 500px at 95% 8%, rgba(91,157,255,.15), transparent 60%),
+  radial-gradient(700px 600px at 50% 115%, rgba(192,140,255,.14), transparent 60%),
+  linear-gradient(165deg,#1c2736 0%,#141d2a 46%,#0e1620 100%)">
+  <div id="homeWrap" style="max-width:1040px;margin:0 auto;padding:18px 18px 70px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <button onclick="homeToggleMenu()" title="Menu" class="hm-ico" style="font-size:1.45rem">⋮</button>
+      <div style="display:flex;align-items:center;gap:10px"><img src="logo.jpeg" style="width:30px;height:30px;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,0,0,.4))"><span style="font-weight:800;letter-spacing:.05em;font-size:1.05rem">DAMAN FLEET</span></div>
+      <div style="display:flex;gap:8px">
+        <button onclick="pwaInstall()" class="pwaInstall hm-ico" title="Install App" style="display:none;font-size:1.15rem;width:auto;padding:0 13px;gap:7px;font-weight:700;font-size:.82rem">📲 <span style="font-family:Manrope">Install</span></button>
+        <button onclick="homeClose()" title="Dashboard kholo" class="hm-ico" style="font-size:1.3rem">✕</button>
+      </div>
     </div>
-    <div id="homeMenu" style="display:none;background:#12171e;border:1px solid #262d38;border-radius:12px;padding:8px;margin-bottom:12px"></div>
-    <div style="text-align:center;margin:12px 0 18px">
-      <div style="font-size:1.35rem;font-weight:800">Fleet P&amp;L — Quick View</div>
-      <div style="color:#8a94a6;font-size:.82rem;margin-top:4px">Period chuno, phir niche vehicle number search karo</div>
+
+    <!-- install banner -->
+    <div id="installBanner" style="display:none;align-items:center;gap:12px;margin-bottom:14px;padding:12px 15px" class="glass">
+      <div style="font-size:1.6rem">📲</div>
+      <div style="flex:1"><div style="font-weight:800;font-size:.9rem">Daman Fleet App install karo</div><div style="color:#9aa7bb;font-size:.76rem">Home screen par icon — tezi se khulega, full-screen app jaisa</div></div>
+      <button onclick="pwaInstall()" style="background:#3fcf8e;color:#06281b;border:none;border-radius:9px;padding:9px 16px;font-family:inherit;font-weight:800;font-size:.82rem;cursor:pointer">Install</button>
+      <button onclick="document.getElementById('installBanner').style.display='none'" title="Baad me" style="background:transparent;border:none;color:#9aa7bb;font-size:1.1rem;cursor:pointer">✕</button>
     </div>
-    <div id="homeBoxes" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px"></div>
-    <div style="margin-top:22px">
-      <input id="homeVeh" oninput="homeVehSearch()" list="homeVehList" autocomplete="off" placeholder="🔍 Vehicle number (e.g. CG08AV4911)" style="width:100%;box-sizing:border-box;background:#161b22;border:1px solid #2a3340;border-radius:11px;padding:13px 16px;color:#e8ecf2;font-family:inherit;font-size:.95rem">
+
+    <div id="homeMenu" class="glass" style="display:none;padding:8px;margin-bottom:12px"></div>
+
+    <div style="text-align:center;margin:16px 0 20px">
+      <div style="font-size:1.55rem;font-weight:800;letter-spacing:.01em">Fleet P&amp;L — Quick View</div>
+      <div style="color:#9aa7bb;font-size:.85rem;margin-top:5px">Period chuno, phir niche vehicle number search karo</div>
+    </div>
+    <div id="homeBoxes" style="display:grid;grid-template-columns:repeat(3,1fr);gap:13px"></div>
+    <div style="margin-top:24px">
+      <input id="homeVeh" oninput="homeVehSearch()" list="homeVehList" autocomplete="off" placeholder="🔍 Vehicle number (e.g. CG08AV4911)" class="glass" style="width:100%;box-sizing:border-box;padding:14px 17px;color:#eef2f8;font-family:inherit;font-size:.98rem;outline:none">
       <datalist id="homeVehList"></datalist>
-      <div id="homeVehResult" style="margin-top:16px"></div>
+      <div id="homeVehResult" style="margin-top:18px"></div>
     </div>
   </div>
 </div>
@@ -5948,13 +5986,13 @@ function homeRenderBoxes(){
     let body;
     if(!ready){ body='<div style="color:#8a94a6;font-size:.8rem;padding:14px 0">⏳ Loading…</div>'; }
     else{ const s=homeStats(rng);
-      const line=(l,v,c)=>`<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:.8rem"><span style="color:#8a94a6">${l}</span><b style="color:${c||'#e8ecf2'}">${v}</b></div>`;
-      body=line('Billing',homeFmt(s.billing))+line('Expense',homeFmt(s.expense),'#ff8a8a')+
-        `<div style="border-top:1px solid #222a35;margin-top:3px">`+line('Profit',homeFmt(s.profit),s.profit>=0?'#3fcf8e':'#ff5a5f')+`</div>`+line('Trips',s.trips);
+      const line=(l,v,c)=>`<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:.8rem"><span style="color:#9aa7bb">${l}</span><b style="color:${c||'#eef2f8'}">${v}</b></div>`;
+      body=line('Billing',homeFmt(s.billing))+line('Expense',homeFmt(s.expense),'#ff8f8f')+
+        `<div style="border-top:1px solid rgba(255,255,255,.1);margin-top:3px">`+line('Profit',homeFmt(s.profit),s.profit>=0?'#49e3a0':'#ff6b70')+`</div>`+line('Trips',s.trips);
     }
-    return `<div onclick="homePick('${key}')" style="cursor:pointer;background:${sel?('linear-gradient(180deg,'+col+'22,transparent)'):'#12171e'};border:1px solid ${sel?col:'#262d38'};border-radius:14px;padding:13px 14px">
-      <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px"><span style="width:9px;height:9px;border-radius:50%;background:${col}"></span><span style="font-weight:800;font-size:.8rem">${rng.label}</span></div>
-      <div style="font-size:.66rem;color:#6b7686;margin-bottom:6px">${rng.start} → ${rng.end}</div>${body}</div>`;
+    return `<div onclick="homePick('${key}')" class="glass" style="cursor:pointer;padding:14px 15px;border-color:${sel?col:'rgba(255,255,255,.09)'};${sel?('box-shadow:0 0 0 1.5px '+col+',0 16px 34px rgba(0,0,0,.45);background:linear-gradient(180deg,'+col+'22,rgba(255,255,255,.04))'):''}">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px"><span style="width:10px;height:10px;border-radius:50%;background:${col};box-shadow:0 0 10px ${col}"></span><span style="font-weight:800;font-size:.82rem">${rng.label}</span></div>
+      <div style="font-size:.66rem;color:#8795a8;margin-bottom:7px">${rng.start} → ${rng.end}</div>${body}</div>`;
   }).join('');
   const el=document.getElementById('homeBoxes'); if(el) el.innerHTML=html;
 }
@@ -5966,17 +6004,17 @@ function homeVehSearch(){
   const out=document.getElementById('homeVehResult'); if(!out) return;
   if(!veh){ out.innerHTML=''; return; }
   const rng=homeRanges()[HOME_PERIOD];
-  if(!(Array.isArray(DISPATCH_DATA)&&DISPATCH_DATA.length) || !HOME_EXP_INDEX){ out.innerHTML='<div style="color:#8a94a6;font-size:.85rem;padding:16px">⏳ Data load ho raha hai…</div>'; return; }
+  if(!(Array.isArray(DISPATCH_DATA)&&DISPATCH_DATA.length) || !HOME_EXP_INDEX){ out.innerHTML='<div style="color:#9aa7bb;font-size:.85rem;padding:16px">⏳ Data load ho raha hai…</div>'; return; }
   const s=homeStats(rng, veh);
-  if(!s.trips && !s.expense){ out.innerHTML=`<div style="background:#12171e;border:1px solid #262d38;border-radius:14px;padding:22px;text-align:center;color:#8a94a6">🔍 <b style="color:#e8ecf2">${veh}</b> ka <b>${rng.label}</b> me koi data nahi mila.</div>`; return; }
-  const card=(l,v,c,ic)=>`<div style="flex:1;min-width:140px;background:linear-gradient(160deg,#141a22,#0f141b);border:1px solid #232c38;border-radius:14px;padding:14px 16px">
-      <div style="font-size:.64rem;color:#8a94a6;text-transform:uppercase;letter-spacing:.6px;font-weight:700">${ic||''} ${l}</div>
-      <div style="font-size:1.3rem;font-weight:800;margin-top:5px;color:${c||'#e8ecf2'}">${v}</div></div>`;
+  if(!s.trips && !s.expense){ out.innerHTML=`<div class="glass" style="padding:22px;text-align:center;color:#9aa7bb">🔍 <b style="color:#eef2f8">${veh}</b> ka <b>${rng.label}</b> me koi data nahi mila.</div>`; return; }
+  const card=(l,v,c,ic)=>`<div class="glass" style="flex:1;min-width:140px;padding:14px 16px">
+      <div style="font-size:.64rem;color:#9aa7bb;text-transform:uppercase;letter-spacing:.6px;font-weight:700">${ic||''} ${l}</div>
+      <div style="font-size:1.32rem;font-weight:800;margin-top:5px;color:${c||'#eef2f8'}">${v}</div></div>`;
   // trip list (same computeEB jisse box totals bante hain)
   const list=computeEB(DISPATCH_DATA, rng).filter(r=>(r.veh||'').toUpperCase()===veh)
     .sort((a,b)=>{ const da=parseSheetDate(a.date)||0, db=parseSheetDate(b.date)||0; return db-da; });
   const fmtD=d=>{ const x=parseSheetDate(d); if(!x||isNaN(x)) return d||'—'; const mn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return x.getDate()+' '+mn[x.getMonth()]; };
-  const rows=list.map((r,i)=>`<tr onclick="homeOpenVeh('${veh}')" title="Pura detail kholo" style="border-top:1px solid #1d242e;cursor:pointer" onmouseover="this.style.background='#151c26'" onmouseout="this.style.background='transparent'">
+  const rows=list.map((r,i)=>`<tr onclick="homeOpenVeh('${veh}')" title="Pura detail kholo" style="border-top:1px solid rgba(255,255,255,.07);cursor:pointer" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background='transparent'">
       <td style="padding:9px 10px;color:#6b7686;font-size:.74rem">${i+1}</td>
       <td style="padding:9px 10px;white-space:nowrap;font-size:.8rem">${fmtD(r.date)}</td>
       <td style="padding:9px 10px;font-size:.8rem">${(r.from||'?')} <span style="color:#5b6472">→</span> ${(r.to||'?')}</td>
@@ -5986,27 +6024,27 @@ function homeVehSearch(){
     </tr>`).join('');
   out.innerHTML=`
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
-      <span style="font-size:1.1rem;font-weight:800">🚛 ${veh}</span>
-      <span style="background:#1b2029;border:1px solid #2a3340;border-radius:20px;padding:3px 11px;color:#9aa4b2;font-size:.74rem">${rng.label} · ${rng.start} → ${rng.end}</span>
+      <span style="font-size:1.15rem;font-weight:800">🚛 ${veh}</span>
+      <span class="glass" style="border-radius:20px;padding:4px 12px;color:#aeb9c9;font-size:.74rem">${rng.label} · ${rng.start} → ${rng.end}</span>
     </div>
     <div style="display:flex;gap:11px;flex-wrap:wrap;margin-bottom:16px">
-      ${card('Trips',s.trips,'#5b9dff','🧾')}${card('Freight / Billing',homeFmt(s.billing),'#e8ecf2','💰')}
-      ${card('Expense',homeFmt(s.expense),'#ff8a8a','⛽')}${card('Net Profit',homeFmt(s.profit),s.profit>=0?'#3fcf8e':'#ff5a5f','📈')}
+      ${card('Trips',s.trips,'#7cb0ff','🧾')}${card('Freight / Billing',homeFmt(s.billing),'#eef2f8','💰')}
+      ${card('Expense',homeFmt(s.expense),'#ff8f8f','⛽')}${card('Net Profit',homeFmt(s.profit),s.profit>=0?'#49e3a0':'#ff6b70','📈')}
     </div>
-    <div style="background:#0f141b;border:1px solid #232c38;border-radius:14px;overflow:hidden">
-      <div style="padding:12px 16px;font-weight:800;font-size:.86rem;border-bottom:1px solid #1d242e;display:flex;justify-content:space-between;align-items:center">
-        <span>📋 Trip List <span style="color:#8a94a6;font-weight:500">(${list.length} trips)</span></span>
-        <span style="color:#6b7686;font-weight:500;font-size:.68rem">👆 tap row → full detail</span>
+    <div class="glass" style="overflow:hidden">
+      <div style="padding:13px 16px;font-weight:800;font-size:.86rem;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center">
+        <span>📋 Trip List <span style="color:#9aa7bb;font-weight:500">(${list.length} trips)</span></span>
+        <span style="color:#8795a8;font-weight:500;font-size:.68rem">👆 tap row → full detail</span>
       </div>
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;min-width:520px">
-          <thead><tr style="background:#131922">
-            <th style="padding:9px 10px;text-align:left;font-size:.64rem;color:#8a94a6;text-transform:uppercase;letter-spacing:.5px">#</th>
-            <th style="padding:9px 10px;text-align:left;font-size:.64rem;color:#8a94a6;text-transform:uppercase;letter-spacing:.5px">Date</th>
-            <th style="padding:9px 10px;text-align:left;font-size:.64rem;color:#8a94a6;text-transform:uppercase;letter-spacing:.5px">Route</th>
-            <th style="padding:9px 10px;text-align:left;font-size:.64rem;color:#8a94a6;text-transform:uppercase;letter-spacing:.5px">Item</th>
-            <th style="padding:9px 10px;text-align:right;font-size:.64rem;color:#8a94a6;text-transform:uppercase;letter-spacing:.5px">Wt (MT)</th>
-            <th style="padding:9px 10px;text-align:right;font-size:.64rem;color:#8a94a6;text-transform:uppercase;letter-spacing:.5px">Billing</th>
+          <thead><tr style="background:rgba(255,255,255,.04)">
+            <th style="padding:10px;text-align:left;font-size:.64rem;color:#9aa7bb;text-transform:uppercase;letter-spacing:.5px">#</th>
+            <th style="padding:10px;text-align:left;font-size:.64rem;color:#9aa7bb;text-transform:uppercase;letter-spacing:.5px">Date</th>
+            <th style="padding:10px;text-align:left;font-size:.64rem;color:#9aa7bb;text-transform:uppercase;letter-spacing:.5px">Route</th>
+            <th style="padding:10px;text-align:left;font-size:.64rem;color:#9aa7bb;text-transform:uppercase;letter-spacing:.5px">Item</th>
+            <th style="padding:10px;text-align:right;font-size:.64rem;color:#9aa7bb;text-transform:uppercase;letter-spacing:.5px">Wt (MT)</th>
+            <th style="padding:10px;text-align:right;font-size:.64rem;color:#9aa7bb;text-transform:uppercase;letter-spacing:.5px">Billing</th>
           </tr></thead>
           <tbody>${rows||'<tr><td colspan="6" style="padding:18px;text-align:center;color:#8a94a6">Is period me koi trip nahi</td></tr>'}</tbody>
         </table>
@@ -6018,24 +6056,49 @@ function homeToggleMenu(){
   const m=document.getElementById('homeMenu');
   if(m.style.display==='none'){
     const secs=[['overview','Overview'],['vehicles','Vehicles'],['profit','Profit & Loss'],['expenses','Expenses'],['series','Series Analysis'],['watchlist','Watchlist'],['analytics','Analytics'],['allexpenses','All Expenses'],['estbilling','Estimated Billing'],['freightcheck','Freight Check']];
-    m.innerHTML=secs.map(x=>`<div onclick="homeGoSection('${x[0]}')" style="padding:11px 14px;border-radius:9px;cursor:pointer;font-weight:600;font-size:.88rem" onmouseover="this.style.background='#1b222c'" onmouseout="this.style.background='transparent'">${x[1]}</div>`).join('');
+    m.innerHTML=secs.map(x=>`<div onclick="homeGoSection('${x[0]}')" style="padding:11px 14px;border-radius:9px;cursor:pointer;font-weight:600;font-size:.88rem" onmouseover="this.style.background='rgba(255,255,255,.08)'" onmouseout="this.style.background='transparent'">${x[1]}</div>`).join('');
     m.style.display='block';
   } else { m.style.display='none'; }
 }
 function homeGoSection(sec){ document.getElementById('homeMenu').style.display='none'; document.getElementById('homePage').style.display='none'; document.getElementById('appWrap').style.display='block'; if(typeof go==='function') go(sec); }
 function homeClose(){ document.getElementById('homePage').style.display='none'; document.getElementById('appWrap').style.display='block'; }
 
-/* trip row click → main page jaisa pura vehicle detail (drawer) kholo */
-function homeOpenVeh(veh){
+/* trip row click → main page jaisa pura vehicle detail (drawer),
+   LEKIN home me jo period (This/Last Month/FY) select hai USKE according. */
+async function homeOpenVeh(veh){
   document.getElementById('homeMenu').style.display='none';
+  const period=homeRanges()[HOME_PERIOD];
   document.getElementById('homePage').style.display='none';
   document.getElementById('appWrap').style.display='block';
+  // chota loading overlay
+  let ov=document.getElementById('homeDetailLoad');
+  if(!ov){ ov=document.createElement('div'); ov.id='homeDetailLoad'; ov.style.cssText='position:fixed;inset:0;z-index:9500;background:rgba(10,13,17,.72);display:flex;align-items:center;justify-content:center;color:#e8ecf2;font-family:Manrope,sans-serif;font-weight:700'; document.body.appendChild(ov); }
+  ov.innerHTML='<div style="background:#12171e;border:1px solid #262d38;border-radius:12px;padding:16px 22px">⏳ '+veh+' — '+period.label+' ka data laa rahe hain…</div>';
+  ov.style.display='flex';
+  // dashboard ki date-range ko HOME period pe set karke recompute (taaki detail = us period ka)
+  try{
+    if(typeof computeClientSidePL==='function' && period){
+      CURRENT_RANGE={start:period.start, end:period.end};
+      if(typeof CLEARED_TO_FULL!=='undefined') CLEARED_TO_FULL=false;
+      DISPATCH_DATA=null;
+      const rows=await computeClientSidePL(CURRENT_RANGE);
+      if(rows && rows.length){
+        if(typeof BYSERIES_CACHE!=='undefined') BYSERIES_CACHE=null;
+        if(typeof ALL_DATA!=='undefined') ALL_DATA=rows;
+        if(typeof applyGlobalFilter==='function') applyGlobalFilter();
+        if(typeof DATA_READY!=='undefined') DATA_READY=true;
+        const el=document.getElementById('dataPeriod'); if(el){ el.textContent='📅 '+CURRENT_RANGE.start+'  →  '+CURRENT_RANGE.end; el.style.borderColor='var(--green)'; }
+        window.DATA_PERIOD_START=parseSheetDate(CURRENT_RANGE.start); window.DATA_PERIOD_END=parseSheetDate(CURRENT_RANGE.end);
+        if(typeof renderCurrent==='function') renderCurrent();
+      }
+    }
+  }catch(e){}
+  ov.style.display='none';
   if(typeof showVeh==='function'){
-    const found = (typeof DATA!=='undefined') && DATA && DATA.find && DATA.find(x=>(x.Vehicle||'').toUpperCase()===veh.toUpperCase());
+    const found=(typeof DATA!=='undefined')&&DATA&&DATA.find&&DATA.find(x=>(x.Vehicle||'').toUpperCase()===veh.toUpperCase());
     if(found){ showVeh(found.Vehicle); return; }
   }
-  if(typeof go==='function') go('vehicles');   // fallback: Vehicles section
-  const si=document.getElementById('vehSearch'); if(si){ si.value=veh; if(typeof fillVehicles==='function') fillVehicles(veh); }
+  if(typeof go==='function') go('vehicles');
 }
 
 function homeOpen(){
