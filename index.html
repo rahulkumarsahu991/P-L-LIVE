@@ -839,7 +839,8 @@ function logSysError(where, msg){
 const EXP_PUB_PREFIX = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTFfJ5JJKrDtauj07HVgMLNludDmnC4S7Kji5LfAXI28tn552OygrZiXQZc6FSo_kEfGoFSePKeALEh/pub?gid=";
 const EXP_PUB_SUFFIX = "&single=true&output=csv";
 const EXPENSE_SHEETS = {
-  'Driver A/C': { gid:'1326041906', dateCol:7, amountCol:4,  vehCol:11, remarkCol:6, noteCols:[1,9] },
+  /* excludeCol:18 (Payment Status) 'fail*' → FAILED/Failed advances count nahi hote (actually paid nahi hue) */
+  'Driver A/C': { gid:'1326041906', dateCol:7, amountCol:4,  vehCol:11, remarkCol:6, noteCols:[1,9], excludeCol:18, excludeVal:'fail' },
   'Diesel':     { gid:'463193473',  dateCol:1, amountCol:5,  vehCol:2,  remarkCol:-1, noteCols:[0,3,7] },
   'Urea':       { gid:'463193473',  dateCol:1, amountCol:11, vehCol:2,  remarkCol:-1, noteCols:[0,10], skipZero:true },
   /* Cash = sirf CASH SHEET (EMAMI/JK/SHREE plant advance ka data nahi) */
