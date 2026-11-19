@@ -5944,7 +5944,7 @@ function doLogin(){
 
 /* ===== HOME / LAUNCHER PAGE ===== */
 let HOME_PERIOD='thisM';
-let HOME_EXP_INDEX=null, HOME_PAPER_INDEX=null, HOME_EMI_INDEX=null, HOME_EXP_LOADING=false;
+let HOME_PL={}, HOME_PL_LOADING={};   // rangeKey -> {exp,paper,emi} per-vehicle (dashboard functions se)
 
 function homeRanges(){
   const now=new Date(), y=now.getFullYear(), m=now.getMonth();
@@ -5959,52 +5959,38 @@ function homeRanges(){
   return {thisM, lastM, fy};
 }
 
-/* saari expense sheets ek baar fetch → {veh,date,amt} index (period/vehicle slice ke liye) */
+function homeRangeKey(r){ return r.start+'|'+r.end; }
+
+/* Dashboard ke apne functions se per-range per-vehicle Expense/Paper/EMI nikaalo —
+   isse home ke numbers BILKUL dashboard ke barabar aate hain (same filters, same columns). */
+async function homeLoadPL(range){
+  const key=homeRangeKey(range);
+  if(HOME_PL[key]) return HOME_PL[key];
+  if(HOME_PL_LOADING[key]){ for(let i=0;i<150 && !HOME_PL[key];i++){ await new Promise(r=>setTimeout(r,200)); } return HOME_PL[key]||null; }
+  HOME_PL_LOADING[key]=true;
+  const rs=parseSheetDate(range.start), reD=parseSheetDate(range.end);
+  const lo=rs?rs.getTime():-Infinity; if(reD) reD.setHours(23,59,59,999); const hi=reD?reD.getTime():Infinity;
+  const exp={}, paper={}, emi={};
+  try{
+    const cats=['Diesel','Urea','Fastag','Driver A/C','Cash','UPI','Tyre','RTO'];
+    for(const c of cats){ const cfg=EXPENSE_SHEETS[c]; if(!cfg) continue; const s=await sumExpenseByVehicle(cfg, lo, hi); for(const v in s){ exp[v]=(exp[v]||0)+s[v]; } }
+    if(EXPENSE_SHEETS['Paper']){ const s=await sumExpenseByVehicle(EXPENSE_SHEETS['Paper'], lo, hi); for(const v in s){ paper[v]=(paper[v]||0)+s[v]; } }
+    if(EXPENSE_SHEETS['EMI']){ const s=await sumEmiByVehicle(EXPENSE_SHEETS['EMI'], lo, hi); for(const v in s){ if(!/\d/.test(v)||/^total/i.test(v)) continue; emi[v]=(emi[v]||0)+s[v]; } }
+  }catch(e){}
+  HOME_PL[key]={exp, paper, emi};
+  HOME_PL_LOADING[key]=false;
+  return HOME_PL[key];
+}
+/* home ke teeno period (This/Last Month, FY) ka PL warm karo (har ek complete hote hi re-render) */
 async function buildHomeExpenseIndex(){
-  if(HOME_EXP_INDEX) return HOME_EXP_INDEX;
-  if(HOME_EXP_LOADING) return null;
-  HOME_EXP_LOADING=true;
-  const recs=[];
-  const push=(rows,cm)=>{ if(!rows||!cm) return; rows.forEach(r=>{
-    if(!r || r.length<=cm.amount) return;
-    const amt=Math.max(0, parseFloat(String(r[cm.amount]||'').replace(/[^0-9.\-]/g,''))||0);
-    if(!amt) return;
-    const d=parseSheetDate(r[cm.date]); if(!d||isNaN(d)) return;
-    recs.push({veh:String(r[cm.vehicle]||'').toUpperCase().trim(), d:d, amt:amt});
-  }); };
-  const job=async(sheet,key)=>{ try{ const rows=await fetchExpenseSheetData(sheet); push(rows, COLUMN_MAP[key]||COLUMN_MAP[sheet]); }catch(e){} };
-  const hnum=v=>parseFloat(String(v==null?'':v).replace(/[^0-9.\-]/g,''))||0;
-  // Paper (dated) — gid 1097945924: date(0), amount(4), vehicle(6)
-  const paperRecs=[];
-  const paperJob=async()=>{ try{
-    let m=EXP_CACHE['1097945924'];
-    if(!m){ const t=await (await fetch(expCsvUrl('1097945924')+'&t='+Date.now())).text(); if(isBadCsv(t)) return; m=Papa.parse(t,{header:false,skipEmptyLines:false}).data; if(m&&m.length>=2) EXP_CACHE['1097945924']=m; }
-    for(let i=1;i<m.length;i++){ const r=m[i]; if(!r) continue; const d=parseSheetDate(r[0]); if(!d||isNaN(d)) continue; const amt=Math.max(0,hnum(r[4])); if(!amt) continue;
-      const pv=String(r[6]||'').toUpperCase().trim(); if(/^total/i.test(pv)) continue;   // Total row skip
-      paperRecs.push({d:d, veh:pv, amt:amt}); }
-  }catch(e){} };
-  // EMI (month-matrix) — gid 2108749699: vehCol 0, months from col 1
-  const emiRecs=[];
-  const emiJob=async()=>{ try{
-    let m=EXP_CACHE['2108749699'];
-    if(!m){ const t=await (await fetch(expCsvUrl('2108749699')+'&t='+Date.now())).text(); if(isBadCsv(t)) return; m=Papa.parse(t,{header:false,skipEmptyLines:false}).data; if(m&&m.length>=2) EXP_CACHE['2108749699']=m; }
-    const header=m[0]||[];
-    for(let i=1;i<m.length;i++){ const r=m[i]; if(!r) continue; const veh=String(r[0]||'').toUpperCase().trim().split(/\s+/)[0];
-      if(!veh || !/\d/.test(veh) || /^total/i.test(veh)) continue;   // 🔧 "Total" / non-vehicle row skip (warna EMI double)
-      for(let c=1;c<header.length;c++){ const md=parseMonthLabel(header[c]); if(!md) continue; const amt=hnum(r[c]); if(amt<=0) continue;
-        emiRecs.push({ms:md.getTime(), me:new Date(md.getFullYear(),md.getMonth()+1,0,23,59,59,999).getTime(), veh:veh, amt:amt}); } }
-  }catch(e){} };
+  const R=homeRanges();
+  const rerender=()=>{ const hp=document.getElementById('homePage'); if(hp && hp.style.display!=='none'){ try{ homeRenderBoxes(); homeVehSearch(); }catch(e){} } };
   await Promise.all([
-    job('DIESEL&UREA','Diesel'), job('DIESEL&UREA','Urea'),
-    job('FASTAG SHEET','Fastag'), job('MONEY ADVANCE SHEET','Driver A/C'),
-    job('CASH SHEET','Cash'), job('EMAMI PLANT ADV','EMAMI PLANT ADV'),
-    job('JK PLANT ADV','JK PLANT ADV'), job('SHREE PLANT ADV','SHREE PLANT ADV'),
-    job('UPI SHEET','UPI'), job('TYRE SHEET','Tyre'), job('TAX SHEET','RTO'),
-    paperJob(), emiJob()
+    homeLoadPL(R.thisM).then(rerender),
+    homeLoadPL(R.lastM).then(rerender),
+    homeLoadPL(R.fy).then(rerender)
   ]);
-  HOME_PAPER_INDEX=paperRecs; HOME_EMI_INDEX=emiRecs;
-  HOME_EXP_INDEX=recs; HOME_EXP_LOADING=false;
-  return recs;
+  return true;
 }
 
 function homeStats(range, veh){
@@ -6013,15 +5999,13 @@ function homeStats(range, veh){
     const list=computeEB(DISPATCH_DATA, range);
     for(const r of list){ if(veh && (r.veh||'').toUpperCase()!==veh) continue; billing+=r.billing; trips++; }
   }
-  const rs=parseSheetDate(range.start), re=parseSheetDate(range.end); if(re) re.setHours(23,59,59,999);
-  let expense=0;
-  if(HOME_EXP_INDEX){ for(const e of HOME_EXP_INDEX){ if(rs&&e.d<rs) continue; if(re&&e.d>re) continue; if(veh && e.veh!==veh) continue; expense+=e.amt; } }
-  let paper=0;
-  if(HOME_PAPER_INDEX){ for(const p of HOME_PAPER_INDEX){ if(rs&&p.d<rs) continue; if(re&&p.d>re) continue; if(veh && p.veh!==veh) continue; paper+=p.amt; } }
-  let emi=0;
-  if(HOME_EMI_INDEX){ const lo=rs?rs.getTime():-Infinity, hi=re?re.getTime():Infinity;
-    for(const em of HOME_EMI_INDEX){ if(em.me<lo||em.ms>hi) continue; if(veh && em.veh!==veh) continue; emi+=em.amt; } }
-  return {billing, expense, profit:billing-expense, trips, emi, paper};
+  const pl=HOME_PL[homeRangeKey(range)];
+  let expense=0, emi=0, paper=0;
+  if(pl){
+    if(veh){ expense=pl.exp[veh]||0; emi=pl.emi[veh]||0; paper=pl.paper[veh]||0; }
+    else { for(const v in pl.exp) expense+=pl.exp[v]; for(const v in pl.emi) emi+=pl.emi[v]; for(const v in pl.paper) paper+=pl.paper[v]; }
+  }
+  return {billing, expense, profit:billing-expense, trips, emi, paper, plReady:!!pl};
 }
 
 function homeFmt(n){ const a=Math.abs(n), s=n<0?'-':''; if(a>=1e7) return s+'₹'+(a/1e7).toFixed(2)+' Cr'; if(a>=1e5) return s+'₹'+(a/1e5).toFixed(2)+' L'; return s+'₹'+Math.round(a).toLocaleString('en-IN'); }
@@ -6030,12 +6014,11 @@ function homeRenderBoxes(){
   const R=homeRanges();
   const defs=[['thisM',R.thisM,'#3fcf8e'],['lastM',R.lastM,'#5b9dff'],['fy',R.fy,'#c08cff']];
   const dispReady=Array.isArray(DISPATCH_DATA)&&DISPATCH_DATA.length;
-  const expReady=!!HOME_EXP_INDEX;
   const html=defs.map(([key,rng,col])=>{
     const sel=HOME_PERIOD===key;
     let body;
     if(!dispReady){ body='<div style="color:#9aa7bb;font-size:.76rem;padding:16px 0;text-align:center">⏳ Loading…</div>'; }
-    else{ const s=homeStats(rng);
+    else{ const s=homeStats(rng); const expReady=s.plReady;
       const exp=expReady?homeFmt(s.expense):'…', prof=expReady?homeFmt(s.profit):'…',
         profC=expReady?(s.profit>=0?'#49e3a0':'#ff6b70'):'#9aa7bb';
       const line=(ic,l,v,c)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:4px;padding:clamp(3px,1vw,5px) 0;font-size:clamp(.62rem,2.5vw,.8rem)"><span style="color:#b6c0d2;font-weight:600;white-space:nowrap">${ic} ${l}</span><b style="color:${c||'#eef2f8'};white-space:nowrap">${v}</b></div>`;
@@ -6057,7 +6040,7 @@ function homeVehSearch(){
   const out=document.getElementById('homeVehResult'); if(!out) return;
   if(!veh){ out.innerHTML=''; return; }
   const rng=homeRanges()[HOME_PERIOD];
-  if(!(Array.isArray(DISPATCH_DATA)&&DISPATCH_DATA.length) || !HOME_EXP_INDEX){ out.innerHTML='<div style="color:#9aa7bb;font-size:.85rem;padding:16px">⏳ Loading data…</div>'; return; }
+  if(!(Array.isArray(DISPATCH_DATA)&&DISPATCH_DATA.length) || !HOME_PL[homeRangeKey(rng)]){ out.innerHTML='<div style="color:#9aa7bb;font-size:.85rem;padding:16px">⏳ Loading data…</div>'; if(typeof homeLoadPL==='function') homeLoadPL(rng).then(()=>homeVehSearch()); return; }
   const s=homeStats(rng, veh);
   if(!s.trips && !s.expense){ out.innerHTML=`<div class="glass" style="padding:22px;text-align:center;color:#9aa7bb">🔍 No data found for <b style="color:#eef2f8">${veh}</b> in <b>${rng.label}</b>.</div>`; return; }
   const card=(l,v,c,ic)=>`<div class="glass" style="flex:1;min-width:140px;padding:14px 16px">
