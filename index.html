@@ -5979,7 +5979,9 @@ async function buildHomeExpenseIndex(){
   const paperJob=async()=>{ try{
     let m=EXP_CACHE['1097945924'];
     if(!m){ const t=await (await fetch(expCsvUrl('1097945924')+'&t='+Date.now())).text(); if(isBadCsv(t)) return; m=Papa.parse(t,{header:false,skipEmptyLines:false}).data; if(m&&m.length>=2) EXP_CACHE['1097945924']=m; }
-    for(let i=1;i<m.length;i++){ const r=m[i]; if(!r) continue; const d=parseSheetDate(r[0]); if(!d||isNaN(d)) continue; const amt=Math.max(0,hnum(r[4])); if(!amt) continue; paperRecs.push({d:d, veh:String(r[6]||'').toUpperCase().trim(), amt:amt}); }
+    for(let i=1;i<m.length;i++){ const r=m[i]; if(!r) continue; const d=parseSheetDate(r[0]); if(!d||isNaN(d)) continue; const amt=Math.max(0,hnum(r[4])); if(!amt) continue;
+      const pv=String(r[6]||'').toUpperCase().trim(); if(/^total/i.test(pv)) continue;   // Total row skip
+      paperRecs.push({d:d, veh:pv, amt:amt}); }
   }catch(e){} };
   // EMI (month-matrix) — gid 2108749699: vehCol 0, months from col 1
   const emiRecs=[];
@@ -5987,7 +5989,8 @@ async function buildHomeExpenseIndex(){
     let m=EXP_CACHE['2108749699'];
     if(!m){ const t=await (await fetch(expCsvUrl('2108749699')+'&t='+Date.now())).text(); if(isBadCsv(t)) return; m=Papa.parse(t,{header:false,skipEmptyLines:false}).data; if(m&&m.length>=2) EXP_CACHE['2108749699']=m; }
     const header=m[0]||[];
-    for(let i=1;i<m.length;i++){ const r=m[i]; if(!r) continue; const veh=String(r[0]||'').toUpperCase().trim().split(/\s+/)[0]; if(!veh) continue;
+    for(let i=1;i<m.length;i++){ const r=m[i]; if(!r) continue; const veh=String(r[0]||'').toUpperCase().trim().split(/\s+/)[0];
+      if(!veh || !/\d/.test(veh) || /^total/i.test(veh)) continue;   // 🔧 "Total" / non-vehicle row skip (warna EMI double)
       for(let c=1;c<header.length;c++){ const md=parseMonthLabel(header[c]); if(!md) continue; const amt=hnum(r[c]); if(amt<=0) continue;
         emiRecs.push({ms:md.getTime(), me:new Date(md.getFullYear(),md.getMonth()+1,0,23,59,59,999).getTime(), veh:veh, amt:amt}); } }
   }catch(e){} };
