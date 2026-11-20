@@ -1822,6 +1822,7 @@ const SECTIONS = {
       <h3>Detailed Trip &amp; Billing Ledger <span id="fcCount" style="font-weight:500;font-size:.75rem;color:var(--muted)"></span></h3>
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;padding:10px 0">
         <input type="text" id="fcSearch" placeholder="Search LR / route / item…" style="flex:1;min-width:200px;max-width:340px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--text);font-size:.85rem" onkeyup="renderFreightCheck()">
+        <button id="fcDualBtn" onclick="fcToggleDual()" style="background:var(--panel2);color:var(--text);border:1px solid #ff5a5f55;border-radius:8px;padding:8px 14px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap">⚠ Dual LR dikhao</button>
       </div>
       <div class="table-wrap" style="max-height:60vh;overflow-y:auto;overflow-x:auto"><table style="min-width:900px">
         <thead id="fcHead"></thead>
@@ -4595,6 +4596,13 @@ function fcPickMonth(){
   }
   renderFreightCheck();
 }
+let FC_DUAL_ONLY=false;
+function fcToggleDual(){
+  FC_DUAL_ONLY=!FC_DUAL_ONLY;
+  const b=document.getElementById('fcDualBtn');
+  if(b){ b.style.background=FC_DUAL_ONLY?'#ff5a5f':'var(--panel2)'; b.style.color=FC_DUAL_ONLY?'#fff':'var(--text)'; b.textContent=FC_DUAL_ONLY?'✖ Sab trips dikhao':'⚠ Dual LR dikhao'; }
+  renderFreightCheck();
+}
 function fcFiltered(){
   if(!FC_ROWS) return [];
   const fv=(id)=>(document.getElementById(id)||{}).value||'';
@@ -4602,6 +4610,7 @@ function fcFiltered(){
   const q=(fv('fcSearch')||'').toLowerCase().trim();
   const inc=(a,b)=>String(a||'').toLowerCase().includes(String(b).toLowerCase());
   return FC_ROWS.filter(r=>{
+    if(FC_DUAL_ONLY && !r.dblLR) return false;
     if(from && r.date<from) return false;
     if(to && r.date>to) return false;
     if(veh && !inc(r.vehicle,veh)) return false;
