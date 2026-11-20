@@ -4483,9 +4483,10 @@ async function loadFreightCheck(){
       let orphan=true;
       parts.forEach(p=>{ const k=fcLR(p); if(k){ nByLR[k]=info; if(dispSet.has(k)) orphan=false; } });
       if(orphan){   // is N row ka koi apna dispatch trip nahi → sibling ke saath merge hoga
-        if(!orphByCk[ck]) orphByCk[ck]={lrs:[], fr:0};
+        if(!orphByCk[ck]) orphByCk[ck]={lrs:[], fr:0, items:[]};
         parts.forEach(p=>{ if(!orphByCk[ck].lrs.includes(p)) orphByCk[ck].lrs.push(p); });
         orphByCk[ck].fr += fr;
+        orphByCk[ck].items.push({lr:lrFull, nFreight:fr, status:info.status||'—'});
       }
     }
     const toISO=s=>{ const d=parseSheetDate(s); if(!d||isNaN(d)) return ''; return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
@@ -4496,19 +4497,23 @@ async function loadFreightCheck(){
       const uw=fcNum(r[22]), lw=fcNum(r[21]);
       const dispLr=String(r[18]||'').trim();
       const base=nByLR[fcLR(r[18])];
-      let nf=0, st='Not in N DATA', cnor='', cnee='', parts=[dispLr];
+      const tripWt=(uw>0?uw:lw), tripFr=fcNum(r[25]);
+      let nf=0, st='Not in N DATA', cnor='', cnee='', parts=[dispLr], sub=[];
       if(base){
         nf=base.fr; st=base.status||'—'; cnor=base.consignor; cnee=base.consignee;
         parts=base.lrFull.split(/\s+\/\s+/).map(s=>s.trim()).filter(Boolean);
+        sub.push({lr:base.lrFull, wt:tripWt, dispFreight:tripFr, nFreight:base.fr, status:st});   // dispatch trip + base N
         const o=orphByCk[base.ck];   // orphan sibling (jaise 02026) isi trip me jodo
-        if(o && !orphUsed[base.ck]){ nf+=o.fr; o.lrs.forEach(l=>{ if(!parts.includes(l)) parts.push(l); }); orphUsed[base.ck]=1; }
-      }
+        if(o && !orphUsed[base.ck]){ nf+=o.fr; o.lrs.forEach(l=>{ if(!parts.includes(l)) parts.push(l); });
+          (o.items||[]).forEach(it=>sub.push({lr:it.lr, wt:0, dispFreight:0, nFreight:it.nFreight, status:it.status})); orphUsed[base.ck]=1; }
+      } else { sub.push({lr:dispLr, wt:tripWt, dispFreight:tripFr, nFreight:0, status:st}); }
       const lrShow=parts.join(' / ');   // double LR → dono slashed
       FC_ROWS.push({
         date:iso, vehicle:String(r[1]||'').toUpperCase().trim(), lr:lrShow, dblLR:(parts.length>1),
         from:String(r[7]||'').trim(), to:String(r[8]||'').trim(), item:String(r[9]||'').trim(),
-        wt:(uw>0?uw:lw), rate:fcNum(r[24]), freight:fcNum(r[25]), dispFreight:fcNum(r[25]),
-        consignor:cnor, consignee:cnee, status:st, nFreight:nf
+        wt:tripWt, rate:fcNum(r[24]), freight:tripFr, dispFreight:tripFr,
+        consignor:cnor, consignee:cnee, status:st, nFreight:nf,
+        _sub: sub.length>1 ? sub : null
       });
     }
     FC_ROWS=fcMergeConsecutive(FC_ROWS);   // 🔧 same vehicle+date+route+consecutive LR → ek slashed row
@@ -4546,6 +4551,8 @@ function fcMergeConsecutive(rows){
         b.nFreight=run.reduce((s,r)=>s+(Number(r.nFreight)||0),0);
         const wN=run.find(r=>!/not in/i.test(r.status||'')); // billing wali row se consignor/consignee/status
         if(wN){ b.consignor=wN.consignor; b.consignee=wN.consignee; b.status=wN.status; }
+        // per-LR breakdown (click karke dekhne ke liye) — jo already _sub hai usko flatten karo
+        b._sub=[]; run.forEach(r=>{ if(r._sub&&r._sub.length) b._sub.push(...r._sub); else b._sub.push({lr:r.lr, wt:r.wt, dispFreight:r.dispFreight, nFreight:r.nFreight, status:r.status}); });
         out.push(b);
       } else out.push(run[0]);
       i=j;
@@ -4664,12 +4671,14 @@ function renderFreightCheck(){
   const cnt=document.getElementById('fcCount'); if(cnt) cnt.textContent=`(${L.length} trips)`;
   const tb=document.getElementById('fcTable');
   const stCol=s=>{const l=s.toLowerCase(); return l==='posted'?'#3fcf8e':(l==='draft'?'#f5b945':(l.includes('not in n')?'#ff6b6f':'#9fb0c8'));};
-  if(tb) tb.innerHTML = L.length ? L.slice(0,1500).map(r=>{
+  if(tb) tb.innerHTML = L.length ? L.slice(0,1500).map((r,idx)=>{
     const d=r.dispFreight-r.nFreight;
-    return `<tr>
+    const hasSub=r.dblLR && r._sub && r._sub.length>1;
+    const lrInner=`${r.dblLR?'⚠ ':''}${hasSub?('<span id="fcarr'+idx+'" style="color:#8fb4ff;font-weight:800">▸</span> '):''}${r.lr||'—'}`;
+    const main=`<tr>
       <td class="num" style="white-space:nowrap">${r.date}</td>
       <td style="text-align:left;font-size:.8rem;font-weight:700;color:#8fb4ff;white-space:nowrap">${r.vehicle||'—'}</td>
-      <td style="text-align:left;font-size:.8rem;${r.dblLR?'color:#ff5a5f;font-weight:700':''}" title="${r.dblLR?'Double LR':''}">${r.dblLR?'⚠ ':''}${r.lr||'—'}</td>
+      <td style="text-align:left;font-size:.8rem;${r.dblLR?'color:#ff5a5f;font-weight:700':''}${hasSub?';cursor:pointer':''}" ${hasSub?('onclick="fcToggleSub('+idx+')"'):''} title="${hasSub?'Click: dono LR ka detail kholo':(r.dblLR?'Double LR':'')}">${lrInner}</td>
       <td style="text-align:left;font-size:.8rem">${r.from} → ${r.to}</td>
       <td style="text-align:left;font-size:.8rem">${r.consignor||'—'}</td>
       <td style="text-align:left;font-size:.8rem">${r.consignee||'—'}</td>
@@ -4682,8 +4691,31 @@ function renderFreightCheck(){
       <td class="num">${inr(r.dispFreight)}</td>
       <td class="num" style="color:${Math.abs(d)>0?'#ff9a9c':'var(--muted)'}">${d===0?'—':inr(d)}</td>
     </tr>`;
+    const detail=hasSub?`<tr id="fcsub${idx}" style="display:none"><td colspan="14" style="padding:0;background:rgba(143,180,255,.05)">${fcSubTable(r._sub)}</td></tr>`:'';
+    return main+detail;
   }).join('')+(L.length>1500?`<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:10px">… ${L.length-1500} aur rows (filter laga ke dekho)</td></tr>`:'') : '<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:16px">In filters me koi trip nahi mila.</td></tr>';
 }
+function fcSubTable(sub){
+  const inr=n=>'₹'+Math.round(Number(n)||0).toLocaleString('en-IN');
+  const rows=sub.map((s,i)=>`<tr style="border-top:1px solid rgba(255,255,255,.06)">
+    <td style="padding:6px 10px;color:#9fb0c8;font-size:.72rem">${i+1}</td>
+    <td style="padding:6px 10px;text-align:left;font-size:.78rem;font-weight:600">${s.lr||'—'}</td>
+    <td style="padding:6px 10px;text-align:right;font-size:.78rem">${(Number(s.wt)||0).toFixed(2)}</td>
+    <td style="padding:6px 10px;text-align:right;font-size:.78rem">${inr(s.dispFreight)}</td>
+    <td style="padding:6px 10px;text-align:right;font-size:.78rem;font-weight:700">${inr(s.nFreight)}</td>
+    <td style="padding:6px 10px;text-align:left;font-size:.74rem;color:var(--muted)">${s.status||'—'}</td></tr>`).join('');
+  return `<div style="padding:9px 12px 11px 34px"><div style="font-size:.68rem;color:#8fb4ff;font-weight:800;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">🔗 LR Breakdown (${sub.length})</div>
+    <table style="width:100%;border-collapse:collapse;background:rgba(0,0,0,.18);border-radius:8px;overflow:hidden">
+      <thead><tr style="background:rgba(255,255,255,.04)">
+        <th style="padding:6px 10px;text-align:left;font-size:.6rem;color:#8a94a6">#</th>
+        <th style="padding:6px 10px;text-align:left;font-size:.6rem;color:#8a94a6">LR NUMBER</th>
+        <th style="padding:6px 10px;text-align:right;font-size:.6rem;color:#8a94a6">WT (MT)</th>
+        <th style="padding:6px 10px;text-align:right;font-size:.6rem;color:#8a94a6">DISPATCH ₹</th>
+        <th style="padding:6px 10px;text-align:right;font-size:.6rem;color:#8a94a6">N FREIGHT ₹</th>
+        <th style="padding:6px 10px;text-align:left;font-size:.6rem;color:#8a94a6">STATUS</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+}
+function fcToggleSub(idx){ const el=document.getElementById('fcsub'+idx), ar=document.getElementById('fcarr'+idx); if(!el) return; const open=el.style.display==='none'; el.style.display=open?'':'none'; if(ar) ar.textContent=open?'▾':'▸'; }
 function refreshFreightCheck(){
   FC_ROWS=null;   // cache clear → fresh CSV fetch
   const tb=document.getElementById('fcTable');
