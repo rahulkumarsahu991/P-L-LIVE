@@ -4476,9 +4476,9 @@ async function loadFreightCheck(){
     const orphByCk={};  // consignment key -> {lrs:[], fr}  (sirf orphan N rows)
     for(let i=1;i<N.length;i++){ const r=N[i]; if(!r) continue;
       const lrFull=String(r[12]||'').trim(); if(!lrFull) continue;
-      const fr=fcNum(r[9]);
+      const fr=fcNum(r[9]), nwt=fcNum(r[6]);   // N DATA: freight col9, weight col6
       const ck=[fcLR(r[1]),String(r[0]||'').trim(),fcLR(r[3]),fcLR(r[4]),fcLR(r[13]),fcLR(r[14]),fcLR(r[5])].join('|');
-      const info={fr, lrFull, ck, consignor:String(r[13]||'').trim(), consignee:String(r[14]||'').trim(), status:String(r[10]||'').trim()};
+      const info={fr, wt:nwt, lrFull, ck, consignor:String(r[13]||'').trim(), consignee:String(r[14]||'').trim(), status:String(r[10]||'').trim()};
       const parts=lrFull.split(/\s+\/\s+/).map(s=>s.trim()).filter(Boolean);
       let orphan=true;
       parts.forEach(p=>{ const k=fcLR(p); if(k){ nByLR[k]=info; if(dispSet.has(k)) orphan=false; } });
@@ -4486,7 +4486,7 @@ async function loadFreightCheck(){
         if(!orphByCk[ck]) orphByCk[ck]={lrs:[], fr:0, items:[]};
         parts.forEach(p=>{ if(!orphByCk[ck].lrs.includes(p)) orphByCk[ck].lrs.push(p); });
         orphByCk[ck].fr += fr;
-        orphByCk[ck].items.push({lr:lrFull, nFreight:fr, status:info.status||'—'});
+        orphByCk[ck].items.push({lr:lrFull, nFreight:fr, wt:nwt, status:info.status||'—'});
       }
     }
     const toISO=s=>{ const d=parseSheetDate(s); if(!d||isNaN(d)) return ''; return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
@@ -4502,11 +4502,11 @@ async function loadFreightCheck(){
       if(base){
         nf=base.fr; st=base.status||'—'; cnor=base.consignor; cnee=base.consignee;
         parts=base.lrFull.split(/\s+\/\s+/).map(s=>s.trim()).filter(Boolean);
-        sub.push({lr:base.lrFull, wt:tripWt, dispFreight:tripFr, nFreight:base.fr, status:st});   // dispatch trip + base N
-        const o=orphByCk[base.ck];   // orphan sibling (jaise 02026) isi trip me jodo
+        sub.push({lr:base.lrFull, wt:(base.wt>0?base.wt:tripWt), freight:(base.fr>0?base.fr:tripFr), status:st});   // base LR — N per-LR wt/freight
+        const o=orphByCk[base.ck];   // orphan sibling (jaise 01593) isi trip me jodo
         if(o && !orphUsed[base.ck]){ nf+=o.fr; o.lrs.forEach(l=>{ if(!parts.includes(l)) parts.push(l); });
-          (o.items||[]).forEach(it=>sub.push({lr:it.lr, wt:0, dispFreight:0, nFreight:it.nFreight, status:it.status})); orphUsed[base.ck]=1; }
-      } else { sub.push({lr:dispLr, wt:tripWt, dispFreight:tripFr, nFreight:0, status:st}); }
+          (o.items||[]).forEach(it=>sub.push({lr:it.lr, wt:it.wt, freight:it.nFreight, status:it.status})); orphUsed[base.ck]=1; }
+      } else { sub.push({lr:dispLr, wt:tripWt, freight:tripFr, status:st}); }
       const lrShow=parts.join(' / ');   // double LR → dono slashed
       FC_ROWS.push({
         date:iso, vehicle:String(r[1]||'').toUpperCase().trim(), lr:lrShow, dblLR:(parts.length>1),
@@ -4552,7 +4552,7 @@ function fcMergeConsecutive(rows){
         const wN=run.find(r=>!/not in/i.test(r.status||'')); // billing wali row se consignor/consignee/status
         if(wN){ b.consignor=wN.consignor; b.consignee=wN.consignee; b.status=wN.status; }
         // per-LR breakdown (click karke dekhne ke liye) — jo already _sub hai usko flatten karo
-        b._sub=[]; run.forEach(r=>{ if(r._sub&&r._sub.length) b._sub.push(...r._sub); else b._sub.push({lr:r.lr, wt:r.wt, dispFreight:r.dispFreight, nFreight:r.nFreight, status:r.status}); });
+        b._sub=[]; run.forEach(r=>{ if(r._sub&&r._sub.length) b._sub.push(...r._sub); else b._sub.push({lr:r.lr, wt:r.wt, freight:r.freight, status:r.status}); });
         out.push(b);
       } else out.push(run[0]);
       i=j;
@@ -4701,8 +4701,7 @@ function fcSubTable(sub){
     <td style="padding:6px 10px;color:#9fb0c8;font-size:.72rem">${i+1}</td>
     <td style="padding:6px 10px;text-align:left;font-size:.78rem;font-weight:600">${s.lr||'—'}</td>
     <td style="padding:6px 10px;text-align:right;font-size:.78rem">${(Number(s.wt)||0).toFixed(2)}</td>
-    <td style="padding:6px 10px;text-align:right;font-size:.78rem">${inr(s.dispFreight)}</td>
-    <td style="padding:6px 10px;text-align:right;font-size:.78rem;font-weight:700">${inr(s.nFreight)}</td>
+    <td style="padding:6px 10px;text-align:right;font-size:.78rem;font-weight:700">${inr(s.freight)}</td>
     <td style="padding:6px 10px;text-align:left;font-size:.74rem;color:var(--muted)">${s.status||'—'}</td></tr>`).join('');
   return `<div style="padding:9px 12px 11px 34px"><div style="font-size:.68rem;color:#8fb4ff;font-weight:800;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">🔗 LR Breakdown (${sub.length})</div>
     <table style="width:100%;border-collapse:collapse;background:rgba(0,0,0,.18);border-radius:8px;overflow:hidden">
@@ -4710,8 +4709,7 @@ function fcSubTable(sub){
         <th style="padding:6px 10px;text-align:left;font-size:.6rem;color:#8a94a6">#</th>
         <th style="padding:6px 10px;text-align:left;font-size:.6rem;color:#8a94a6">LR NUMBER</th>
         <th style="padding:6px 10px;text-align:right;font-size:.6rem;color:#8a94a6">WT (MT)</th>
-        <th style="padding:6px 10px;text-align:right;font-size:.6rem;color:#8a94a6">DISPATCH ₹</th>
-        <th style="padding:6px 10px;text-align:right;font-size:.6rem;color:#8a94a6">N FREIGHT ₹</th>
+        <th style="padding:6px 10px;text-align:right;font-size:.6rem;color:#8a94a6">FREIGHT ₹</th>
         <th style="padding:6px 10px;text-align:left;font-size:.6rem;color:#8a94a6">STATUS</th></tr></thead>
       <tbody>${rows}</tbody></table></div>`;
 }
