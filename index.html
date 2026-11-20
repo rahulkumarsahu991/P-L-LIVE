@@ -4511,11 +4511,47 @@ async function loadFreightCheck(){
         consignor:cnor, consignee:cnee, status:st, nFreight:nf
       });
     }
+    FC_ROWS=fcMergeConsecutive(FC_ROWS);   // 🔧 same vehicle+date+route+consecutive LR → ek slashed row
     populateFcFilters();
     renderFreightCheck();
   }catch(e){
     if(tb) tb.innerHTML='<tr><td colspan="14" style="text-align:center;color:var(--accent);padding:20px">⚠ Freight data load nahi hua — dobara try karo.</td></tr>';
   }
+}
+/* 🔧 Same vehicle + date + from→to + consecutive LR (same prefix, ±1) = ek hi trip jisme 2+ LR.
+   Inko ek row me combine karo: LR slashed, weight/freight/N-freight sum, billing wali status rakho. */
+function fcMergeConsecutive(rows){
+  const lrNum=s=>{ const m=String(s).match(/(\d+)\s*$/); return m?parseInt(m[1],10):null; };
+  const lrPre=s=>String(s).replace(/(\d+)\s*$/,'').toUpperCase().replace(/\s+/g,'');
+  const groups={};
+  rows.forEach(r=>{ const k=[r.vehicle,r.date,(r.from||'').toUpperCase().trim(),(r.to||'').toUpperCase().trim()].join('|'); (groups[k]=groups[k]||[]).push(r); });
+  const out=[];
+  for(const k in groups){
+    const g=groups[k];
+    if(g.length<2 || g.some(x=>x.dblLR)){ out.push(...g); continue; }   // single ya pehle se combined → chhodo
+    g.sort((a,b)=>(lrNum(a.lr)||0)-(lrNum(b.lr)||0));
+    let i=0;
+    while(i<g.length){
+      let run=[g[i]], j=i+1;
+      while(j<g.length){
+        const prev=run[run.length-1], cur=g[j], pn=lrNum(prev.lr), cn=lrNum(cur.lr);
+        if(pn!=null && cn!=null && cn-pn===1 && lrPre(prev.lr)===lrPre(cur.lr)){ run.push(cur); j++; } else break;
+      }
+      if(run.length>1){
+        const b={...run[0]};
+        b.lr=run.map(r=>r.lr).join(' / '); b.dblLR=true;
+        b.wt=run.reduce((s,r)=>s+(Number(r.wt)||0),0);
+        b.freight=run.reduce((s,r)=>s+(Number(r.freight)||0),0);
+        b.dispFreight=run.reduce((s,r)=>s+(Number(r.dispFreight)||0),0);
+        b.nFreight=run.reduce((s,r)=>s+(Number(r.nFreight)||0),0);
+        const wN=run.find(r=>!/not in/i.test(r.status||'')); // billing wali row se consignor/consignee/status
+        if(wN){ b.consignor=wN.consignor; b.consignee=wN.consignee; b.status=wN.status; }
+        out.push(b);
+      } else out.push(run[0]);
+      i=j;
+    }
+  }
+  return out;
 }
 function populateFcFilters(){
   const uniq=(key)=>Array.from(new Set(FC_ROWS.map(r=>r[key]).filter(v=>v&&v!=='—'))).sort();
