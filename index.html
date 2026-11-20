@@ -1803,7 +1803,8 @@ const SECTIONS = {
       <button onclick="renderFreightCheck()" style="background:#3fcf8e;color:#06281b;border:none;border-radius:8px;padding:7px 16px;font-family:inherit;font-size:.78rem;font-weight:800;cursor:pointer">Apply</button>
       <button onclick="clearFreightCheck()" style="background:transparent;color:#49e3a0;border:1px solid #3fcf8e55;border-radius:8px;padding:7px 14px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer">Clear</button>
       <button onclick="refreshFreightCheck()" style="background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 14px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer">🔄 Refresh</button>
-      <button onclick="exportFreightCheckCSV()" style="margin-left:auto;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 16px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer">⬇ Export CSV</button>
+      <button onclick="exportFreightCheckXLSX()" style="margin-left:auto;background:#1d7a44;color:#eafff2;border:1px solid #2fae63;border-radius:8px;padding:7px 16px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer">📊 Export Excel</button>
+      <button onclick="exportFreightCheckCSV()" style="background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 16px;font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer">⬇ Export CSV</button>
     </div>
     <div id="fcStats"></div>
     <div class="grid2 fc-grid2" style="margin-bottom:18px">
@@ -4658,13 +4659,34 @@ function clearFreightCheck(){
   ['fcVehicle','fcConsignor','fcConsignee','fcStatus','fcMonth'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
   renderFreightCheck();
 }
+const FC_EXPORT_HEAD=['Trip Date','Vehicle','LR/Trip No','From','To','Consignor','Consignee','Item','Weight MT','Rate/T','Freight','Bill Status','N Freight','Dispatch Freight','Diff'];
+function fcExportRow(r){ return [r.date,r.vehicle,r.lr,r.from,r.to,r.consignor,r.consignee,r.item,r.wt,r.rate,r.freight,r.status,r.nFreight,r.dispFreight,(Number(r.dispFreight)||0)-(Number(r.nFreight)||0)]; }
 function exportFreightCheckCSV(){
   const L=fcFiltered(); if(!L.length){ alert('Export karne ke liye koi data nahi.'); return; }
-  const head=['Trip Date','Vehicle','LR/Trip No','From','To','Consignor','Consignee','Item','Weight MT','Rate/T','Freight','Bill Status','N Freight','Dispatch Freight','Diff'];
   const esc=s=>`"${String(s==null?'':s).replace(/"/g,'""')}"`;
-  const rows=L.map(r=>[r.date,r.vehicle,r.lr,r.from,r.to,r.consignor,r.consignee,r.item,r.wt,r.rate,r.freight,r.status,r.nFreight,r.dispFreight,r.dispFreight-r.nFreight].map(esc).join(','));
-  const blob=new Blob([head.map(esc).join(',')+'\n'+rows.join('\n')],{type:'text/csv'});
+  const rows=L.map(r=>fcExportRow(r).map(esc).join(','));
+  const blob=new Blob(['﻿'+FC_EXPORT_HEAD.map(esc).join(',')+'\n'+rows.join('\n')],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='freight-check.csv'; a.click();
+}
+// 🔧 Proper Excel (.xlsx) — SheetJS click par load hoti hai (page boot slow na ho)
+function fcLoadXLSX(cb){
+  if(window.XLSX) return cb();
+  const s=document.createElement('script');
+  s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+  s.onload=()=>cb(); s.onerror=()=>alert('Excel library load nahi hui — internet check karke dobara try karo.');
+  document.head.appendChild(s);
+}
+function exportFreightCheckXLSX(){
+  const L=fcFiltered(); if(!L.length){ alert('Export karne ke liye koi data nahi.'); return; }
+  fcLoadXLSX(()=>{
+    const num=['Weight MT','Rate/T','Freight','N Freight','Dispatch Freight','Diff'];
+    const data=[FC_EXPORT_HEAD];
+    L.forEach(r=>{ const row=fcExportRow(r).map((v,i)=> num.includes(FC_EXPORT_HEAD[i]) ? (Number(String(v).replace(/[^0-9.\-]/g,''))||0) : v); data.push(row); });
+    const ws=XLSX.utils.aoa_to_sheet(data);
+    ws['!cols']=[{wch:11},{wch:12},{wch:22},{wch:15},{wch:15},{wch:22},{wch:22},{wch:10},{wch:10},{wch:9},{wch:12},{wch:12},{wch:12},{wch:14},{wch:11}];
+    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Freight Check');
+    XLSX.writeFile(wb,'freight-check.xlsx');
+  });
 }
 
 /* 🔧 Paper & RTO card — alag sheet (PAYMENT col4, FULL VCH col6, DATE col0), date-filter aware */
